@@ -1,53 +1,46 @@
 // src/app/api/auth/forgot/route.ts
+export const runtime = "nodejs";
+
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { prisma } from "@/lib/prisma";
-import { randomBytes, createHash } from "crypto";
+import crypto from "crypto";
+import { prisma } from "@/lib/db";
 import { sendPasswordResetEmail } from "@/lib/email";
-export const runtime = "nodejs";
-const ForgotSchema = z.object({ email: z.string().email() });
 
-function sha256(raw: string) {
-    return createHash("sha256").update(raw).digest("hex");
-}
-function randomToken(len = 32) {
-    return randomBytes(len).toString("hex");
-}
+const schema = z.object({ email: z.string().email() });
 
 export async function POST(req: Request) {
+    const reqId = Math.random().toString(36).slice(2, 8);
     try {
         const body = await req.json();
-        const parsed = ForgotSchema.safeParse(body);
-        if (!parsed.success) {
-            return NextResponse.json({ code: "VALIDATION_ERROR" }, { status: 400 });
+        const emailInput = String(body?.email || "").trim().toLowerCase(); // normalize
+        const { email } = schema.parse({ email: emailInput });
+
+        console.log(`[FORGOT ${reqId}] start`, { email });
+
+        // ✅ dùng field unique: emailLower
+        const user = await prisma.user.findUnique({ where: { emailLower: email } });
+
+        if (!user) {
+            console.log(`[FORGOT ${reqId}] user not found -> 200 (no-op)`);
+            return NextResponse.json({ ok: true });
         }
 
-        const email = parsed.data.email;
-        const emailLower = email.trim().toLowerCase();
+        const rawToken = crypto.randomBytes(32).toString("hex");
+        const tokenHash = crypto.createHash("sha256").update(rawToken).digest("hex");
+        const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1h
 
-        const user = await prisma.user.findFirst({ where: { emailLower } });
+        await prisma.$transaction([
+            prisma.passwordResetToken.deleteMany({ where: { userId: user.id } }),
+            prisma.passwordResetToken.create({ data: { userId: user.id, tokenHash, expiresAt } }),
+        ]);
 
-        // Luôn trả ok để không lộ user tồn tại hay không
-        if (!user) return NextResponse.json({ ok: true }, { status: 200 });
+        await sendPasswordResetEmail(email, rawToken);
+        console.log(`[FORGOT ${reqId}] mail sent to ${email}`);
 
-        // Xóa token cũ
-        await prisma.passwordResetToken.deleteMany({ where: { userId: user.id } });
-
-        // Tạo token mới
-        const rawToken = randomToken(32);
-        const tokenHash = sha256(rawToken);
-        const expiresAt = new Date(Date.now() + 30 * 60 * 1000); // 30 phút
-
-        await prisma.passwordResetToken.create({
-            data: { userId: user.id, tokenHash, expiresAt },
-        });
-
-        // Gửi email qua MailHog
-        await sendPasswordResetEmail(user.email, rawToken);
-
-        return NextResponse.json({ ok: true }, { status: 200 });
-    } catch (err: any) {
-        console.error("/api/auth/forgot error:", err?.message || err);
-        return NextResponse.json({ code: "INTERNAL" }, { status: 500 });
+        return NextResponse.json({ ok: true });
+    } catch (e: any) {
+        console.error(`[FORGOT ${reqId}] ERROR`, e);
+        return NextResponse.json({ ok: false, error: "INTERNAL" }, { status: 500 });
     }
 }

@@ -2,7 +2,10 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createUserWithVerification } from "@/lib/auth-service";
-import { sendVerificationEmail } from "@/lib/email"; // <-- thêm dòng này
+import { sendVerificationEmail } from "@/lib/email";
+// at top of file
+export const runtime = "nodejs";
+
 
 const SignupSchema = z
     .object({
@@ -34,14 +37,18 @@ export async function POST(req: Request) {
         const { email, password } = parsed.data;
         const { verificationToken } = await createUserWithVerification({ email, password });
 
-        // GỬI EMAIL qua MailHog (SMTP local) hoặc Resend tuỳ bạn cấu hình trong src/lib/email.ts
-        await sendVerificationEmail(email, verificationToken);
-
-        // (Tuỳ: vẫn log token ra console để debug)
-        // console.log("[DEV] Verify token:", verificationToken);
+        // Gửi email xác minh – không để signup fail nếu mail lỗi
+        try {
+            await sendVerificationEmail(email, verificationToken);
+        } catch (mailErr) {
+            console.error("[DEV] Lỗi gửi email verify:", mailErr);
+            // Có thể thêm: log vào DB để xử lý sau
+        }
 
         return NextResponse.json({ ok: true }, { status: 201 });
     } catch (e: any) {
+        console.error("/api/auth/signup full error:", e);
+
         const code = e?.code;
         if (code === "CONFLICT") {
             return NextResponse.json({ code: "EMAIL_EXISTS" }, { status: 409 });
@@ -52,7 +59,7 @@ export async function POST(req: Request) {
                 { status: 400 }
             );
         }
-        console.error("/api/auth/signup error:", e?.message || e);
+
         return NextResponse.json({ code: "INTERNAL" }, { status: 500 });
     }
 }

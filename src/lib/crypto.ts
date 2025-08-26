@@ -1,5 +1,6 @@
 import crypto from "crypto";
 import * as argon2 from "argon2"; // đảm bảo đã: npm i argon2
+import bcrypt from "bcryptjs";
 
 export function normalizeEmail(email: string) {
     return email.trim().toLowerCase();
@@ -17,8 +18,7 @@ export function sha256(input: string) {
  * Hash mật khẩu bằng Argon2
  */
 export async function hashPassword(plain: string) {
-    // Tuỳ chọn tham số argon2 (memoryCost/timeCost/parallelism) nếu muốn
-    return argon2.hash(plain);
+    return bcrypt.hash(plain, 12); // 12 rounds is a good default
 }
 
 /**
@@ -26,5 +26,11 @@ export async function hashPassword(plain: string) {
  * LƯU Ý: argon2.verify(hash, plain)
  */
 export async function verifyPassword(plain: string, hash: string) {
-    return argon2.verify(hash, plain);
+    return bcrypt.compare(plain, hash);
+}
+export function generateResetToken(hoursValid = 1) {
+    const token = crypto.randomBytes(32).toString("hex");
+    const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
+    const expiresAt = new Date(Date.now() + hoursValid * 60 * 60 * 1000);
+    return { token, tokenHash, expiresAt };
 }

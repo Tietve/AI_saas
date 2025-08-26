@@ -1,56 +1,49 @@
-// src/app/api/auth/reset/route.ts
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { prisma } from "@/lib/prisma";
-import { sha256, hashPassword } from "@/lib/crypto";
+import crypto from "crypto";
+import { prisma } from "@/lib/db";
+import { hashPassword } from "@/lib/crypto";
 
-const ResetSchema = z
-    .object({
-        token: z.string().min(1),
-        newPassword: z.string().min(8),
-        confirmPassword: z.string().min(8),
-    })
-    .refine((d) => d.newPassword === d.confirmPassword, {
-        path: ["confirmPassword"],
-        message: "Mật khẩu xác nhận không khớp.",
-    });
+
+const schema = z.object({
+    token: z.string().min(10),
+    password: z.string().min(8),
+});
+
 
 export async function POST(req: Request) {
     try {
         const body = await req.json();
-        const parsed = ResetSchema.safeParse(body);
-        if (!parsed.success) {
-            return NextResponse.json({ code: "VALIDATION_ERROR" }, { status: 400 });
-        }
+        const { token, password } = schema.parse(body);
 
-        const { token, newPassword } = parsed.data;
-        const tokenHash = sha256(token);
 
-        const rec = await prisma.passwordResetToken.findUnique({
+        const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
+
+
+        const record = await prisma.passwordResetToken.findUnique({
             where: { tokenHash },
+            include: { user: true },
         });
-        if (!rec) {
-            return NextResponse.json({ code: "TOKEN_INVALID" }, { status: 400 });
-        }
-        if (rec.expiresAt.getTime() < Date.now()) {
-            await prisma.passwordResetToken.delete({ where: { tokenHash } });
-            return NextResponse.json({ code: "TOKEN_EXPIRED" }, { status: 410 });
+
+
+        if (!record || record.usedAt || record.expiresAt < new Date()) {
+            return NextResponse.json({ ok: false, error: "Invalid or expired token" }, { status: 400 });
         }
 
-        const passwordHash = await hashPassword(newPassword);
 
-        // Đổi mật khẩu và xoá token
+        const newHash = await hashPassword(password);
+
+
         await prisma.$transaction([
-            prisma.user.update({
-                where: { id: rec.userId },
-                data: { passwordHash },
-            }),
-            prisma.passwordResetToken.delete({ where: { tokenHash } }),
+            prisma.user.update({ where: { id: record.userId }, data: { passwordHash: newHash } }),
+            prisma.passwordResetToken.update({ where: { tokenHash }, data: { usedAt: new Date() } }),
+            prisma.passwordResetToken.deleteMany({ where: { userId: record.userId, usedAt: null, NOT: { tokenHash } } }),
         ]);
 
-        return NextResponse.json({ ok: true }, { status: 200 });
+
+        return NextResponse.json({ ok: true });
     } catch (err) {
-        console.error("/api/auth/reset error:", err);
-        return NextResponse.json({ code: "INTERNAL" }, { status: 500 });
+        console.error("/api/auth/reset", err);
+        return NextResponse.json({ ok: false }, { status: 500 });
     }
 }

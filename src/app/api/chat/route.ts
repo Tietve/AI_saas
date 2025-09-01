@@ -18,15 +18,14 @@ export async function POST(req: NextRequest) {
             });
         }
 
-        // 2) Parse body + header chuẩn “Idempotency-Key”
+        // 2) Parse body
         const body = (await req.json()) as {
             conversationId?: string;
             message: string;
             systemPrompt?: string;
             temperature?: number;
-            // Cho phép client bypass idempotency khi cần “hỏi lại”
             force?: boolean;
-            idempotencyKey?: string; // fallback nếu không dùng header
+            idempotencyKey?: string;
         };
         const headerIdem = req.headers.get("Idempotency-Key") || undefined;
 
@@ -37,8 +36,7 @@ export async function POST(req: NextRequest) {
             });
         }
 
-        // 3) Lấy/ tạo conversation TRƯỚC (để tính idempotency theo hội thoại)
-        // --- Lấy hoặc tạo conversation TRƯỚC ---
+        // 3) Lấy hoặc tạo conversation
         let convoId = body.conversationId;
         if (convoId) {
             const exists = await prisma.conversation.findFirst({ where: { id: convoId, userId } });
@@ -55,7 +53,7 @@ export async function POST(req: NextRequest) {
             convoId = created.id;
         }
 
-// --- Idempotency (tính theo hội thoại + “cửa sổ phút”) ---
+        // --- Idempotency ---
         const minuteBucket = Math.floor(Date.now() / 60_000);
         let idem =
             body.idempotencyKey ||
@@ -69,25 +67,26 @@ export async function POST(req: NextRequest) {
             });
 
             if (!body.force && last?.content?.trim()) {
-                // Có cache tốt -> trả luôn, KHÔNG tạo thêm message nên không vướng @unique
-                return Response.json({ conversationId: convoId, reply: last.content, meta: { cached: true, idempotencyKey: idem } });
+                return Response.json({
+                    conversationId: convoId,
+                    reply: last.content,
+                    meta: { cached: true, idempotencyKey: idem },
+                });
             }
-
-            // Trùng nhưng muốn xử lý tiếp (force hoặc cache cũ rỗng) -> TẠO KEY MỚI để tránh @unique
             idem = `${idem}:retry:${Date.now()}`;
         }
 
-// --- Lưu USER message với key (đã đổi nếu trùng) ---
+        // --- Lưu USER message ---
         await prisma.message.create({
             data: {
                 conversationId: convoId!,
                 role: "USER",
                 content: body.message,
-                idempotencyKey: idem, // luôn là key “duy nhất” tại thời điểm này
+                idempotencyKey: idem,
             },
         });
 
-        // 6) Xây lịch sử gửi lên model
+        // 6) Lịch sử
         const history = await prisma.message.findMany({
             where: { conversationId: convoId! },
             orderBy: { createdAt: "asc" },
@@ -99,7 +98,7 @@ export async function POST(req: NextRequest) {
             ...history.map((m) => ({ role: m.role.toLowerCase() as "user" | "assistant", content: m.content })),
         ];
 
-        // 7) MOCK chế độ (dev không muốn tốn tiền)
+        // 7) MOCK (dev)
         if (process.env.MOCK_AI === "1") {
             const mockReply = `ĐÃ NHẬN: "${body.message}" (mock, không gọi AI)`;
             await prisma.message.create({
@@ -111,17 +110,16 @@ export async function POST(req: NextRequest) {
             );
         }
 
-        // 8) Gọi provider thật (chuẩn abstraction)
+        // 8) Gọi OpenAI provider
         const provider = getProvider();
-        const model = process.env.AI_MODEL || "gpt-4o-mini";
+        const model = process.env.AI_MODEL || "gpt-4o";   // 🔥 default = gpt-4o
         const out = await provider.chat({
             model,
             messages,
             temperature: body.temperature ?? 0.3,
         });
 
-        // Fallback để không bao giờ rỗng
-        const safeReply = (out.content ?? "").trim() || "Xin lỗi, hiện model không trả nội dung. Vui lòng thử lại.";
+        const safeReply = (out.content ?? "").trim() || "Xin lỗi, model không trả nội dung.";
 
         // 9) Lưu ASSISTANT message
         await prisma.message.create({
@@ -136,7 +134,7 @@ export async function POST(req: NextRequest) {
             },
         });
 
-        // 10) Trả về (kèm metadata cho debug/analytics)
+        // 10) Trả về (thêm thông tin model để bạn debug dễ)
         return Response.json(
             {
                 conversationId: convoId,
@@ -145,7 +143,8 @@ export async function POST(req: NextRequest) {
                     cached: false,
                     idempotencyKey: idem,
                     provider: provider.name,
-                    model: out.model ?? model,
+                    requestedModel: model,
+                    upstreamModel: out.model ?? model,
                     usage: {
                         promptTokens: out.promptTokens ?? null,
                         completionTokens: out.completionTokens ?? null,

@@ -47,7 +47,7 @@ export default function SignInPage() {
 
             if (res.ok) {
                 // vào app – đổi đường dẫn này theo cấu trúc của bạn
-                router.push("/(dashboard)/chat");
+                router.push("/chat");
                 return;
             }
 

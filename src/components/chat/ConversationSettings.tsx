@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 
-import { DEFAULT_MODEL_ID, MODELS_DISPLAY, isAllowedModel, normalizeModel } from '@/lib/ai/models'
+import { DEFAULT_MODEL_ID, MODELS_DISPLAY, isAllowedModel, normalizeModel, ALL_MODELS } from '@/lib/ai/models'
 
 const STORAGE_KEY = 'chat.conversationId'
 

@@ -17,7 +17,7 @@ export async function POST(req: Request) {
 
         // 2) Map model string -> enum an toàn
         const modelStr = String(body.model || 'gpt5_mini') as keyof typeof ModelId
-        const modelEnum = ModelId[modelStr] ?? ModelId.gpt5_mini
+        const modelEnum = ModelId[modelStr as keyof typeof ModelId] ?? ModelId.gpt_4o_mini
 
         // 3) Ép kiểu số an toàn (tránh NaN)
         const toNumber = (v: any) => {

@@ -1,5 +1,5 @@
 // lib/billing/quota.ts
-import { prisma } from '@/lib/db'
+import { prisma } from '@/lib/prisma'
 import { ModelId, PlanTier } from '@prisma/client'
 import { PLAN_LIMITS } from './limits'
 import { calcCostUsd } from './costs'

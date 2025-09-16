@@ -1,0 +1,131 @@
+/* src/app/globals.css */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --radius: 0.625rem;
+    --background: 255 255 255;
+    --foreground: 0 0 0;
+
+    /* Color variables - using RGB values for Tailwind compatibility */
+    --primary: 37 99 235;
+    --primary-foreground: 248 250 252;
+    --secondary: 240 240 240;
+    --secondary-foreground: 24 24 24;
+    --muted: 245 245 245;
+    --muted-foreground: 115 115 115;
+    --accent: 240 240 240;
+    --accent-foreground: 24 24 24;
+    --destructive: 239 68 68;
+    --border: 229 229 229;
+    --input: 229 229 229;
+    --ring: 37 99 235;
+  }
+
+  .dark {
+    --background: 0 0 0;
+    --foreground: 248 250 252;
+    --primary: 96 165 250;
+    --primary-foreground: 248 250 252;
+    --secondary: 38 38 38;
+    --secondary-foreground: 248 250 252;
+    --muted: 38 38 38;
+    --muted-foreground: 163 163 163;
+    --accent: 38 38 38;
+    --accent-foreground: 248 250 252;
+    --destructive: 248 113 113;
+    --border: 38 38 38;
+    --input: 38 38 38;
+    --ring: 96 165 250;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-white text-gray-900 dark:bg-gray-900 dark:text-gray-100;
+    font-family: system-ui, -apple-system, sans-serif;
+  }
+}
+
+/* Custom utilities for your components */
+@layer components {
+  .btn-primary {
+    @apply rounded-md bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2;
+  }
+
+  .input-base {
+    @apply w-full rounded-md border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500;
+  }
+
+  .card {
+    @apply rounded-lg border bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800;
+  }
+}
+
+/* Animation utilities */
+@layer utilities {
+  .animate-in {
+    animation: animateIn 0.3s ease-in-out;
+  }
+
+  .animate-out {
+    animation: animateOut 0.3s ease-in-out;
+  }
+
+  @keyframes animateIn {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes animateOut {
+    from {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    to {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+  }
+}
+
+/* Scrollbar styling */
+@layer base {
+  /* For Webkit browsers */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    @apply bg-gray-100 dark:bg-gray-800;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply bg-gray-400 dark:bg-gray-600 rounded-md;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-gray-500 dark:bg-gray-500;
+  }
+
+  /* For Firefox */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: theme('colors.gray.400') theme('colors.gray.100');
+  }
+
+  .dark * {
+    scrollbar-color: theme('colors.gray.600') theme('colors.gray.800');
+  }
+}

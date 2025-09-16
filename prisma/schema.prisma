@@ -1,5 +1,3 @@
-// prisma/schema.prisma
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -9,9 +7,132 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-/**
- * ================= Enums ================
- */
+model User {
+  id                 String                   @id @default(cuid())
+  email              String
+  emailLower         String                   @unique
+  passwordHash       String
+  emailVerifiedAt    DateTime?
+  createdAt          DateTime                 @default(now())
+  updatedAt          DateTime                 @updatedAt
+  monthlyTokenUsed   Int                      @default(0)
+  planTier           PlanTier                 @default(FREE)
+  conversations      Conversation[]
+  verificationTokens EmailVerificationToken[]
+  resetTokens        PasswordResetToken[]
+  subscriptions      Subscription[]
+  tokenUsages        TokenUsage[]
+  settings           UserSetting?
+}
+
+model EmailVerificationToken {
+  id        String   @id @default(cuid())
+  userId    String
+  tokenHash String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  userId    String
+  tokenHash String    @unique
+  expiresAt DateTime
+  createdAt DateTime  @default(now())
+  usedAt    DateTime?
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model Conversation {
+  id           String       @id @default(cuid())
+  userId       String
+  title        String?      @db.VarChar(200)
+  systemPrompt String?
+  meta         Json?
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+  model        String       @default("gpt-4o-mini")
+  attachments  Attachment[]
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages     Message[]
+
+  @@index([userId, updatedAt(sort: Desc)])
+}
+
+model Message {
+  id               String       @id @default(cuid())
+  conversationId   String
+  role             Role
+  content          String
+  model            String?      @db.VarChar(100)
+  promptTokens     Int?
+  completionTokens Int?
+  latencyMs        Int?
+  idempotencyKey   String?
+  createdAt        DateTime     @default(now())
+  attachments      Attachment[]
+  conversation     Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@unique([conversationId, idempotencyKey])
+  @@index([conversationId, createdAt])
+}
+
+model Attachment {
+  id             String       @id @default(cuid())
+  conversationId String
+  messageId      String
+  kind           String       @db.VarChar(50)
+  url            String
+  meta           Json?
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  message        Message      @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  @@index([messageId])
+  @@index([conversationId])
+}
+
+model Subscription {
+  id        String    @id @default(cuid())
+  userId    String
+  planTier  PlanTier
+  startAt   DateTime
+  endAt     DateTime?
+  isActive  Boolean   @default(true)
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isActive])
+}
+
+model TokenUsage {
+  id        String   @id @default(cuid())
+  userId    String
+  tokensIn  Int
+  tokensOut Int
+  costUsd   Float    @default(0)
+  meta      Json?
+  createdAt DateTime @default(now())
+  model     ModelId
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+}
+
+model UserSetting {
+  userId       String  @id
+  theme        String?
+  layoutConfig Json?
+  defaultModel String?
+  user         User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
 enum Role {
   USER
   ASSISTANT
@@ -24,151 +145,18 @@ enum PlanTier {
   PRO
 }
 
-/**
- * ================= Core Auth ================
- */
-model User {
-  id              String    @id @default(cuid())
-  email           String
-  emailLower      String    @unique
-  passwordHash    String
-  emailVerifiedAt DateTime?
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
-
-  // Quota & gói
-  planTier         PlanTier @default(FREE)
-  monthlyTokenUsed Int      @default(0)
-
-  // Quan hệ
-  verificationTokens EmailVerificationToken[]
-  resetTokens        PasswordResetToken[]
-  subscriptions      Subscription[]
-  conversations      Conversation[]
-  tokenUsages        TokenUsage[]
-  settings           UserSetting?
-}
-
-model EmailVerificationToken {
-  id        String   @id @default(cuid())
-  userId    String
-  tokenHash String   @unique
-  expiresAt DateTime
-  createdAt DateTime @default(now())
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([userId])
-  @@index([expiresAt])
-}
-
-model PasswordResetToken {
-  id        String    @id @default(cuid())
-  tokenHash String    @unique
-  userId    String
-  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  expiresAt DateTime
-  usedAt    DateTime?
-  createdAt DateTime  @default(now())
-
-  @@index([userId])
-  @@index([expiresAt])
-}
-
-/**
- * ================ Chat ================
- */
-model Conversation {
-  id           String   @id @default(cuid())
-  userId       String
-  title        String?  @db.VarChar(200)
-  systemPrompt String?
-  model        String   @default("gpt-4o-mini")
-  meta         Json?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-
-  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  messages    Message[]
-  attachments Attachment[]
-
-  @@index([userId, updatedAt(sort: Desc)])
-}
-
-model Message {
-  id               String   @id @default(cuid())
-  conversationId   String
-  role             Role
-  content          String
-  model            String?  @db.VarChar(100)
-  promptTokens     Int?
-  completionTokens Int?
-  latencyMs        Int?
-  idempotencyKey   String?
-  createdAt        DateTime @default(now())
-
-  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-  attachments  Attachment[]
-
-  @@unique([conversationId, idempotencyKey])
-  @@index([conversationId, createdAt])
-}
-
-model Attachment {
-  id             String @id @default(cuid())
-  conversationId String
-  messageId      String
-  kind           String @db.VarChar(50)
-  url            String
-  meta           Json?
-
-  message      Message      @relation(fields: [messageId], references: [id], onDelete: Cascade)
-  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-
-  @@index([messageId])
-  @@index([conversationId])
-}
-
-/**
- * ================ Billing / Quota ================
- */
-model Subscription {
-  id        String    @id @default(cuid())
-  userId    String
-  planTier  PlanTier
-  startAt   DateTime
-  endAt     DateTime?
-  isActive  Boolean   @default(true)
-  createdAt DateTime  @default(now())
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([userId, isActive])
-}
-
-model TokenUsage {
-  id        String   @id @default(cuid())
-  userId    String
-  model     String
-  tokensIn  Int
-  tokensOut Int
-  costUsd   Float    @default(0)
-  meta      Json?
-  createdAt DateTime @default(now())
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([userId, createdAt])
-}
-
-/**
- * ================ User Prefs ================
- */
-model UserSetting {
-  userId       String  @id
-  theme        String?
-  layoutConfig Json?
-  defaultModel String?
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+enum ModelId {
+  gpt_4_turbo
+  gpt_4o
+  gpt_4o_mini
+  gpt_3_5_turbo
+  claude_3_opus
+  claude_3_5_sonnet
+  claude_3_5_haiku
+  gemini_1_5_pro
+  gemini_1_5_flash
+  gemini_2_0_flash
+  gpt5_thinking
+  gpt5_mini
+  gpt4o_mini
 }

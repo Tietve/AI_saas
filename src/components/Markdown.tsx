@@ -9,18 +9,23 @@ export default function Markdown({ children }: { children: string }) {
     return (
         <div className="prose prose-zinc dark:prose-invert max-w-none">
             <ReactMarkdown
-                // @ts-ignore
+                // @ts-ignore - rehypeHighlight types are optional here
                 rehypePlugins={[rehypeRaw, rehypeHighlight]}
                 remarkPlugins={[remarkGfm]}
                 components={{
-                    code({ inline, className, children, ...rest }) {
+                    code({ node, inline, className, children, ...props }: any) {
                         const text = String(children ?? "");
-                        const lang = /language-(\w+)/.exec(className || "")?.[1];
+                        const match = /language-(\w+)/.exec(className || "");
+                        const isInline = inline || !match;
+                        const lang = match?.[1];
 
-                        // Inline code → giữ nguyên, KHÔNG chèn nút Copy
-                        if (inline) {
+                        // Inline code → giữ nguyên, KHÔNG hiển thị nút Copy
+                        if (isInline) {
                             return (
-                                <code className="rounded bg-zinc-200/60 dark:bg-zinc-800/80 px-1 py-0.5">
+                                <code
+                                    className="rounded bg-zinc-200/60 dark:bg-zinc-800/80 px-1 py-0.5"
+                                    {...props}
+                                >
                                     {children}
                                 </code>
                             );
@@ -31,7 +36,7 @@ export default function Markdown({ children }: { children: string }) {
                             <div className="not-prose relative my-3">
                 <pre
                     className={`${className ?? ""} max-h-[60vh] overflow-auto rounded-lg`}
-                    {...rest}
+                    {...props}
                 >
                   <code className={className}>{text}</code>
                 </pre>

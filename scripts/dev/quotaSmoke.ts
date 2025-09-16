@@ -31,7 +31,7 @@ async function main() {
     if ((check as any).ok) {
         const saved = await recordUsage({
             userId: 'u_dev',
-            model: ModelId.gpt5_mini,
+            model: ModelId.gpt_4o_mini,
             tokensIn: 800,
             tokensOut: 400,
             meta: { requestId: 'req-smoke-1' },

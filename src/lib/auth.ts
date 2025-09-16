@@ -1,11 +1,3 @@
-import { cookies } from 'next/headers';
-import jwt from 'jsonwebtoken';
-
-export function requireUserId(): string {
-    const cookieStore = cookies();
-    const session = cookieStore.get('session')?.value;
-    if (!session) throw new Error('UNAUTHENTICATED');
-
-    const decoded = jwt.verify(session, process.env.AUTH_SECRET!) as { uid: string };
-    return decoded.uid;
-}
+// src/lib/auth.ts
+// Redirect to the main auth/session module
+export * from './auth/session'

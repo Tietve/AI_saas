@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { prisma } from '@/lib/db'
+import { prisma } from '@/lib/prisma'
 import { ModelId, Role } from '@prisma/client'
 import { estimateTokensFromText, estimateTokensFromMessages } from '@/lib/tokenizer/estimate'
 import { getUsageSummary, canSpend, recordUsage } from '@/lib/billing/quota'
@@ -8,6 +8,7 @@ import { streamChat } from '@/lib/ai/adapter'
 import { streamSSEFromGenerator } from '@/lib/http/sse'
 import { withRateLimit } from '@/lib/rate-limit/withRateLimit'
 import { getUserIdFromSession } from '@/lib/auth/session'
+
 
 
 type SendReq = {
@@ -39,7 +40,7 @@ export const POST = withRateLimit(async (req: Request) => {
         // ——— Conversation: cho phép auto-create khi rỗng hoặc "new"
         const requestedConvId = (body?.conversationId ?? '').trim()
         const requestedModel = coerceModelId(body?.model)
-        let convo = await ensureConversation({
+        const convo = await ensureConversation({
             userId,
             conversationId: requestedConvId,
             initialTitle: rawContent.slice(0, 80) || 'New chat',
@@ -55,14 +56,65 @@ export const POST = withRateLimit(async (req: Request) => {
                 where: { conversationId: convo.id, role: Role.ASSISTANT, idempotencyKey: body.requestId },
                 select: { content: true }
             })
+
+            // Fixed: Add null check before accessing content
             if (existing?.content) {
-                async function* once() { yield { delta: existing.content } }
-                return streamSSEFromGenerator(once())
+                const cached = existing.content; // đã chắc chắn là string
+                async function* once() {
+                    yield { delta: cached };
+                }
+                return streamSSEFromGenerator(once());
             }
+
+        }
+        // --- Model resolver: map string -> ModelId enum, ưu tiên body, rồi convo, rồi default
+        const getDesiredModel = (requestedModel?: ModelId | null, convo?: { model: string | null } ): ModelId => {
+            // 1) Nếu body có model và hợp lệ enum
+            if (requestedModel && Object.values(ModelId).includes(requestedModel as ModelId)) {
+                return requestedModel as ModelId
+            }
+
+            // 2) Nếu Conversation có model (đang lưu dạng string)
+            if (convo?.model) {
+                // Hỗ trợ format "provider:model" -> lấy phần sau cùng
+                const modelPartRaw = convo.model.split(':').pop() || convo.model
+                const key = modelPartRaw.toLowerCase()
+
+                // Bảng map tên model string -> enum ModelId
+                const modelMapping: Record<string, ModelId> = {
+                    // OpenAI
+                    'gpt-4o-mini': ModelId.gpt_4o_mini,
+                    'gpt-4o': ModelId.gpt_4o,
+                    'gpt-4-turbo': ModelId.gpt_4_turbo,
+                    'gpt-3.5-turbo': ModelId.gpt_3_5_turbo,
+
+                    // Anthropic
+                    'claude-3-opus': ModelId.claude_3_opus,
+                    'claude-3.5-sonnet': ModelId.claude_3_5_sonnet,
+                    'claude-3.5-haiku': ModelId.claude_3_5_haiku,
+
+                    // Google
+                    'gemini-1.5-pro': ModelId.gemini_1_5_pro,
+                    'gemini-1.5-flash': ModelId.gemini_1_5_flash,
+                    'gemini-2.0-flash': ModelId.gemini_2_0_flash,
+
+                    // Legacy (nếu DB cũ còn)
+                    'gpt5_mini': ModelId.gpt5_mini,
+                    'gpt4o_mini': ModelId.gpt4o_mini,
+                }
+
+                const mapped = modelMapping[key]
+                if (mapped) return mapped
+            }
+
+            // 3) Fallback
+            return defaultModel()
         }
 
+
         // Model mong muốn (ưu tiên body, rồi convo, rồi default)
-        const desiredModel: ModelId = requestedModel ?? convo.model ?? defaultModel()
+        const desiredModel: ModelId = getDesiredModel(requestedModel, convo)
+
 
         // Lấy 20 tin NHỮNG LẦN GẦN NHẤT (desc -> reverse lại để đúng thứ tự thời gian)
         const recent = await prisma.message.findMany({
@@ -228,8 +280,30 @@ function json(status: number, data: unknown) {
 
 function coerceModelId(input?: string | null): ModelId | null {
     if (!input) return null
-    return (Object.values(ModelId) as string[]).includes(input) ? (input as ModelId) : null
+
+    // Nếu input đã đúng enum value
+    if ((Object.values(ModelId) as string[]).includes(input as string)) {
+        return input as ModelId
+    }
+
+    // Map các tên phổ biến về enum
+    const key = input.toLowerCase()
+    const modelMapping: Record<string, ModelId> = {
+        'gpt-4o-mini': ModelId.gpt_4o_mini,
+        'gpt-4o': ModelId.gpt_4o,
+        'gpt-4-turbo': ModelId.gpt_4_turbo,
+        'gpt-3.5-turbo': ModelId.gpt_3_5_turbo,
+        'claude-3-opus': ModelId.claude_3_opus,
+        'claude-3.5-sonnet': ModelId.claude_3_5_sonnet,
+        'claude-3.5-haiku': ModelId.claude_3_5_haiku,
+        'gemini-1.5-pro': ModelId.gemini_1_5_pro,
+        'gemini-1.5-flash': ModelId.gemini_1_5_flash,
+        'gemini-2.0-flash': ModelId.gemini_2_0_flash,
+    }
+
+    return modelMapping[key] ?? null
 }
+
 
 async function ensureConversation(args: {
     userId: string
@@ -259,6 +333,4 @@ async function ensureConversation(args: {
 }
 
 // ⚠️ DEV ONLY: thay bằng auth thực tế của bạn
-async function getUserIdFromSession(): Promise<string | null> {
-    return 'u_dev'
-}
+

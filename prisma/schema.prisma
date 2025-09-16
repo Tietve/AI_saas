@@ -9,99 +9,166 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model User {
-  id                   String   @id @default(cuid())
-  email                String                       // email gốc (hiển thị)
-  emailLower           String   @unique             // email đã lowercase (duy nhất)
-  passwordHash         String                       // hash mật khẩu (argon2/bcrypt)
-  emailVerifiedAt      DateTime?                    // thời điểm xác minh email
-  createdAt            DateTime @default(now())
-  updatedAt            DateTime @updatedAt
-  resetTokens PasswordResetToken[]
-
-  // Quan hệ
-  verificationTokens   EmailVerificationToken[]
-
-}
-
-model EmailVerificationToken {
-  id        String   @id @default(cuid())
-  userId    String
-  tokenHash String   @unique                      // lưu HASH của token
-  expiresAt DateTime
-  createdAt DateTime @default(now())
-
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([userId])
-  @@index([expiresAt])
-}
-
-model PasswordResetToken {
-id         String   @id @default(cuid())
-  tokenHash  String   @unique
-  userId     String
-  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  expiresAt  DateTime
-  usedAt     DateTime?
-  createdAt  DateTime @default(now())
-
-
-@@index([userId])
-@@index([expiresAt])
-}
-// ========== Vai trò tin nhắn ==========
+/**
+ * ================= Enums ================
+ */
 enum Role {
   USER
   ASSISTANT
   SYSTEM
 }
 
+enum PlanTier {
+  FREE
+  PLUS
+  PRO
+}
 
+/**
+ * ================= Core Auth ================
+ */
+model User {
+  id              String    @id @default(cuid())
+  email           String
+  emailLower      String    @unique
+  passwordHash    String
+  emailVerifiedAt DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  // Quota & gói
+  planTier         PlanTier @default(FREE)
+  monthlyTokenUsed Int      @default(0)
+
+  // Quan hệ
+  verificationTokens EmailVerificationToken[]
+  resetTokens        PasswordResetToken[]
+  subscriptions      Subscription[]
+  conversations      Conversation[]
+  tokenUsages        TokenUsage[]
+  settings           UserSetting?
+}
+
+model EmailVerificationToken {
+  id        String   @id @default(cuid())
+  userId    String
+  tokenHash String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  tokenHash String    @unique
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+/**
+ * ================ Chat ================
+ */
 model Conversation {
-  id           String    @id @default(cuid())
+  id           String   @id @default(cuid())
   userId       String
-  title        String?   @db.VarChar(200)
+  title        String?  @db.VarChar(200)
   systemPrompt String?
+  model        String   @default("gpt-4o-mini")
   meta         Json?
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
-  messages     Message[]
-  attachments  Attachment[]   // thêm dòng này
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages    Message[]
+  attachments Attachment[]
 
-  @@index([userId, createdAt(sort: Desc)])
+  @@index([userId, updatedAt(sort: Desc)])
 }
 
 model Message {
-  id               String       @id @default(cuid())
+  id               String   @id @default(cuid())
   conversationId   String
   role             Role
   content          String
-  model            String?       @db.VarChar(100)
+  model            String?  @db.VarChar(100)
   promptTokens     Int?
   completionTokens Int?
   latencyMs        Int?
-  idempotencyKey   String?       @unique
-  createdAt        DateTime      @default(now())
+  idempotencyKey   String?
+  createdAt        DateTime @default(now())
 
-  conversation     Conversation  @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-  attachments      Attachment[]  // thêm dòng này
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  attachments  Attachment[]
 
+  @@unique([conversationId, idempotencyKey])
   @@index([conversationId, createdAt])
 }
 
 model Attachment {
-  id             String  @id @default(cuid())
+  id             String @id @default(cuid())
   conversationId String
   messageId      String
-  kind           String  @db.VarChar(50)
+  kind           String @db.VarChar(50)
   url            String
   meta           Json?
 
-  message        Message       @relation(fields: [messageId], references: [id], onDelete: Cascade)
-  conversation   Conversation  @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  message      Message      @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
 
   @@index([messageId])
   @@index([conversationId])
+}
+
+/**
+ * ================ Billing / Quota ================
+ */
+model Subscription {
+  id        String    @id @default(cuid())
+  userId    String
+  planTier  PlanTier
+  startAt   DateTime
+  endAt     DateTime?
+  isActive  Boolean   @default(true)
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isActive])
+}
+
+model TokenUsage {
+  id        String   @id @default(cuid())
+  userId    String
+  model     String
+  tokensIn  Int
+  tokensOut Int
+  costUsd   Float    @default(0)
+  meta      Json?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+}
+
+/**
+ * ================ User Prefs ================
+ */
+model UserSetting {
+  userId       String  @id
+  theme        String?
+  layoutConfig Json?
+  defaultModel String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }

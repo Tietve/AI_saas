@@ -1,9 +1,10 @@
+// src/lib/auth/session.ts
 import { cookies } from 'next/headers'
 import { SignJWT, jwtVerify, JWTPayload } from 'jose'
 
 const ALG = 'HS256'
-const SESSION_COOKIE = 'session'
-const maxAgeSec = 60 * 60 * 24 * 7 // 7 ngày
+const COOKIE_NAME = process.env.AUTH_COOKIE_NAME || 'session'
+const maxAgeSec = 60 * 60 * 24 * 7
 
 function getSecretKey(): Uint8Array {
     const sec = process.env.AUTH_SECRET || 'dev-secret-change'
@@ -25,41 +26,14 @@ export async function verifySession(token: string): Promise<SessionPayload> {
     return payload as SessionPayload
 }
 
-export async function createSessionCookie(uid: string) {
-    const token = await signSession({ uid })
-    return {
-        name: SESSION_COOKIE,
-        value: token,
-        options: {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: 'lax' as const,
-            path: '/',
-            maxAge: maxAgeSec,
-        }
-    }
-}
-
-export async function clearSessionCookie() {
-    return {
-        name: SESSION_COOKIE,
-        value: '',
-        options: {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: 'lax' as const,
-            path: '/',
-            maxAge: 0
-        }
-    }
-}
-
 export async function getUserIdFromSession(): Promise<string | null> {
-    const token = cookies().get(SESSION_COOKIE)?.value
+    const store = await cookies() // Next 15: phải await
+    const token = store.get(COOKIE_NAME)?.value
     if (!token) return null
     try {
         const payload = await verifySession(token)
-        return typeof payload.uid === 'string' ? payload.uid : null
+        const uid = (payload as any).uid || (payload.sub as string | undefined)
+        return typeof uid === 'string' ? uid : null
     } catch {
         return null
     }

@@ -1,0 +1,85 @@
+{
+  "info": {
+    "name": "AI SaaS - Day3 (Chat Send, SSE)",
+    "_postman_id": "b9d0680b-9e78-42e2-8b9e-5abf2b8e3d1a",
+    "description": "Test /api/chat/send with SSE, idempotency, and input-size error.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Chat Send – new requestId (SSE)",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"conversationId\": \"{{conversationId}}\",\n  \"content\": \"{{chatContent}}\",\n  \"requestId\": \"{{chatRequestId}}\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/chat/send",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "chat", "send"]
+        }
+      },
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "exec": [
+              "const id = pm.variables.replaceIn('{{$guid}}');",
+              "pm.environment.set('chatRequestId', id);",
+              "pm.environment.set('lastChatRequestId', id);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Chat Send – duplicate requestId (idempotent)",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"conversationId\": \"{{conversationId}}\",\n  \"content\": \"{{chatContent}}\",\n  \"requestId\": \"{{lastChatRequestId}}\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/chat/send",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "chat", "send"]
+        }
+      }
+    },
+    {
+      "name": "Chat Send – PER_REQUEST_TOO_LARGE (8k+ chars)",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"conversationId\": \"{{conversationId}}\",\n  \"content\": \"{{longChatContent}}\",\n  \"requestId\": \"{{chatRequestId}}\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/chat/send",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "chat", "send"]
+        }
+      },
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "exec": [
+              "const chunk = 'a'.repeat(1000);",
+              "let s = '';",
+              "for (let i = 0; i < 9; i++) s += chunk;",
+              "pm.environment.set('longChatContent', s);",
+              "const id = pm.variables.replaceIn('{{$guid}}');",
+              "pm.environment.set('chatRequestId', id);"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

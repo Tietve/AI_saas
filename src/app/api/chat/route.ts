@@ -1,24 +1,17 @@
-import { NextRequest } from "next/server";
+// src/app/api/chat/route.ts
+import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireUserId } from "@/lib/auth";
+import { requireUserId } from "@/lib/auth/session";
 import { getProvider } from "@/lib/provider";
-import { consumeToken } from "@/lib/rateLimit";
 import { hashIdempotency } from "@/lib/ids";
+import { withRateLimit } from "@/lib/rate-limit/withRateLimit";
+import { DEFAULT_MODEL_ID } from "@/lib/ai/models";
 
-export async function POST(req: NextRequest) {
+export const POST = withRateLimit(async (req: Request) => {
     try {
-        const userId = await requireUserId();
+        const userId = await requireUserId(); // 401 nếu chưa đăng nhập
 
-        // 1) Rate limit ngắn hạn (anti-spam)
-        const rl = consumeToken(`chat:${userId}`, Number(process.env.RATE_PM || 60));
-        if (!rl.ok) {
-            return new Response(JSON.stringify({ error: "RATE_LIMIT" }), {
-                status: 429,
-                headers: { "Cache-Control": "no-store" },
-            });
-        }
-
-        // 2) Parse body
+        // 1) Parse body
         const body = (await req.json()) as {
             conversationId?: string;
             message: string;
@@ -29,90 +22,104 @@ export async function POST(req: NextRequest) {
         };
         const headerIdem = req.headers.get("Idempotency-Key") || undefined;
 
-        if (!body?.message?.trim()) {
-            return new Response(JSON.stringify({ error: "EMPTY_MESSAGE" }), {
-                status: 400,
-                headers: { "Cache-Control": "no-store" },
-            });
+        const msg = (body?.message ?? "").trim();
+        if (!msg) {
+            return NextResponse.json({ error: "EMPTY_MESSAGE" }, { status: 400, headers: noStore() });
         }
 
-        // 3) Lấy hoặc tạo conversation
-        let convoId = body.conversationId;
+        // 2) Lấy hoặc tạo conversation
+        let convoId = (body.conversationId || "").trim();
         if (convoId) {
             const exists = await prisma.conversation.findFirst({ where: { id: convoId, userId } });
             if (!exists) {
                 const created = await prisma.conversation.create({
-                    data: { userId, title: body.message.slice(0, 80), systemPrompt: body.systemPrompt },
+                    data: { userId, title: msg.slice(0, 80), systemPrompt: body.systemPrompt },
                 });
                 convoId = created.id;
             }
         } else {
             const created = await prisma.conversation.create({
-                data: { userId, title: body.message.slice(0, 80), systemPrompt: body.systemPrompt },
+                data: { userId, title: msg.slice(0, 80), systemPrompt: body.systemPrompt },
             });
             convoId = created.id;
         }
 
-        // --- Idempotency ---
+        // 3) Idempotency (scoped theo hội thoại, áp dụng cho ASSISTANT)
         const minuteBucket = Math.floor(Date.now() / 60_000);
         let idem =
             body.idempotencyKey ||
-            hashIdempotency({ userId, conversationId: convoId, m: body.message, bucket: minuteBucket });
+            headerIdem ||
+            hashIdempotency({ userId, conversationId: convoId, m: msg, bucket: minuteBucket });
 
-        const dup = await prisma.message.findFirst({ where: { idempotencyKey: idem } });
-        if (dup) {
-            const last = await prisma.message.findFirst({
-                where: { conversationId: convoId!, role: "ASSISTANT" },
-                orderBy: { createdAt: "desc" },
-            });
-
-            if (!body.force && last?.content?.trim()) {
-                return Response.json({
-                    conversationId: convoId,
-                    reply: last.content,
-                    meta: { cached: true, idempotencyKey: idem },
-                });
-            }
+        // Trả kết quả cũ nếu có
+        const dupAssistant = await prisma.message.findFirst({
+            where: { conversationId: convoId, role: "ASSISTANT", idempotencyKey: idem },
+            orderBy: { createdAt: "desc" },
+            select: { content: true },
+        });
+        if (dupAssistant && !body.force) {
+            return NextResponse.json(
+                { conversationId: convoId, reply: dupAssistant.content, meta: { cached: true, idempotencyKey: idem } },
+                { headers: noStore() }
+            );
+        }
+        if (dupAssistant && body.force) {
             idem = `${idem}:retry:${Date.now()}`;
         }
 
-        // --- Lưu USER message ---
+        // 4) Lưu USER message (không set idempotencyKey)
         await prisma.message.create({
-            data: {
-                conversationId: convoId!,
-                role: "USER",
-                content: body.message,
-                idempotencyKey: idem,
-            },
+            data: { conversationId: convoId, role: "USER", content: msg },
         });
 
-        // 6) Lịch sử
+        // 5) Lịch sử & convo (lấy cả model)
+        const limit = Number(process.env.MAX_HISTORY || 16);
         const history = await prisma.message.findMany({
-            where: { conversationId: convoId! },
-            orderBy: { createdAt: "asc" },
-            take: Number(process.env.MAX_HISTORY || 16),
+            where: { conversationId: convoId },
+            orderBy: { createdAt: "desc" },
+            take: limit,
+            select: { role: true, content: true },
         });
-        const convo = await prisma.conversation.findUnique({ where: { id: convoId! } });
+        const convo = await prisma.conversation.findUnique({
+            where: { id: convoId },
+            select: { systemPrompt: true, model: true }, // ✅ lấy cả model
+        });
+
         const messages = [
             ...(convo?.systemPrompt ? [{ role: "system" as const, content: convo.systemPrompt }] : []),
-            ...history.map((m) => ({ role: m.role.toLowerCase() as "user" | "assistant", content: m.content })),
+            ...history
+                .reverse()
+                .map((m) => ({ role: m.role.toLowerCase() as "user" | "assistant", content: m.content })),
+            { role: "user" as const, content: msg },
         ];
 
-        // 7) MOCK (dev)
+        // 6) MOCK
         if (process.env.MOCK_AI === "1") {
-            const mockReply = `ĐÃ NHẬN: "${body.message}" (mock, không gọi AI)`;
+            const mockReply = `ĐÃ NHẬN: "${msg}" (mock, không gọi AI)`;
             await prisma.message.create({
-                data: { conversationId: convoId!, role: "ASSISTANT", content: mockReply, model: "mock" },
+                data: {
+                    conversationId: convoId,
+                    role: "ASSISTANT",
+                    content: mockReply,
+                    model: "mock",
+                    idempotencyKey: idem,
+                },
             });
-            return Response.json(
-                { conversationId: convoId, reply: mockReply, meta: { cached: false, idempotencyKey: idem, provider: "mock" } },
-                { headers: { "Cache-Control": "no-store" } }
+            await prisma.conversation.update({ where: { id: convoId }, data: { updatedAt: new Date() } });
+
+            return NextResponse.json(
+                {
+                    conversationId: convoId,
+                    reply: mockReply,
+                    meta: { cached: false, idempotencyKey: idem, provider: "mock" },
+                },
+                { headers: noStore() }
             );
         }
 
-        // 8) Gọi OpenAI provider
+        // 7) Provider thật
         const provider = getProvider();
-        const model = process.env.AI_MODEL || "gpt-4o";   // 🔥 default = gpt-4o
+        const model = (convo?.model && typeof convo.model === "string" ? convo.model : undefined) || DEFAULT_MODEL_ID;
         const out = await provider.chat({
             model,
             messages,
@@ -121,21 +128,25 @@ export async function POST(req: NextRequest) {
 
         const safeReply = (out.content ?? "").trim() || "Xin lỗi, model không trả nội dung.";
 
-        // 9) Lưu ASSISTANT message
+        // 8) Lưu ASSISTANT
         await prisma.message.create({
             data: {
-                conversationId: convoId!,
+                conversationId: convoId,
                 role: "ASSISTANT",
                 content: safeReply,
                 model: out.model ?? model,
                 promptTokens: out.promptTokens ?? undefined,
                 completionTokens: out.completionTokens ?? undefined,
                 latencyMs: out.latencyMs ?? undefined,
+                idempotencyKey: idem,
             },
         });
 
-        // 10) Trả về (thêm thông tin model để bạn debug dễ)
-        return Response.json(
+        // 9) Cập nhật updatedAt để nổi lên đầu
+        await prisma.conversation.update({ where: { id: convoId }, data: { updatedAt: new Date() } });
+
+        // 10) Trả về
+        return NextResponse.json(
             {
                 conversationId: convoId,
                 reply: safeReply,
@@ -152,14 +163,16 @@ export async function POST(req: NextRequest) {
                     latencyMs: out.latencyMs ?? null,
                 },
             },
-            { headers: { "Cache-Control": "no-store" } }
+            { headers: noStore() }
         );
-    } catch (e: any) {
-        const msg = e?.message || "UNKNOWN";
-        const code = msg === "UNAUTHORIZED" ? 401 : 500;
-        return new Response(JSON.stringify({ error: msg }), {
-            status: code,
-            headers: { "Cache-Control": "no-store" },
-        });
+    } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : String(e);
+        const code = msg === "UNAUTHENTICATED" ? 401 : 500;
+        return NextResponse.json({ error: msg }, { status: code, headers: noStore() });
     }
+}, { scope: "chat-json", limit: 20, windowMs: 60_000, burst: 20 });
+
+// ————— helpers —————
+function noStore() {
+    return { "Cache-Control": "no-store" } as Record<string, string>;
 }

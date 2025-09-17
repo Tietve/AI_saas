@@ -1,65 +1,154 @@
 // src/app/api/auth/signup/route.ts
-import { NextResponse } from "next/server";
-import { z } from "zod";
-import { createUserWithVerification } from "@/lib/auth-service";
-import { sendVerificationEmail } from "@/lib/email";
-// at top of file
-export const runtime = "nodejs";
-
-
-const SignupSchema = z
-    .object({
-        email: z.string().email(),
-        password: z.string().min(8),
-        confirmPassword: z.string().min(8),
-        acceptTerms: z.boolean(),
-    })
-    .refine((d) => d.acceptTerms === true, {
-        path: ["acceptTerms"],
-        message: "Bạn phải đồng ý điều khoản.",
-    })
-    .refine((d) => d.password === d.confirmPassword, {
-        path: ["confirmPassword"],
-        message: "Mật khẩu xác nhận không khớp.",
-    });
+import { NextResponse } from 'next/server'
+import { prisma } from '@/lib/prisma'
+import * as argon2 from 'argon2'
+import { createSessionCookie } from '@/lib/auth/session'
 
 export async function POST(req: Request) {
     try {
-        const body = await req.json();
-        const parsed = SignupSchema.safeParse(body);
-        if (!parsed.success) {
+        const body = await req.json()
+        const email = body?.email?.trim()
+        const password = body?.password
+        // Name field không tồn tại trong schema, bỏ qua
+
+        // Validation
+        if (!email || !password) {
             return NextResponse.json(
-                { code: "VALIDATION_ERROR", issues: parsed.error.flatten() },
+                { error: 'Email và mật khẩu là bắt buộc' },
                 { status: 400 }
-            );
+            )
         }
 
-        const { email, password } = parsed.data;
-        const { verificationToken } = await createUserWithVerification({ email, password });
-
-        // Gửi email xác minh – không để signup fail nếu mail lỗi
-        try {
-            await sendVerificationEmail(email, verificationToken);
-        } catch (mailErr) {
-            console.error("[DEV] Lỗi gửi email verify:", mailErr);
-            // Có thể thêm: log vào DB để xử lý sau
-        }
-
-        return NextResponse.json({ ok: true }, { status: 201 });
-    } catch (e: any) {
-        console.error("/api/auth/signup full error:", e);
-
-        const code = e?.code;
-        if (code === "CONFLICT") {
-            return NextResponse.json({ code: "EMAIL_EXISTS" }, { status: 409 });
-        }
-        if (code === "VALIDATION_ERROR") {
+        if (password.length < 6) {
             return NextResponse.json(
-                { code: e.code, message: e.message, field: e.field },
+                { error: 'Mật khẩu phải có ít nhất 6 ký tự' },
                 { status: 400 }
-            );
+            )
         }
 
-        return NextResponse.json({ code: "INTERNAL" }, { status: 500 });
+        // Email validation
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+        if (!emailRegex.test(email)) {
+            return NextResponse.json(
+                { error: 'Email không hợp lệ' },
+                { status: 400 }
+            )
+        }
+
+        // Convert to lowercase for unique check
+        const emailLower = email.toLowerCase()
+
+        // Check if user exists với emailLower
+        const existingUser = await prisma.user.findUnique({
+            where: { emailLower },
+            select: { id: true }
+        })
+
+        if (existingUser) {
+            return NextResponse.json(
+                { error: 'Email đã được sử dụng' },
+                { status: 409 }
+            )
+        }
+
+        // Hash password với Argon2
+        const passwordHash = await argon2.hash(password, {
+            type: argon2.argon2id,
+            memoryCost: 19456,
+            timeCost: 2,
+            parallelism: 1,
+        })
+
+        // Create new user với emailLower (không có name field trong schema)
+        const user = await prisma.user.create({
+            data: {
+                email: email,  // Keep original casing for display
+                emailLower: emailLower,  // Lowercase for unique constraint
+                passwordHash,
+                // Mark as verified if not requiring email verification
+                emailVerifiedAt: process.env.REQUIRE_EMAIL_VERIFICATION === 'false'
+                    ? new Date()
+                    : null,
+                planTier: 'FREE',  // Default plan
+                monthlyTokenUsed: 0
+            },
+            select: {
+                id: true,
+                email: true,
+                emailLower: true,
+                emailVerifiedAt: true,
+                planTier: true,
+                createdAt: true
+            }
+        })
+
+        console.log('[signup] Created new user:', user.id)
+
+        // Create session if email verification not required
+        if (process.env.REQUIRE_EMAIL_VERIFICATION === 'false') {
+            const cookieData = await createSessionCookie(user.id, {
+                email: user.email || user.emailLower
+            })
+
+            const response = NextResponse.json({
+                ok: true,
+                message: 'Đăng ký thành công',
+                redirectUrl: '/chat',
+                user: {
+                    id: user.id,
+                    email: user.email || user.emailLower,
+                    planTier: user.planTier
+                }
+            })
+
+            // Set session cookie
+            response.cookies.set(
+                cookieData.name,
+                cookieData.value,
+                {
+                    ...cookieData.options,
+                    httpOnly: true,
+                    secure: process.env.NODE_ENV === 'production',
+                    sameSite: 'lax',
+                    path: '/',
+                    maxAge: 60 * 60 * 24 * 7
+                }
+            )
+
+            return response
+        } else {
+            // TODO: Send verification email
+            return NextResponse.json({
+                ok: true,
+                message: 'Đăng ký thành công. Vui lòng kiểm tra email để xác thực tài khoản.',
+                needsVerification: true,
+                user: {
+                    id: user.id,
+                    email: user.email || user.emailLower,
+                    planTier: user.planTier
+                }
+            })
+        }
+
+    } catch (error: unknown) {
+        // Type-safe error handling
+        const err = error as Error & { code?: string }
+        console.error('[signup] Error:', err)
+
+        // Handle specific Prisma errors
+        if (err.code === 'P2002') {
+            return NextResponse.json(
+                { error: 'Email đã được sử dụng' },
+                { status: 409 }
+            )
+        }
+
+        return NextResponse.json(
+            {
+                error: 'Có lỗi xảy ra khi đăng ký',
+                details: process.env.NODE_ENV === 'development' ? err.message : undefined
+            },
+            { status: 500 }
+        )
     }
 }

@@ -39,7 +39,13 @@ const AVAILABLE_MODELS: ModelOption[] = [
 export default function ChatPage() {
     const router = useRouter()
 
-    // State management
+    // Authentication states với debug
+    const [loading, setLoading] = useState(true)
+    const [authenticated, setAuthenticated] = useState(false)
+    const [authError, setAuthError] = useState<string | null>(null)
+    const [authChecked, setAuthChecked] = useState(false)
+
+    // Chat states
     const [conversations, setConversations] = useState<Conversation[]>([])
     const [currentConversationId, setCurrentConversationId] = useState<string | null>(null)
     const [messages, setMessages] = useState<Message[]>([])
@@ -54,11 +60,17 @@ export default function ChatPage() {
     const messagesEndRef = useRef<HTMLDivElement>(null)
     const abortControllerRef = useRef<AbortController | null>(null)
 
-    // Load conversations khi component mount
+    // Check authentication khi component mount
     useEffect(() => {
-        loadConversations()
         checkAuthentication()
     }, [])
+
+    // Load conversations sau khi authenticated
+    useEffect(() => {
+        if (authenticated && authChecked) {
+            loadConversations()
+        }
+    }, [authenticated, authChecked])
 
     // Auto scroll khi có tin nhắn mới
     useEffect(() => {
@@ -67,36 +79,100 @@ export default function ChatPage() {
 
     // Load messages khi đổi conversation
     useEffect(() => {
-        if (currentConversationId) {
+        if (currentConversationId && authenticated) {
             loadMessages(currentConversationId)
         }
     }, [currentConversationId])
 
-    // Kiểm tra authentication
+    // Kiểm tra authentication với debug logs và retry logic
     async function checkAuthentication() {
-        try {
-            const res = await fetch('/api/me')
-            const data = await res.json()
+        console.log('[ChatPage] Starting authentication check...')
 
-            if (!data.authenticated) {
-                router.push('/auth/signin')
+        try {
+            // Đợi một chút để cookie được set đầy đủ
+            await new Promise(resolve => setTimeout(resolve, 500))
+
+            const res = await fetch('/api/me', {
+                method: 'GET',
+                credentials: 'include',
+                cache: 'no-store',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            })
+
+            console.log('[ChatPage] /api/me response status:', res.status)
+
+            const data = await res.json()
+            console.log('[ChatPage] /api/me response data:', data)
+
+            if (data.authenticated) {
+                console.log('[ChatPage] User authenticated, user ID:', data.user?.id)
+                setAuthenticated(true)
+                setLoading(false)
+                setAuthChecked(true)
+            } else {
+                console.log('[ChatPage] User not authenticated, reason:', data.reason)
+                setAuthError(data.reason || 'Not authenticated')
+
+                // Retry một lần nữa sau 1 giây
+                await new Promise(resolve => setTimeout(resolve, 1000))
+
+                console.log('[ChatPage] Retrying authentication check...')
+                const retryRes = await fetch('/api/me', {
+                    method: 'GET',
+                    credentials: 'include',
+                    cache: 'no-store'
+                })
+
+                const retryData = await retryRes.json()
+                console.log('[ChatPage] Retry response:', retryData)
+
+                if (retryData.authenticated) {
+                    console.log('[ChatPage] Retry successful!')
+                    setAuthenticated(true)
+                    setLoading(false)
+                    setAuthChecked(true)
+                } else {
+                    console.log('[ChatPage] Retry failed, redirecting to signin...')
+                    // Delay trước khi redirect để user thấy được message
+                    setTimeout(() => {
+                        router.push('/auth/signin')
+                    }, 1000)
+                }
             }
         } catch (error) {
-            console.error('Auth check failed:', error)
-            router.push('/auth/signin')
+            console.error('[ChatPage] Auth check error:', error)
+            setAuthError('Network error')
+
+            // Thử lại sau 2 giây
+            setTimeout(() => {
+                console.log('[ChatPage] Redirecting to signin after error...')
+                router.push('/auth/signin')
+            }, 2000)
         }
     }
 
     // Load danh sách conversations
     async function loadConversations() {
+        console.log('[ChatPage] Loading conversations...')
         try {
             const res = await fetch('/api/conversations?pageSize=50', {
+                credentials: 'include',
                 cache: 'no-store'
             })
 
-            if (!res.ok) throw new Error('Failed to load conversations')
+            if (!res.ok) {
+                if (res.status === 401) {
+                    console.log('[ChatPage] 401 when loading conversations, redirecting...')
+                    router.push('/auth/signin')
+                    return
+                }
+                throw new Error('Failed to load conversations')
+            }
 
             const data = await res.json()
+            console.log('[ChatPage] Loaded conversations:', data.items?.length || 0)
             setConversations(data.items || [])
 
             // Nếu chưa có conversation được chọn và có conversations, chọn cái đầu tiên
@@ -104,24 +180,32 @@ export default function ChatPage() {
                 setCurrentConversationId(data.items[0].id)
             }
         } catch (error) {
-            console.error('Load conversations error:', error)
+            console.error('[ChatPage] Load conversations error:', error)
             setError('Không thể tải danh sách hội thoại')
         }
     }
 
     // Load messages của một conversation
     async function loadMessages(conversationId: string) {
+        console.log('[ChatPage] Loading messages for conversation:', conversationId)
         try {
             const res = await fetch(`/api/conversations/${conversationId}/messages?limit=100`, {
+                credentials: 'include',
                 cache: 'no-store'
             })
 
-            if (!res.ok) throw new Error('Failed to load messages')
+            if (!res.ok) {
+                if (res.status === 401) {
+                    router.push('/auth/signin')
+                    return
+                }
+                throw new Error('Failed to load messages')
+            }
 
             const data = await res.json()
             setMessages(data.items || [])
         } catch (error) {
-            console.error('Load messages error:', error)
+            console.error('[ChatPage] Load messages error:', error)
             setError('Không thể tải tin nhắn')
         }
     }
@@ -131,21 +215,29 @@ export default function ChatPage() {
         try {
             const res = await fetch('/api/conversations', {
                 method: 'POST',
+                credentials: 'include',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     title: 'New Chat',
-                    systemPrompt: systemPrompt || undefined
+                    systemPrompt: systemPrompt || undefined,
+                    model: selectedModel
                 })
             })
 
-            if (!res.ok) throw new Error('Failed to create conversation')
+            if (!res.ok) {
+                if (res.status === 401) {
+                    router.push('/auth/signin')
+                    return
+                }
+                throw new Error('Failed to create conversation')
+            }
 
             const data = await res.json()
             await loadConversations()
             setCurrentConversationId(data.item.id)
             setMessages([])
         } catch (error) {
-            console.error('Create conversation error:', error)
+            console.error('[ChatPage] Create conversation error:', error)
             setError('Không thể tạo hội thoại mới')
         }
     }
@@ -183,6 +275,7 @@ export default function ChatPage() {
 
             const res = await fetch('/api/chat/stream', {
                 method: 'POST',
+                credentials: 'include',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     conversationId: currentConversationId || 'new',
@@ -193,7 +286,13 @@ export default function ChatPage() {
                 signal: abortControllerRef.current.signal
             })
 
-            if (!res.ok) throw new Error('Failed to send message')
+            if (!res.ok) {
+                if (res.status === 401) {
+                    router.push('/auth/signin')
+                    return
+                }
+                throw new Error('Failed to send message')
+            }
 
             // Process streaming response
             const reader = res.body?.getReader()
@@ -249,7 +348,7 @@ export default function ChatPage() {
             await loadConversations()
 
         } catch (error: any) {
-            console.error('Send message error:', error)
+            console.error('[ChatPage] Send message error:', error)
 
             if (error.name === 'AbortError') {
                 setError('Tin nhắn đã bị hủy')
@@ -278,10 +377,17 @@ export default function ChatPage() {
 
         try {
             const res = await fetch(`/api/conversations/${id}`, {
-                method: 'DELETE'
+                method: 'DELETE',
+                credentials: 'include'
             })
 
-            if (!res.ok) throw new Error('Failed to delete')
+            if (!res.ok) {
+                if (res.status === 401) {
+                    router.push('/auth/signin')
+                    return
+                }
+                throw new Error('Failed to delete')
+            }
 
             await loadConversations()
 
@@ -290,7 +396,7 @@ export default function ChatPage() {
                 setMessages([])
             }
         } catch (error) {
-            console.error('Delete error:', error)
+            console.error('[ChatPage] Delete error:', error)
             setError('Không thể xóa hội thoại')
         }
     }
@@ -302,6 +408,7 @@ export default function ChatPage() {
         try {
             const res = await fetch(`/api/conversations/${currentConversationId}`, {
                 method: 'PATCH',
+                credentials: 'include',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     systemPrompt: systemPrompt,
@@ -309,10 +416,32 @@ export default function ChatPage() {
                 })
             })
 
-            if (!res.ok) throw new Error('Failed to update')
+            if (!res.ok) {
+                if (res.status === 401) {
+                    router.push('/auth/signin')
+                    return
+                }
+                throw new Error('Failed to update')
+            }
 
         } catch (error) {
-            console.error('Update settings error:', error)
+            console.error('[ChatPage] Update settings error:', error)
+        }
+    }
+
+    // Sign out function
+    async function handleSignOut() {
+        try {
+            const res = await fetch('/api/auth/signout', {
+                method: 'POST',
+                credentials: 'include'
+            })
+
+            if (res.ok) {
+                router.push('/auth/signin')
+            }
+        } catch (error) {
+            console.error('[ChatPage] Sign out error:', error)
         }
     }
 
@@ -328,6 +457,22 @@ export default function ChatPage() {
         })
     }
 
+    // Show loading screen với thông tin debug
+    if (loading) {
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-gray-50">
+                <div className="text-center">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+                    <p className="mt-4 text-gray-600">Đang kiểm tra phiên đăng nhập...</p>
+                    {authError && (
+                        <p className="mt-2 text-sm text-red-600">Lỗi: {authError}</p>
+                    )}
+                </div>
+            </div>
+        )
+    }
+
+    // Main UI
     return (
         <div className="flex h-screen bg-gray-50">
             {/* Sidebar */}
@@ -339,6 +484,13 @@ export default function ChatPage() {
                         className="w-full py-2 px-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
                     >
                         + Hội thoại mới
+                    </button>
+
+                    <button
+                        onClick={handleSignOut}
+                        className="w-full mt-2 py-2 px-4 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition"
+                    >
+                        Đăng xuất
                     </button>
                 </div>
 
@@ -366,7 +518,7 @@ export default function ChatPage() {
                                         e.stopPropagation()
                                         deleteConversation(conv.id)
                                     }}
-                                    className="ml-2 text-gray-400 hover:text-red-600"
+                                    className="ml-2 text-gray-400 hover:text-red-600 transition"
                                 >
                                     ×
                                 </button>
@@ -389,7 +541,7 @@ export default function ChatPage() {
                     <div className="flex items-center justify-between">
                         <button
                             onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-                            className="p-2 hover:bg-gray-100 rounded-lg"
+                            className="p-2 hover:bg-gray-100 rounded-lg transition"
                         >
                             ☰
                         </button>
@@ -399,7 +551,8 @@ export default function ChatPage() {
                             <select
                                 value={selectedModel}
                                 onChange={(e) => setSelectedModel(e.target.value)}
-                                className="px-3 py-1 border border-gray-300 rounded-lg text-sm"
+                                onBlur={updateConversationSettings}
+                                className="px-3 py-1 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                             >
                                 {AVAILABLE_MODELS.map(model => (
                                     <option key={model.id} value={model.id}>
@@ -415,7 +568,7 @@ export default function ChatPage() {
                                 value={systemPrompt}
                                 onChange={(e) => setSystemPrompt(e.target.value)}
                                 onBlur={updateConversationSettings}
-                                className="px-3 py-1 border border-gray-300 rounded-lg text-sm w-64"
+                                className="px-3 py-1 border border-gray-300 rounded-lg text-sm w-64 focus:outline-none focus:ring-2 focus:ring-blue-500"
                             />
                         </div>
                     </div>
@@ -474,13 +627,13 @@ export default function ChatPage() {
                             onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && sendMessage()}
                             placeholder="Nhập tin nhắn của bạn..."
                             disabled={isLoading}
-                            className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
+                            className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
                         />
 
                         {isLoading ? (
                             <button
                                 onClick={stopStreaming}
-                                className="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
+                                className="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition"
                             >
                                 Dừng
                             </button>
@@ -488,7 +641,7 @@ export default function ChatPage() {
                             <button
                                 onClick={sendMessage}
                                 disabled={!inputMessage.trim()}
-                                className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400"
+                                className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition"
                             >
                                 Gửi
                             </button>

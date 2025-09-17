@@ -1,43 +1,47 @@
 // src/app/api/auth/signin/route.ts
 import { NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'  // Đổi từ @/lib/prisma
-import { SignJWT } from 'jose'
+import { prisma } from '@/lib/prisma'
 import * as argon2 from 'argon2'
 import * as bcrypt from 'bcryptjs'
-import type { JWTPayload } from 'jose'
+import { SignJWT } from 'jose'
 
-const COOKIE_NAME = process.env.AUTH_COOKIE_NAME || 'session'
-const COOKIE_MAX_AGE = 60 * 60 * 24 * 7 // 7 ngày
+// Constants giống như trong session.ts
 const ALG = 'HS256'
+const COOKIE_NAME = 'session'
+const MAX_AGE = 60 * 60 * 24 * 7 // 7 days
 
+// Helper functions
 function getSecretKey(): Uint8Array {
-    const sec = process.env.AUTH_SECRET || 'dev-secret-change'
-    return new TextEncoder().encode(sec)
+    const secret = process.env.AUTH_SECRET
+    if (!secret || secret.length < 32) {
+        console.warn('[signin] AUTH_SECRET missing or too short, using fallback')
+        const fallback = 'dev-secret-key-min-32-characters-long-fallback'
+        return new TextEncoder().encode(fallback)
+    }
+    return new TextEncoder().encode(secret)
 }
 
-async function signSession(payload: { uid: string } & JWTPayload): Promise<string> {
-    return await new SignJWT(payload)
+async function signToken(userId: string, email?: string): Promise<string> {
+    return await new SignJWT({
+        uid: userId,
+        email: email
+    })
         .setProtectedHeader({ alg: ALG })
         .setIssuedAt()
-        .setExpirationTime(`${COOKIE_MAX_AGE}s`)
+        .setExpirationTime(`${MAX_AGE}s`)
         .sign(getSecretKey())
 }
 
-// Verify password với auto-detect format
 async function verifyPassword(hash: string, plain: string): Promise<boolean> {
     try {
-        // Kiểm tra Argon2
         if (hash.startsWith('$argon2')) {
             return await argon2.verify(hash, plain)
         }
-        // Kiểm tra bcrypt
-        if (hash.startsWith('$2a$') || hash.startsWith('$2b$') || hash.startsWith('$2y$')) {
+        if (hash.startsWith('$2')) {
             return await bcrypt.compare(plain, hash)
         }
-        // Fallback: thử cả hai
         const argonResult = await argon2.verify(hash, plain).catch(() => false)
         if (argonResult) return true
-
         return await bcrypt.compare(plain, hash).catch(() => false)
     } catch (error) {
         console.error('[verifyPassword] Error:', error)
@@ -47,86 +51,99 @@ async function verifyPassword(hash: string, plain: string): Promise<boolean> {
 
 export async function POST(req: Request) {
     try {
-        const body = await req.json().catch(() => ({}))
-        const emailInput = String(body?.email ?? '').trim()
-        const password = String(body?.password ?? '')
+        const body = await req.json()
+        const email = body?.email?.trim()
+        const password = body?.password
 
-        // Validate input
-        if (!emailInput || !password) {
+        if (!email || !password) {
             return NextResponse.json(
-                { code: 'MISSING_CREDENTIALS', message: 'Email và mật khẩu là bắt buộc' },
+                { error: 'Email và mật khẩu là bắt buộc' },
                 { status: 400 }
             )
         }
 
-        const emailLower = emailInput.toLowerCase()
+        const emailLower = email.toLowerCase()
 
-        // Tìm user với cả 2 field để đảm bảo backward compatibility
-        const user = await prisma.user.findFirst({
-            where: {
-                OR: [
-                    { emailLower },
-                    { email: emailInput }
-                ]
-            },
+        // Find user
+        const user = await prisma.user.findUnique({
+            where: { emailLower },
             select: {
                 id: true,
+                email: true,
+                emailLower: true,
                 passwordHash: true,
-                emailVerifiedAt: true
+                emailVerifiedAt: true,
+                planTier: true
             }
         })
 
-        if (!user) {
-            console.log(`[signin] User not found for: ${emailLower}`)
+        if (!user || !user.passwordHash) {
             return NextResponse.json(
-                { code: 'INVALID_CREDENTIALS', message: 'Email hoặc mật khẩu không đúng' },
+                { error: 'Email hoặc mật khẩu không đúng' },
                 { status: 401 }
-            )
-        }
-
-        // Kiểm tra email đã verify chưa (optional - tuỳ business logic)
-        if (!user.emailVerifiedAt && process.env.REQUIRE_EMAIL_VERIFICATION === 'true') {
-            return NextResponse.json(
-                { code: 'EMAIL_NOT_VERIFIED', message: 'Vui lòng xác minh email trước khi đăng nhập' },
-                { status: 403 }
             )
         }
 
         // Verify password
-        const passwordValid = await verifyPassword(user.passwordHash, password)
-        if (!passwordValid) {
-            console.log(`[signin] Invalid password for user: ${user.id}`)
+        const isValid = await verifyPassword(user.passwordHash, password)
+        if (!isValid) {
             return NextResponse.json(
-                { code: 'INVALID_CREDENTIALS', message: 'Email hoặc mật khẩu không đúng' },
+                { error: 'Email hoặc mật khẩu không đúng' },
                 { status: 401 }
             )
         }
 
-        // Tạo JWT session
-        const token = await signSession({ uid: user.id })
+        // Check email verification if required
+        const requireEmailVerification = process.env.REQUIRE_EMAIL_VERIFICATION === 'true'
+        if (requireEmailVerification && !user.emailVerifiedAt) {
+            return NextResponse.json(
+                { error: 'Vui lòng xác thực email trước khi đăng nhập' },
+                { status: 403 }
+            )
+        }
 
-        // Tạo response với cookie
-        const res = NextResponse.json({
+        // Create JWT token
+        const token = await signToken(user.id, user.email || user.emailLower)
+
+        console.log('[signin] Token created for user:', user.id)
+        console.log('[signin] Token preview:', token.substring(0, 20) + '...')
+
+        // Create response
+        const response = NextResponse.json({
             ok: true,
-            userId: user.id,
-            message: 'Đăng nhập thành công'
+            message: 'Đăng nhập thành công',
+            redirectUrl: '/chat',
+            user: {
+                id: user.id,
+                email: user.email || user.emailLower
+            }
         })
 
-        res.cookies.set(COOKIE_NAME, token, {
+        // QUAN TRỌNG: Set cookie trực tiếp với response.cookies.set()
+        response.cookies.set({
+            name: COOKIE_NAME,
+            value: token,
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
             sameSite: 'lax',
-            path: '/',
-            maxAge: COOKIE_MAX_AGE,
+            maxAge: MAX_AGE,
+            path: '/'
         })
 
-        console.log(`[signin] Success for user: ${user.id}`)
-        return res
+        console.log('[signin] Cookie set with name:', COOKIE_NAME)
+        console.log('[signin] Success for user:', user.id)
 
-    } catch (error) {
-        console.error('[signin] Unexpected error:', error)
+        return response
+
+    } catch (error: unknown) {
+        const err = error as Error & { code?: string }
+        console.error('[signin] Error:', err)
+
         return NextResponse.json(
-            { code: 'INTERNAL', message: 'Có lỗi xảy ra, vui lòng thử lại' },
+            {
+                error: 'Có lỗi xảy ra, vui lòng thử lại',
+                details: process.env.NODE_ENV === 'development' ? err.message : undefined
+            },
             { status: 500 }
         )
     }

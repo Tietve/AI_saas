@@ -4,28 +4,41 @@ export function streamSSEFromGenerator<T extends { delta?: string }>(
     opts?: { onClose?: () => void }
 ): Response {
     const encoder = new TextEncoder()
+
     const readable = new ReadableStream({
         async start(controller) {
             try {
+                // Send chunks as they come
                 for await (const chunk of gen) {
-                    const data = chunk.delta ?? ''
-                    controller.enqueue(encoder.encode(`data: ${JSON.stringify({ delta: data })}\n\n`))
+                    if (chunk.delta) {
+                        const payload = JSON.stringify({ delta: chunk.delta })
+                        const frame = `data: ${payload}\n\n`
+                        controller.enqueue(encoder.encode(frame))
+                    }
                 }
-                controller.enqueue(encoder.encode(`data: ${JSON.stringify({ done: true })}\n\n`))
+
+                // Send completion signal
+                controller.enqueue(encoder.encode('data: {"done":true}\n\n'))
+
             } catch (e: any) {
-                controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: e?.message || 'stream error' })}\n\n`))
+                // Send error
+                const errorPayload = JSON.stringify({
+                    error: e?.message || 'Stream error'
+                })
+                controller.enqueue(encoder.encode(`data: ${errorPayload}\n\n`))
             } finally {
                 controller.close()
                 opts?.onClose?.()
             }
         }
     })
+
     return new Response(readable, {
         headers: {
-            'Content-Type': 'text/event-stream; charset=utf-8',
-            'Cache-Control': 'no-cache, no-transform',
+            'Content-Type': 'text/event-stream',
+            'Cache-Control': 'no-cache',
             'Connection': 'keep-alive',
-            'X-Accel-Buffering': 'no' // nginx
+            'X-Accel-Buffering': 'no' // Disable Nginx buffering
         }
     })
 }

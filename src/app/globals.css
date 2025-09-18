@@ -6,6 +6,8 @@
 @layer base {
     :root {
         --radius: 0.625rem;
+
+        /* Keep existing Tailwind variables */
         --background: 255 255 255;
         --foreground: 0 0 0;
 
@@ -22,6 +24,20 @@
         --border: 229 229 229;
         --input: 229 229 229;
         --ring: 37 99 235;
+
+        /* NEW: Theme System Colors (will be overridden by JS) */
+        --color-primary: #D4AF37;
+        --color-primary-hover: #F4CF57;
+        --color-background: #0A0E1A;
+        --color-background-secondary: #151B2C;
+        --color-surface: #2A3655;
+        --color-text: #F8F9FA;
+        --color-text-secondary: #B8C1D1;
+        --color-accent: #8B7355;
+        --color-border: #2A3655;
+        --color-success: #4ADE80;
+        --color-error: #F87171;
+        --color-warning: #FBBF24;
     }
 
     .dark {
@@ -49,6 +65,12 @@
         @apply bg-white text-gray-900 dark:bg-gray-900 dark:text-gray-100;
         font-family: system-ui, -apple-system, sans-serif;
     }
+
+    /* NEW: Theme system override khi được activate */
+    body.theme-active {
+        background-color: var(--color-background) !important;
+        color: var(--color-text) !important;
+    }
 }
 
 /* Custom utilities for your components */
@@ -63,6 +85,67 @@
 
     .card {
         @apply rounded-lg border bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800;
+    }
+
+    /* NEW: Theme Selector Styles */
+    .theme-selector {
+        @apply relative;
+    }
+
+    .theme-trigger {
+        @apply flex items-center gap-2 px-4 py-2 text-sm rounded-lg cursor-pointer transition-all;
+        background: var(--color-surface);
+        color: var(--color-text);
+        border: 1px solid var(--color-border);
+    }
+
+    .theme-trigger:hover {
+        background: var(--color-background-secondary);
+        border-color: var(--color-primary);
+    }
+
+    .theme-dropdown {
+        @apply absolute top-full right-0 mt-2 p-2 min-w-[200px] rounded-lg shadow-xl z-50;
+        background: var(--color-surface);
+        border: 1px solid var(--color-border);
+        opacity: 0;
+        visibility: hidden;
+        transform: translateY(-10px);
+        transition: all 0.2s;
+    }
+
+    .theme-dropdown.active {
+        opacity: 1;
+        visibility: visible;
+        transform: translateY(0);
+    }
+
+    .theme-option {
+        @apply flex items-center gap-3 w-full p-2 rounded-md cursor-pointer transition-all text-left;
+        background: transparent;
+        color: var(--color-text);
+        border: none;
+    }
+
+    .theme-option:hover {
+        background: var(--color-background-secondary);
+    }
+
+    .theme-option.active {
+        background: var(--color-primary);
+        color: var(--color-background);
+    }
+
+    .theme-preview {
+        @apply flex gap-1;
+    }
+
+    .color-dot {
+        @apply w-4 h-4 rounded-full border border-white/20;
+    }
+
+    .theme-name {
+        @apply flex-1 text-sm;
     }
 }
 
@@ -97,6 +180,11 @@
             transform: translateY(10px);
         }
     }
+
+    /* NEW: Theme transition */
+    .theme-transition * {
+        transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease !important;
+    }
 }
 
 /* Scrollbar styling */
@@ -111,12 +199,28 @@
         @apply bg-gray-100 dark:bg-gray-800;
     }
 
+    /* NEW: Theme-aware scrollbar */
+    .theme-active ::-webkit-scrollbar-track {
+        background: var(--color-background-secondary);
+    }
+
     ::-webkit-scrollbar-thumb {
         @apply bg-gray-400 dark:bg-gray-600 rounded-md;
     }
 
+    /* NEW: Theme-aware scrollbar thumb */
+    .theme-active ::-webkit-scrollbar-thumb {
+        background: var(--color-surface);
+        border-radius: 4px;
+    }
+
     ::-webkit-scrollbar-thumb:hover {
         @apply bg-gray-500 dark:bg-gray-500;
+    }
+
+    /* NEW: Theme-aware scrollbar thumb hover */
+    .theme-active ::-webkit-scrollbar-thumb:hover {
+        background: var(--color-accent);
     }
 
     /* For Firefox */
@@ -128,4 +232,59 @@
     .dark * {
         scrollbar-color: theme('colors.gray.600') theme('colors.gray.800');
     }
+}
+
+/* NEW: Apply theme colors to chat components */
+.theme-active .chat-container {
+    background: var(--color-background);
+}
+
+.theme-active .sidebar {
+    background: var(--color-background-secondary);
+    border-right: 1px solid var(--color-border);
+}
+
+.theme-active .conversation-item {
+    color: var(--color-text-secondary);
+    border: 1px solid transparent;
+}
+
+.theme-active .conversation-item:hover {
+    background: var(--color-surface);
+    color: var(--color-text);
+}
+
+.theme-active .conversation-item.active {
+    background: var(--color-surface);
+    border-color: var(--color-primary);
+    color: var(--color-text);
+}
+
+.theme-active .message {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+}
+
+.theme-active .message.user {
+    background: var(--color-primary);
+    color: var(--color-background);
+    border-color: var(--color-primary);
+}
+
+.theme-active .input-container {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+}
+
+.theme-active .input-container:focus-within {
+    border-color: var(--color-primary);
+}
+
+.theme-active .send-button {
+    background: var(--color-primary);
+    color: var(--color-background);
+}
+
+.theme-active .send-button:hover {
+    background: var(--color-primary-hover);
 }

@@ -8,7 +8,7 @@ import { streamChat } from '@/lib/ai/adapter'
 import { streamSSEFromGenerator } from '@/lib/http/sse'
 import { withRateLimit } from '@/lib/rate-limit/withRateLimit'
 import { getUserIdFromSession } from '@/lib/auth/session'
-
+const DEBUG = process.env.NODE_ENV === 'development'
 
 
 type SendReq = {
@@ -178,6 +178,9 @@ export const POST = withRateLimit(async (req: Request) => {
                         if (delta) {
                             fullText += delta
                             yield { delta }
+                        }
+                        if (DEBUG && delta) {
+                            console.log('[chat/send] Streaming delta:', delta.substring(0, 50))
                         }
                     }
                     // OK -> dừng fallback

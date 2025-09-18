@@ -1,5 +1,6 @@
 'use client'
 import React, { useEffect, useRef, useState } from 'react'
+import { ThemeSelector } from '@/components/theme-selector'
 
 type Msg = {
     id?: string
@@ -214,51 +215,95 @@ export default function ChatClient() {
     const stop = () => abortRef.current?.abort()
 
     return (
-        <div className="h-full flex flex-col">
-            <div className="flex-1 overflow-y-auto space-y-3 mb-3">
+        <div className="h-full flex flex-col chat-container">
+            {/* Header với Theme Selector */}
+            <div className="flex items-center justify-between px-4 py-3 border-b chat-header">
+                <div className="flex items-center gap-3">
+                    <h1 className="text-lg font-semibold">AI Chat</h1>
+                    <span className="text-xs text-gray-500">
+                        {conversationId ? `ID: ${conversationId.slice(0, 8)}...` : 'Hội thoại mới'}
+                    </span>
+                </div>
+
+                <div className="flex items-center gap-3">
+                    <ThemeSelector />
+                    <span className="text-xs text-gray-500">
+                        Mode: {USE_STREAM ? 'SSE' : 'JSON'}
+                    </span>
+                </div>
+            </div>
+
+            {/* Messages Area */}
+            <div className="flex-1 overflow-y-auto space-y-3 p-4 messages-area">
                 {messages.map((m, i) => (
                     <div key={m.id ?? i} className={m.role === 'user' ? 'text-right' : ''}>
                         <div
-                            className={`inline-block rounded px-3 py-2 ${
-                                m.role === 'user' ? 'bg-blue-600 text-white' : 'bg-gray-100'
+                            className={`inline-block rounded-lg px-4 py-2 max-w-[80%] ${
+                                m.role === 'user'
+                                    ? 'message user'
+                                    : 'message assistant'
                             }`}
                         >
-                            {m.content}
+                            <pre className="whitespace-pre-wrap font-sans">{m.content}</pre>
                         </div>
+                        {m.createdAt && (
+                            <div className="text-xs text-gray-400 mt-1">
+                                {new Date(m.createdAt).toLocaleTimeString('vi-VN')}
+                            </div>
+                        )}
                     </div>
                 ))}
+
+                {pending && messages[messages.length - 1]?.role === 'assistant' && (
+                    <div className="text-gray-500 text-sm">
+                        <span className="inline-block animate-pulse">●●●</span>
+                    </div>
+                )}
+
                 <div ref={endRef} />
             </div>
 
-            <form
-                onSubmit={(e) => {
-                    e.preventDefault()
-                    void send()
-                }}
-                className="flex gap-2"
-            >
-                <input
-                    className="flex-1 border rounded px-3 py-2"
-                    placeholder="Nhập tin nhắn..."
-                    value={input}
-                    onChange={(e) => setInput(e.target.value)}
-                    disabled={pending}
-                />
-                <button className="px-4 py-2 rounded bg-black text-white disabled:opacity-50" disabled={pending || !input.trim()}>
-                    Gửi
-                </button>
-                {pending && (
-                    <button type="button" onClick={stop} className="px-3 py-2 rounded border">
-                        Dừng
-                    </button>
+            {/* Input Area */}
+            <div className="p-4 border-t input-area">
+                {error && (
+                    <div className="mb-3 p-2 bg-red-50 border border-red-200 rounded text-sm text-red-600">
+                        Lỗi: {error}
+                    </div>
                 )}
-            </form>
 
-            <div className="mt-2 text-xs text-gray-500">
-                {conversationId ? `Convo: ${conversationId}` : 'Sẽ tạo hội thoại mới khi gửi'} · Mode: {USE_STREAM ? 'SSE' : 'JSON'}
+                <form
+                    onSubmit={(e) => {
+                        e.preventDefault()
+                        void send()
+                    }}
+                    className="flex gap-2"
+                >
+                    <input
+                        className="flex-1 px-4 py-2 rounded-lg input-container"
+                        placeholder="Nhập tin nhắn..."
+                        value={input}
+                        onChange={(e) => setInput(e.target.value)}
+                        disabled={pending}
+                    />
+
+                    {!pending ? (
+                        <button
+                            className="px-6 py-2 rounded-lg font-medium transition-all send-button disabled:opacity-50"
+                            disabled={!input.trim()}
+                        >
+                            Gửi
+                        </button>
+                    ) : (
+                        <button
+                            type="button"
+                            onClick={stop}
+                            className="px-6 py-2 rounded-lg border border-gray-300 hover:bg-gray-50 transition-all"
+                        >
+                            Dừng
+                        </button>
+                    )}
+                </form>
             </div>
-
-            {error && <div className="mt-2 text-sm text-red-600">Lỗi: {error}</div>}
         </div>
     )
 }

@@ -1,71 +1,74 @@
 // src/lib/email.ts
-import nodemailer from "nodemailer";
+import nodemailer from "nodemailer"
 
-const {
-    SMTP_HOST = "127.0.0.1",
-    SMTP_PORT = "1025",
-    SMTP_SECURE = "false",
-    SMTP_USER = "",
-    SMTP_PASS = "",
-    SMTP_FROM = "AI SaaS <no-reply@local.test>",
-    APP_URL = "http://localhost:3000",
-} = process.env as Record<string, string>;
+const transporter = nodemailer.createTransport({
+    host: process.env.SMTP_HOST || "127.0.0.1",
+    port: Number(process.env.SMTP_PORT || "1025"),
+    secure: process.env.SMTP_SECURE === "true",
+    // MailHog không cần auth
+})
 
-const isSecure = SMTP_SECURE === "true";
-
-// Singleton (tạo duy nhất 1 transporter để tái sử dụng; tránh tạo lại mỗi request)
-const globalForMailer = global as unknown as {
-    _transporter?: ReturnType<typeof nodemailer.createTransport>;
-};
-
-export const transporter =
-    globalForMailer._transporter ??
-    nodemailer.createTransport({
-        host: SMTP_HOST || "127.0.0.1",
-        port: Number(SMTP_PORT || "1025"),
-        secure: isSecure, // MailHog => false (không TLS)
-        auth: SMTP_USER ? { user: SMTP_USER, pass: SMTP_PASS } : undefined, // MailHog => undefined (không auth)
-    });
-
-if (process.env.NODE_ENV !== "production" && !globalForMailer._transporter) {
-    globalForMailer._transporter = transporter;
-    console.log("[SMTP CFG]", {
-        host: SMTP_HOST,
-        port: SMTP_PORT,
-        secure: isSecure,
-        hasAuth: !!SMTP_USER,
-    });
-    transporter
-        .verify()
-        .then(() => console.log("[SMTP] OK, ready"))
-        .catch((e) => console.error("[SMTP] FAILED", e)); // sẽ cho bạn thấy lỗi thật nếu có
+// Test connection khi khởi động
+if (process.env.NODE_ENV === "development") {
+    transporter.verify()
+        .then(() => console.log("✅ [Email] MailHog connected"))
+        .catch((e) => console.error("❌ [Email] MailHog error:", e.message))
 }
 
 export async function sendVerificationEmail(to: string, token: string) {
-    const url = `${APP_URL}/auth/verify?token=${encodeURIComponent(token)}`;
-    return transporter.sendMail({
-        from: SMTP_FROM,
-        to,
-        subject: "Xác minh email tài khoản",
-        html: `
-      <p>Chào bạn,</p>
-      <p>Nhấn để xác minh: <a href="${url}">${url}</a></p>
-      <p>Nếu không click được, copy link: ${url}</p>
-    `,
-    });
+    const url = `${process.env.APP_URL || "http://localhost:3000"}/auth/verify?token=${encodeURIComponent(token)}`
+
+    console.log(`[Email] Sending verification to ${to}`)
+
+    try {
+        await transporter.sendMail({
+            from: process.env.SMTP_FROM || "AI Chat <noreply@localhost>",
+            to,
+            subject: "Xác minh email của bạn",
+            html: `
+                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                    <h2>Xác minh tài khoản</h2>
+                    <p>Cảm ơn bạn đã đăng ký! Vui lòng xác minh email của bạn.</p>
+                    <p>
+                        <a href="${url}" style="display: inline-block; padding: 12px 24px; background: #3B82F6; color: white; text-decoration: none; border-radius: 6px;">
+                            Xác minh email
+                        </a>
+                    </p>
+                    <p>Hoặc copy link sau:</p>
+                    <p style="background: #f3f4f6; padding: 10px; word-break: break-all;">
+                        ${url}
+                    </p>
+                    <p>Link sẽ hết hạn sau 30 phút.</p>
+                </div>
+            `,
+            text: `Xác minh email tại: ${url}`
+        })
+        console.log(`✅ [Email] Sent to ${to}`)
+        return true
+    } catch (error) {
+        console.error(`❌ [Email] Failed to send to ${to}:`, error)
+        throw error
+    }
 }
 
 export async function sendPasswordResetEmail(to: string, token: string) {
-    const url = `${APP_URL}/auth/reset?token=${encodeURIComponent(token)}`;
-    return transporter.sendMail({
-        from: SMTP_FROM,
+    const url = `${process.env.APP_URL || "http://localhost:3000"}/auth/reset?token=${encodeURIComponent(token)}`
+
+    await transporter.sendMail({
+        from: process.env.SMTP_FROM || "AI Chat <noreply@localhost>",
         to,
         subject: "Đặt lại mật khẩu",
         html: `
-      <p>Chào bạn,</p>
-      <p>Nhấn để đặt lại mật khẩu: <a href="${url}">${url}</a></p>
-      <p>Nếu không click được, copy link: ${url}</p>
-      <p>Liên kết sẽ hết hạn sau 30 phút.</p>
-    `,
-    });
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                <h2>Đặt lại mật khẩu</h2>
+                <p>Bạn đã yêu cầu đặt lại mật khẩu.</p>
+                <p>
+                    <a href="${url}" style="display: inline-block; padding: 12px 24px; background: #3B82F6; color: white; text-decoration: none; border-radius: 6px;">
+                        Đặt lại mật khẩu
+                    </a>
+                </p>
+                <p>Link sẽ hết hạn sau 1 giờ.</p>
+            </div>
+        `
+    })
 }

@@ -2,19 +2,16 @@
 import { NextResponse } from "next/server"
 import { clearSessionCookie } from "@/lib/auth/session"
 
-/**
- * POST /api/auth/signout
- * Xóa session cookie để logout user
- */
-export async function POST() {
+export async function POST(req: Request) {
     try {
         // Lấy cookie config để clear session
         const cookieConfig = await clearSessionCookie()
 
-        // Tạo response với success message
+        // Tạo response redirect về signin
         const response = NextResponse.json({
             ok: true,
-            message: "Đăng xuất thành công"
+            message: "Đăng xuất thành công",
+            redirectUrl: '/auth/signin' // Thêm redirectUrl
         })
 
         // Set cookie với maxAge=0 để browser xóa cookie
@@ -34,17 +31,16 @@ export async function POST() {
     }
 }
 
-/**
- * GET /api/auth/signout
- * Support GET method cho các trường hợp redirect đơn giản
- */
-export async function GET() {
+export async function GET(req: Request) {
     try {
         const cookieConfig = await clearSessionCookie()
 
-        // Redirect về trang login sau khi logout
+        // Lấy origin từ request headers
+        const origin = req.headers.get('origin') || 'http://localhost:3000'
+
+        // Redirect về signin với URL tuyệt đối
         const response = NextResponse.redirect(
-            new URL('/auth/signin', process.env.NEXTAUTH_URL || 'http://localhost:3000')
+            new URL('/auth/signin', origin)
         )
 
         response.cookies.set(
@@ -56,8 +52,8 @@ export async function GET() {
         return response
     } catch (error) {
         console.error('[signout GET] Error:', error)
-        return NextResponse.redirect(
-            new URL('/auth/signin', process.env.NEXTAUTH_URL || 'http://localhost:3000')
-        )
+        // Fallback redirect
+        const origin = req.headers.get('origin') || 'http://localhost:3000'
+        return NextResponse.redirect(new URL('/auth/signin', origin))
     }
 }

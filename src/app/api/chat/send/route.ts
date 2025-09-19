@@ -8,14 +8,16 @@ import { streamChat } from '@/lib/ai/adapter'
 import { streamSSEFromGenerator } from '@/lib/http/sse'
 import { withRateLimit } from '@/lib/rate-limit/withRateLimit'
 import { getUserIdFromSession } from '@/lib/auth/session'
-const DEBUG = process.env.NODE_ENV === 'development'
 
+const DEBUG = process.env.NODE_ENV === 'development'
 
 type SendReq = {
     conversationId?: string
     content?: string
     model?: string
     requestId?: string
+    systemPrompt?: string  // Added to accept bot's system prompt
+    botId?: string  // Added to track which bot is being used
 }
 
 const HISTORY_LIMIT = 20
@@ -37,6 +39,10 @@ export const POST = withRateLimit(async (req: Request) => {
             return json(400, { code: 'PER_REQUEST_TOO_LARGE', message: `Nội dung quá dài (> ${MAX_INPUT_CHARS} ký tự).` })
         }
 
+        // Get system prompt from request (bot personality) or use default
+        const botSystemPrompt = body?.systemPrompt
+        const botId = body?.botId
+
         // ——— Conversation: cho phép auto-create khi rỗng hoặc "new"
         const requestedConvId = (body?.conversationId ?? '').trim()
         const requestedModel = coerceModelId(body?.model)
@@ -45,6 +51,9 @@ export const POST = withRateLimit(async (req: Request) => {
             conversationId: requestedConvId,
             initialTitle: rawContent.slice(0, 80) || 'New chat',
             initialModel: requestedModel ?? defaultModel(),
+            // Store bot system prompt and ID in conversation if it's a new conversation
+            initialSystemPrompt: requestedConvId === 'new' || !requestedConvId ? botSystemPrompt : undefined,
+            initialBotId: requestedConvId === 'new' || !requestedConvId ? botId : undefined
         })
         if (!convo) {
             return json(404, { code: 'NOT_FOUND', message: 'Conversation không tồn tại hoặc không thuộc về bạn.' })
@@ -57,17 +66,16 @@ export const POST = withRateLimit(async (req: Request) => {
                 select: { content: true }
             })
 
-            // Fixed: Add null check before accessing content
             if (existing?.content) {
-                const cached = existing.content; // đã chắc chắn là string
+                const cached = existing.content
                 async function* once() {
-                    yield { delta: cached };
+                    yield { delta: cached }
                 }
-                return streamSSEFromGenerator(once());
+                return streamSSEFromGenerator(once())
             }
-
         }
-        // --- Model resolver: map string -> ModelId enum, ưu tiên body, rồi convo, rồi default
+
+        // --- Model resolver: map string -> ModelId enum
         const getDesiredModel = (requestedModel?: ModelId | null, convo?: { model: string | null } ): ModelId => {
             // 1) Nếu body có model và hợp lệ enum
             if (requestedModel && Object.values(ModelId).includes(requestedModel as ModelId)) {
@@ -76,11 +84,9 @@ export const POST = withRateLimit(async (req: Request) => {
 
             // 2) Nếu Conversation có model (đang lưu dạng string)
             if (convo?.model) {
-                // Hỗ trợ format "provider:model" -> lấy phần sau cùng
                 const modelPartRaw = convo.model.split(':').pop() || convo.model
                 const key = modelPartRaw.toLowerCase()
 
-                // Bảng map tên model string -> enum ModelId
                 const modelMapping: Record<string, ModelId> = {
                     // OpenAI
                     'gpt-4o-mini': ModelId.gpt_4o_mini,
@@ -98,7 +104,7 @@ export const POST = withRateLimit(async (req: Request) => {
                     'gemini-1.5-flash': ModelId.gemini_1_5_flash,
                     'gemini-2.0-flash': ModelId.gemini_2_0_flash,
 
-                    // Legacy (nếu DB cũ còn)
+                    // Legacy
                     'gpt5_mini': ModelId.gpt5_mini,
                     'gpt4o_mini': ModelId.gpt4o_mini,
                 }
@@ -111,12 +117,9 @@ export const POST = withRateLimit(async (req: Request) => {
             return defaultModel()
         }
 
-
-        // Model mong muốn (ưu tiên body, rồi convo, rồi default)
         const desiredModel: ModelId = getDesiredModel(requestedModel, convo)
 
-
-        // Lấy 20 tin NHỮNG LẦN GẦN NHẤT (desc -> reverse lại để đúng thứ tự thời gian)
+        // Lấy 20 tin NHỮNG LẦN GẦN NHẤT
         const recent = await prisma.message.findMany({
             where: { conversationId: convo.id },
             orderBy: { createdAt: 'desc' },
@@ -147,8 +150,12 @@ export const POST = withRateLimit(async (req: Request) => {
             data: { conversationId: convo.id, role: Role.USER, content: rawContent }
         })
 
+        // Determine which system prompt to use
+        // Priority: bot system prompt from request > conversation system prompt > default
+        const effectiveSystemPrompt = botSystemPrompt || convo.systemPrompt || 'You are a helpful AI assistant.'
+
         // Build messages gửi provider
-        const sys = convo.systemPrompt ? [{ role: 'system' as const, content: convo.systemPrompt }] : []
+        const sys = [{ role: 'system' as const, content: effectiveSystemPrompt }]
         const allMessages = [...sys, ...preparedHistory, { role: 'user' as const, content: rawContent }]
 
         // Streaming với fallback provider
@@ -165,12 +172,21 @@ export const POST = withRateLimit(async (req: Request) => {
             const promptTokens = estimateIn
             let lastErrorMessage = ''
 
+            // Add metadata about conversation and bot
+            yield {
+                meta: {
+                    conversationId: convo.id,
+                    model: desiredModel,
+                    systemPrompt: effectiveSystemPrompt
+                }
+            }
+
             for (const c of candidates) {
                 try {
                     picked = c
                     for await (const chunk of streamChat({
                         model: c.id,
-                        system: convo.systemPrompt || undefined,
+                        system: effectiveSystemPrompt,
                         messages: allMessages,
                         signal: controller.signal
                     })) {
@@ -202,7 +218,7 @@ export const POST = withRateLimit(async (req: Request) => {
             const latencyMs = Date.now() - startedAt
             const completionTokens = estimateTokensFromText(fullText)
 
-            // Lưu ASSISTANT message (bắt unique idempotencyKey nếu trùng hiếm hoi)
+            // Lưu ASSISTANT message
             let assistantMsgId: string | null = null
             try {
                 const assistantMsg = await prisma.message.create({
@@ -220,7 +236,6 @@ export const POST = withRateLimit(async (req: Request) => {
                 })
                 assistantMsgId = assistantMsg.id
             } catch (e: unknown) {
-                // Nếu trùng idempotencyKey (hiếm – do unique global), ghi lại với hậu tố
                 const msg = e instanceof Error ? e.message : String(e)
                 if (msg.toLowerCase().includes('unique') && body?.requestId) {
                     const assistantMsg = await prisma.message.create({
@@ -242,7 +257,7 @@ export const POST = withRateLimit(async (req: Request) => {
                 }
             }
 
-            // Cập nhật updatedAt của Conversation để nổi lên đầu danh sách
+            // Cập nhật updatedAt của Conversation
             await prisma.conversation.update({
                 where: { id: convo.id },
                 data: { updatedAt: new Date() }
@@ -261,6 +276,9 @@ export const POST = withRateLimit(async (req: Request) => {
                     latencyMs
                 }
             })
+
+            // Signal completion
+            yield { done: true }
         })()
 
         return streamSSEFromGenerator(gen, {
@@ -284,12 +302,10 @@ function json(status: number, data: unknown) {
 function coerceModelId(input?: string | null): ModelId | null {
     if (!input) return null
 
-    // Nếu input đã đúng enum value
     if ((Object.values(ModelId) as string[]).includes(input as string)) {
         return input as ModelId
     }
 
-    // Map các tên phổ biến về enum
     const key = input.toLowerCase()
     const modelMapping: Record<string, ModelId> = {
         'gpt-4o-mini': ModelId.gpt_4o_mini,
@@ -307,33 +323,35 @@ function coerceModelId(input?: string | null): ModelId | null {
     return modelMapping[key] ?? null
 }
 
-
 async function ensureConversation(args: {
     userId: string
     conversationId?: string
     initialTitle: string
     initialModel: ModelId
+    initialSystemPrompt?: string  // Added to store bot system prompt
+    initialBotId?: string  // Added to store bot ID
 }) {
     const cid = (args.conversationId ?? '').trim().toLowerCase()
-    // Tự tạo khi rỗng hoặc "new"
+
+    // Auto create new conversation
     if (!cid || cid === 'new') {
         return prisma.conversation.create({
             data: {
                 userId: args.userId,
                 title: args.initialTitle,
-                model: args.initialModel
+                model: args.initialModel,
+                systemPrompt: args.initialSystemPrompt,  // Store bot's system prompt
+                botId: args.initialBotId  // Store bot ID
             },
-            select: { id: true, userId: true, systemPrompt: true, model: true }
+            select: { id: true, userId: true, systemPrompt: true, model: true, botId: true }
         })
     }
-    // Tìm convo có sẵn & kiểm tra quyền sở hữu
+
+    // Find existing conversation
     const found = await prisma.conversation.findUnique({
         where: { id: args.conversationId! },
-        select: { id: true, userId: true, systemPrompt: true, model: true }
+        select: { id: true, userId: true, systemPrompt: true, model: true, botId: true }
     })
     if (!found || found.userId !== args.userId) return null
     return found
 }
-
-// ⚠️ DEV ONLY: thay bằng auth thực tế của bạn
-

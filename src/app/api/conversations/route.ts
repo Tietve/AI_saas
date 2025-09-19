@@ -46,6 +46,7 @@ export async function GET(req: NextRequest) {
                     title: true,
                     model: true,
                     systemPrompt: true,
+                    botId: true,  // Thêm botId vào select
                     createdAt: true,
                     updatedAt: true,
                     _count: {
@@ -66,6 +67,7 @@ export async function GET(req: NextRequest) {
             title: conv.title || 'Untitled',
             model: conv.model,
             systemPrompt: conv.systemPrompt,
+            botId: conv.botId,  // Include botId trong response
             createdAt: conv.createdAt.toISOString(),
             updatedAt: conv.updatedAt.toISOString(),
             messageCount: conv._count.messages,
@@ -103,19 +105,22 @@ export async function POST(req: NextRequest) {
         const title = body.title?.trim() || 'New Chat'
         const systemPrompt = body.systemPrompt?.trim()
         const model = body.model || 'gpt_4o_mini'
+        const botId = body.botId || null  // Nhận botId từ request
 
         const conversation = await prisma.conversation.create({
             data: {
                 userId,
                 title,
                 systemPrompt,
-                model
+                model,
+                botId  // Lưu botId vào database
             },
             select: {
                 id: true,
                 title: true,
                 model: true,
                 systemPrompt: true,
+                botId: true,  // Return botId
                 createdAt: true,
                 updatedAt: true
             }
@@ -134,6 +139,46 @@ export async function POST(req: NextRequest) {
 
         if (error.message === 'UNAUTHENTICATED') {
             return jsonResponse(401, { error: 'Authentication required' })
+        }
+
+        // Nếu lỗi do field botId chưa có trong database
+        if (error.code === 'P2002' || error.message.includes('botId')) {
+            console.error('[POST /api/conversations] Database schema may need update. Run: npx prisma db push')
+
+            // Fallback: tạo conversation không có botId
+            try {
+                const userId = await requireUserId()
+                const body = await req.json().catch(() => ({}))
+
+                const conversation = await prisma.conversation.create({
+                    data: {
+                        userId,
+                        title: body.title?.trim() || 'New Chat',
+                        systemPrompt: body.systemPrompt?.trim(),
+                        model: body.model || 'gpt_4o_mini'
+                        // Không include botId nếu schema chưa có
+                    },
+                    select: {
+                        id: true,
+                        title: true,
+                        model: true,
+                        systemPrompt: true,
+                        createdAt: true,
+                        updatedAt: true
+                    }
+                })
+
+                return jsonResponse(201, {
+                    item: {
+                        ...conversation,
+                        botId: null,  // Return null để frontend biết
+                        createdAt: conversation.createdAt.toISOString(),
+                        updatedAt: conversation.updatedAt.toISOString()
+                    }
+                })
+            } catch (fallbackError) {
+                console.error('[POST /api/conversations] Fallback failed:', fallbackError)
+            }
         }
 
         return jsonResponse(500, {

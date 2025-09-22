@@ -1,7 +1,15 @@
+// src/components/theme-provider.tsx - UNIFIED VERSION
+
 'use client'
 
 import React, { createContext, useContext, useState, useEffect } from 'react'
-import { themes, applyTheme, getCurrentTheme, ThemeConfig } from '@/lib/theme/theme-system'
+import {
+    themes,
+    ThemeConfig,
+    applyTheme as applyThemeFromSystem,
+    getCurrentTheme,
+    isOnChatPage
+} from '@/lib/theme/theme-system'
 
 interface ThemeContextType {
     currentTheme: ThemeConfig
@@ -12,24 +20,31 @@ interface ThemeContextType {
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined)
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-    const [currentThemeId, setCurrentThemeId] = useState<string>('noble')
+    const [currentThemeId, setCurrentThemeId] = useState<string>('default')
 
     useEffect(() => {
-        // Load saved theme on mount
-        const savedTheme = getCurrentTheme()
-        setCurrentThemeId(savedTheme)
-        applyTheme(savedTheme)
+        // Only initialize theme on chat page
+        if (isOnChatPage()) {
+            const savedTheme = getCurrentTheme()
+            setCurrentThemeId(savedTheme)
+            // Use the centralized applyTheme function
+            applyThemeFromSystem(savedTheme)
+        }
     }, [])
 
     const setTheme = (themeId: string) => {
         if (!themes[themeId]) return
 
         setCurrentThemeId(themeId)
-        applyTheme(themeId)
+
+        // Use the centralized applyTheme function from theme-system.ts
+        applyThemeFromSystem(themeId)
+
+        // The theme-system.ts already handles localStorage
     }
 
     const value = {
-        currentTheme: themes[currentThemeId] || themes.noble,
+        currentTheme: themes[currentThemeId] || themes.default,
         setTheme,
         availableThemes: Object.values(themes)
     }

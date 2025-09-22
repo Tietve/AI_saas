@@ -37,6 +37,7 @@
     "@anthropic-ai/sdk": "^0.24.3",
     "@google/generative-ai": "^0.21.0",
     "@payos/node": "^2.0.3",
+    "@payos/payos-checkout": "^1.0.8",
     "@prisma/client": "^5.22.0",
     "@radix-ui/react-checkbox": "^1.1.2",
     "@radix-ui/react-label": "^2.1.0",

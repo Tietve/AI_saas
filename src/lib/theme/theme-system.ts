@@ -1,5 +1,5 @@
 // src/lib/theme/theme-system.ts
-// Hệ thống theme sang trọng tối giản với override Tailwind CSS
+// Hệ thống theme SCOPED - chỉ áp dụng cho /chat
 
 export interface ThemeColors {
     primary: string
@@ -33,11 +33,11 @@ export const themes: Record<string, ThemeConfig> = {
             primaryHover: '#F4CF57',
             background: '#0A0E1A',
             backgroundSecondary: '#151B2C',
-            surface: '#2A3655',
+            surface: '#1F2937',  // Adjusted for better contrast
             text: '#F8F9FA',
             textSecondary: '#B8C1D1',
             accent: '#8B7355',
-            border: '#2A3655',
+            border: '#374151',  // Better visibility
             success: '#4ADE80',
             error: '#F87171',
             warning: '#FBBF24'
@@ -73,11 +73,11 @@ export const themes: Record<string, ThemeConfig> = {
             primaryHover: '#00F0FF',
             background: '#0A0A0F',
             backgroundSecondary: '#13131A',
-            surface: '#252530',
+            surface: '#1A1A24',  // Better contrast
             text: '#FFFFFF',
             textSecondary: '#B0B0C0',
             accent: '#FF00FF',
-            border: '#2A2A3A',
+            border: '#3A3A4A',  // More visible
             success: '#00FF88',
             error: '#FF0044',
             warning: '#FFD700'
@@ -113,7 +113,7 @@ export const themes: Record<string, ThemeConfig> = {
             primaryHover: '#0084B4',
             background: '#001A33',
             backgroundSecondary: '#002244',
-            surface: '#003366',
+            surface: '#002A55',  // Better visibility
             text: '#E0F2FE',
             textSecondary: '#87CEEB',
             accent: '#00CED1',
@@ -182,65 +182,95 @@ export const themes: Record<string, ThemeConfig> = {
             error: '#CD5C5C',
             warning: '#DAA520'
         }
+    },
+
+    // 9. Default - No theme (uses Tailwind defaults)
+    default: {
+        name: 'Default',
+        id: 'default',
+        colors: {
+            primary: '#10b981',
+            primaryHover: '#059669',
+            background: '#ffffff',
+            backgroundSecondary: '#f9fafb',
+            surface: '#ffffff',
+            text: '#111827',
+            textSecondary: '#6b7280',
+            accent: '#10b981',
+            border: '#e5e7eb',
+            success: '#10b981',
+            error: '#ef4444',
+            warning: '#f59e0b'
+        }
     }
 }
 
-// Helper function để apply theme với override mạnh
+// IMPORTANT: Only apply theme to chat page
 export function applyTheme(themeId: string): void {
-    const theme = themes[themeId]
-    if (!theme) return
-
-    const root = document.documentElement
-
-    // 1. Apply colors as CSS variables
-    Object.entries(theme.colors).forEach(([key, value]) => {
-        const cssVarName = `--color-${key.replace(/([A-Z])/g, '-$1').toLowerCase()}`
-        root.style.setProperty(cssVarName, value)
-    })
-
-    // 2. Remove all theme classes first
-    document.documentElement.classList.remove(
-        'theme-override',
-        'theme-noble',
-        'theme-zen',
-        'theme-cyber',
-        'theme-rosegold',
-        'theme-ocean',
-        'theme-sunset',
-        'theme-minimal',
-        'theme-forest'
-    )
-
-    // 3. Add specific theme class và override class
-    document.documentElement.classList.add('theme-override')
-    document.documentElement.classList.add(`theme-${themeId}`)
-
-    // 4. Force remove Tailwind dark mode nếu có
-    if (document.documentElement.classList.contains('dark')) {
-        document.documentElement.setAttribute('data-tailwind-dark', 'true')
-        document.documentElement.classList.remove('dark')
+    // Check if we're on the chat page
+    if (!isOnChatPage()) {
+        console.log('Theme only applies to /chat page')
+        return
     }
 
-    // 5. Apply inline styles cho một số elements quan trọng để đảm bảo override
-    requestAnimationFrame(() => {
-        // Override body background
-        document.body.style.backgroundColor = theme.colors.background
-        document.body.style.color = theme.colors.text
+    const theme = themes[themeId] || themes.default
 
-        // Override tất cả elements có Tailwind bg-white
-        const whiteBackgrounds = document.querySelectorAll(
-            '.bg-white, .bg-gray-50, .bg-gray-100, .dark\\:bg-gray-900, .dark\\:bg-gray-800'
-        )
-        whiteBackgrounds.forEach((el) => {
+    // Find chat container instead of root
+    const chatContainer = document.querySelector('[data-theme-scope="chat"]') ||
+        document.querySelector('.chat-page-container') ||
+        document.querySelector('main')
+
+    if (!chatContainer) {
+        console.warn('Chat container not found, applying to root as fallback')
+    }
+
+    const targetElement = chatContainer || document.documentElement
+
+    // 1. Apply colors as CSS variables to the target element
+    Object.entries(theme.colors).forEach(([key, value]) => {
+        const cssVarName = `--color-${key.replace(/([A-Z])/g, '-$1').toLowerCase()}`
+        if (targetElement instanceof HTMLElement) {
+            targetElement.style.setProperty(cssVarName, value)
+        }
+    })
+
+    // 2. Add theme class to chat container only
+    if (targetElement instanceof HTMLElement) {
+        // Remove previous theme classes
+        targetElement.className = targetElement.className.replace(/theme-\w+/g, '')
+        // Add new theme class
+        targetElement.classList.add(`theme-${themeId}`)
+        targetElement.setAttribute('data-theme', themeId)
+    }
+
+    // 3. FORCE OVERRIDE all child elements with Tailwind classes
+    requestAnimationFrame(() => {
+        if (!chatContainer) return
+
+        // Override ALL white/gray backgrounds
+        const bgElements = chatContainer.querySelectorAll(`
+            .bg-white, .bg-gray-50, .bg-gray-100, 
+            .dark\\:bg-gray-900, .dark\\:bg-gray-950, .dark\\:bg-gray-800,
+            .chat-header, .chat-sidebar, .chat-messages, .chat-input-container
+        `)
+        bgElements.forEach((el) => {
             if (el instanceof HTMLElement) {
-                el.style.setProperty('background-color', theme.colors.surface, 'important')
+                // Check element type for appropriate color
+                if (el.classList.contains('chat-sidebar') ||
+                    el.classList.contains('bg-gray-100') ||
+                    el.classList.contains('dark:bg-gray-800')) {
+                    el.style.setProperty('background-color', theme.colors.backgroundSecondary, 'important')
+                } else {
+                    el.style.setProperty('background-color', theme.colors.background, 'important')
+                }
             }
         })
 
         // Override text colors
-        const textElements = document.querySelectorAll(
-            '.text-gray-900, .text-black, .dark\\:text-gray-100, .dark\\:text-white'
-        )
+        const textElements = chatContainer.querySelectorAll(`
+            .text-gray-900, .text-gray-800, .text-black,
+            .dark\\:text-gray-100, .dark\\:text-gray-200, .dark\\:text-white
+        `)
         textElements.forEach((el) => {
             if (el instanceof HTMLElement) {
                 el.style.setProperty('color', theme.colors.text, 'important')
@@ -248,9 +278,10 @@ export function applyTheme(themeId: string): void {
         })
 
         // Override secondary text
-        const secondaryTextElements = document.querySelectorAll(
-            '.text-gray-600, .text-gray-500, .dark\\:text-gray-400'
-        )
+        const secondaryTextElements = chatContainer.querySelectorAll(`
+            .text-gray-600, .text-gray-500, .text-gray-400,
+            .dark\\:text-gray-400, .dark\\:text-gray-500
+        `)
         secondaryTextElements.forEach((el) => {
             if (el instanceof HTMLElement) {
                 el.style.setProperty('color', theme.colors.textSecondary, 'important')
@@ -258,75 +289,273 @@ export function applyTheme(themeId: string): void {
         })
 
         // Override borders
-        const borderElements = document.querySelectorAll(
-            '.border-gray-200, .border-gray-300, .dark\\:border-gray-700'
-        )
+        const borderElements = chatContainer.querySelectorAll(`
+            .border-gray-200, .border-gray-300,
+            .dark\\:border-gray-700, .dark\\:border-gray-800
+        `)
         borderElements.forEach((el) => {
             if (el instanceof HTMLElement) {
                 el.style.setProperty('border-color', theme.colors.border, 'important')
             }
         })
+
+        // Override hover states
+        const hoverElements = chatContainer.querySelectorAll(`
+            .hover\\:bg-gray-100, .hover\\:bg-gray-200,
+            .dark\\:hover\\:bg-gray-800, .dark\\:hover\\:bg-gray-700
+        `)
+        hoverElements.forEach((el) => {
+            if (el instanceof HTMLElement) {
+                el.addEventListener('mouseenter', () => {
+                    el.style.setProperty('background-color', theme.colors.surface, 'important')
+                })
+                el.addEventListener('mouseleave', () => {
+                    el.style.setProperty('background-color', 'transparent', 'important')
+                })
+            }
+        })
     })
 
-    // 6. Save to localStorage
+    // 3. Save to localStorage with chat scope
     if (typeof window !== 'undefined') {
-        localStorage.setItem('selectedTheme', themeId)
-        localStorage.setItem('themeColors', JSON.stringify(theme.colors))
+        localStorage.setItem('chat-theme', themeId)
+        localStorage.setItem('chat-theme-colors', JSON.stringify(theme.colors))
     }
 
-    // 7. Dispatch custom event để các components khác có thể listen
-    window.dispatchEvent(new CustomEvent('themeChanged', {
-        detail: { themeId, colors: theme.colors }
-    }))
+    // 4. Dispatch event for chat components only
+    if (chatContainer) {
+        chatContainer.dispatchEvent(new CustomEvent('chatThemeChanged', {
+            detail: { themeId, colors: theme.colors },
+            bubbles: true
+        }))
+    }
 }
 
-// Get current theme from localStorage
+// Check if we're on chat page
+export function isOnChatPage(): boolean {
+    if (typeof window === 'undefined') return false
+    return window.location.pathname.startsWith('/chat')
+}
+
+// Get current theme (scoped to chat)
 export function getCurrentTheme(): string {
-    if (typeof window === 'undefined') return 'noble'
-    return localStorage.getItem('selectedTheme') || 'noble'
+    if (typeof window === 'undefined') return 'default'
+
+    // Only load theme if on chat page
+    if (!isOnChatPage()) return 'default'
+
+    return localStorage.getItem('chat-theme') || 'default'
 }
 
-// Get current theme colors
+// Get current theme colors (scoped to chat)
 export function getCurrentThemeColors(): ThemeColors | null {
     if (typeof window === 'undefined') return null
-    const saved = localStorage.getItem('themeColors')
+    if (!isOnChatPage()) return themes.default.colors
+
+    const saved = localStorage.getItem('chat-theme-colors')
     if (saved) {
         try {
             return JSON.parse(saved)
         } catch {
-            return null
+            return themes.default.colors
         }
     }
-    return null
+    return themes.default.colors
 }
 
-// Initialize theme on load với override mạnh
+// Initialize theme on load (ONLY for chat page)
 export function initializeTheme(): void {
+    // Don't initialize if not on chat page
+    if (!isOnChatPage()) {
+        console.log('Not on chat page, skipping theme initialization')
+        return
+    }
+
     const currentTheme = getCurrentTheme()
 
-    // Delay một chút để đảm bảo DOM đã load
     if (typeof window !== 'undefined') {
-        // Apply ngay lập tức
-        applyTheme(currentTheme)
-
-        // Apply lại sau khi DOM ready
+        // Apply theme only after DOM is ready
         if (document.readyState === 'loading') {
             document.addEventListener('DOMContentLoaded', () => {
-                applyTheme(currentTheme)
+                if (isOnChatPage()) {
+                    applyTheme(currentTheme)
+                }
             })
-        }
-
-        // Apply lại sau 100ms để đảm bảo override Tailwind
-        setTimeout(() => {
+        } else {
             applyTheme(currentTheme)
-        }, 100)
+        }
     }
 }
 
-// Utility function để get CSS variable value
+// Create and inject scoped styles for chat
+export function injectChatThemeStyles(): void {
+    if (!isOnChatPage()) return
+
+    const styleId = 'chat-theme-styles'
+
+    // Remove existing styles
+    const existing = document.getElementById(styleId)
+    if (existing) existing.remove()
+
+    // Create scoped styles with MAXIMUM specificity and !important
+    const style = document.createElement('style')
+    style.id = styleId
+    style.textContent = `
+        /* ULTIMATE OVERRIDE - Maximum specificity with !important */
+        html body [data-theme-scope="chat"][data-theme]:not([data-theme="default"]) * {
+            /* Remove all Tailwind color classes effect */
+            transition: background-color 0.2s, color 0.2s, border-color 0.2s;
+        }
+        
+        /* ULTRA HIGH SPECIFICITY - Ensure theme override everything */
+        html body [data-theme-scope="chat"][data-theme]:not([data-theme="default"]),
+        html body [data-theme-scope="chat"][data-theme]:not([data-theme="default"]) .chat-container,
+        html body [data-theme-scope="chat"][data-theme]:not([data-theme="default"]) .flex.h-screen {
+            background-color: var(--color-background) !important;
+            color: var(--color-text) !important;
+        }
+        
+        /* Override ALL possible backgrounds with max specificity */
+        html body [data-theme-scope="chat"][data-theme]:not([data-theme="default"]) div[class*="bg-white"],
+        html body [data-theme-scope="chat"][data-theme]:not([data-theme="default"]) div[class*="bg-gray"],
+        html body [data-theme-scope="chat"][data-theme]:not([data-theme="default"]) header,
+        html body [data-theme-scope="chat"][data-theme]:not([data-theme="default"]) aside,
+        html body [data-theme-scope="chat"][data-theme]:not([data-theme="default"]) main,
+        html body [data-theme-scope="chat"][data-theme]:not([data-theme="default"]) section,
+        html body [data-theme-scope="chat"][data-theme]:not([data-theme="default"]) .chat-header {
+            background-color: var(--color-background) !important;
+        }
+        
+        /* Sidebar with different background */
+        html body [data-theme-scope="chat"][data-theme]:not([data-theme="default"]) aside[class*="border-r"],
+        html body [data-theme-scope="chat"][data-theme]:not([data-theme="default"]) .w-60,
+        html body [data-theme-scope="chat"][data-theme]:not([data-theme="default"]) [class*="lg:w-60"] {
+            background-color: var(--color-background-secondary) !important;
+        }
+        
+        /* Messages area specific */
+        html body [data-theme-scope="chat"][data-theme]:not([data-theme="default"]) .chat-messages,
+        html body [data-theme-scope="chat"][data-theme]:not([data-theme="default"]) div[class*="overflow-y-auto"] {
+            background-color: var(--color-background) !important;
+        }
+        
+        /* Input area specific */
+        html body [data-theme-scope="chat"][data-theme]:not([data-theme="default"]) .chat-input-container,
+        html body [data-theme-scope="chat"][data-theme]:not([data-theme="default"]) div[class*="border-t"] {
+            background-color: var(--color-background) !important;
+            border-color: var(--color-border) !important;
+        }
+        
+        /* Override ALL text colors */
+        html body [data-theme-scope="chat"][data-theme]:not([data-theme="default"]) *:not(button):not(a) {
+            color: inherit !important;
+        }
+        
+        html body [data-theme-scope="chat"][data-theme]:not([data-theme="default"]) h1,
+        html body [data-theme-scope="chat"][data-theme]:not([data-theme="default"]) h2,
+        html body [data-theme-scope="chat"][data-theme]:not([data-theme="default"]) h3,
+        html body [data-theme-scope="chat"][data-theme]:not([data-theme="default"]) p,
+        html body [data-theme-scope="chat"][data-theme]:not([data-theme="default"]) span:not(.color-dot),
+        html body [data-theme-scope="chat"][data-theme]:not([data-theme="default"]) div {
+            color: var(--color-text) !important;
+        }
+        
+        /* Secondary text elements */
+        html body [data-theme-scope="chat"][data-theme]:not([data-theme="default"]) [class*="text-gray-600"],
+        html body [data-theme-scope="chat"][data-theme]:not([data-theme="default"]) [class*="text-gray-500"],
+        html body [data-theme-scope="chat"][data-theme]:not([data-theme="default"]) [class*="text-gray-400"] {
+            color: var(--color-text-secondary) !important;
+        }
+        
+        /* All borders */
+        html body [data-theme-scope="chat"][data-theme]:not([data-theme="default"]) [class*="border"] {
+            border-color: var(--color-border) !important;
+        }
+        
+        /* Buttons and interactive elements */
+        html body [data-theme-scope="chat"][data-theme]:not([data-theme="default"]) button:not([class*="bg-gradient"]):not(.upgrade-button) {
+            color: var(--color-text) !important;
+            background-color: transparent !important;
+        }
+        
+        html body [data-theme-scope="chat"][data-theme]:not([data-theme="default"]) button:hover:not([class*="bg-gradient"]):not(.upgrade-button) {
+            background-color: var(--color-surface) !important;
+        }
+        
+        /* Surface elements like cards, modals */
+        html body [data-theme-scope="chat"][data-theme]:not([data-theme="default"]) [class*="bg-gray-100"],
+        html body [data-theme-scope="chat"][data-theme]:not([data-theme="default"]) [class*="hover:bg-gray-100"]:hover {
+            background-color: var(--color-surface) !important;
+        }
+        
+        /* Inputs and textareas */
+        html body [data-theme-scope="chat"][data-theme]:not([data-theme="default"]) input,
+        html body [data-theme-scope="chat"][data-theme]:not([data-theme="default"]) textarea,
+        html body [data-theme-scope="chat"][data-theme]:not([data-theme="default"]) select {
+            background-color: var(--color-surface) !important;
+            color: var(--color-text) !important;
+            border-color: var(--color-border) !important;
+        }
+        
+        /* Dropdown menus */
+        html body .theme-selector-dropdown,
+        html body .bot-selector-dropdown,
+        html body .model-selector-dropdown {
+            background-color: var(--color-surface) !important;
+            border-color: var(--color-border) !important;
+            z-index: 99999 !important;
+        }
+        
+        /* Force dark theme colors for specific themes */
+        html body [data-theme-scope="chat"][data-theme="noble"],
+        html body [data-theme-scope="chat"][data-theme="cyber"],
+        html body [data-theme-scope="chat"][data-theme="ocean"] {
+            background-color: var(--color-background) !important;
+            color: var(--color-text) !important;
+        }
+        
+        /* Scrollbars */
+        html body [data-theme-scope="chat"][data-theme]:not([data-theme="default"]) ::-webkit-scrollbar-track {
+            background: var(--color-background-secondary) !important;
+        }
+        
+        html body [data-theme-scope="chat"][data-theme]:not([data-theme="default"]) ::-webkit-scrollbar-thumb {
+            background: var(--color-border) !important;
+        }
+    `
+
+    document.head.appendChild(style)
+}
+
+// Reset theme (for non-chat pages)
+export function resetTheme(): void {
+    const root = document.documentElement
+
+    // Remove all theme classes
+    root.className = root.className.replace(/theme-\w+/g, '')
+    root.removeAttribute('data-theme')
+
+    // Remove inline styles
+    const themeVars = [
+        '--color-primary', '--color-primary-hover', '--color-background',
+        '--color-background-secondary', '--color-surface', '--color-text',
+        '--color-text-secondary', '--color-accent', '--color-border',
+        '--color-success', '--color-error', '--color-warning'
+    ]
+
+    themeVars.forEach(varName => {
+        root.style.removeProperty(varName)
+    })
+}
+
+// Utility function to get CSS variable value
 export function getCSSVariable(name: string): string {
     if (typeof window === 'undefined') return ''
-    return getComputedStyle(document.documentElement)
+
+    const chatContainer = document.querySelector('[data-theme-scope="chat"]')
+    const element = chatContainer || document.documentElement
+
+    return getComputedStyle(element)
         .getPropertyValue(name)
         .trim()
 }
@@ -335,4 +564,4 @@ export function getCSSVariable(name: string): string {
 export const themeIds = Object.keys(themes)
 
 // Export default theme
-export const defaultTheme = 'noble'
+export const defaultTheme = 'default'

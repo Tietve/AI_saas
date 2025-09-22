@@ -1,7 +1,8 @@
-// src/components/chat/ChatInput/index.tsx
+// src/components/chat/ChatInput/index.tsx - REDESIGNED VERSION
 
-import React, { useRef, useEffect } from 'react'
+import React, { useRef, useEffect, useState } from 'react'
 import { InputControls } from './InputControls'
+import { Paperclip, Smile, Mic } from 'lucide-react'
 
 interface ChatInputProps {
     value: string
@@ -9,6 +10,7 @@ interface ChatInputProps {
     onSend: () => void
     onStop: () => void
     isLoading: boolean
+    disabled?: boolean
 }
 
 export const ChatInput: React.FC<ChatInputProps> = ({
@@ -16,72 +18,159 @@ export const ChatInput: React.FC<ChatInputProps> = ({
                                                         onChange,
                                                         onSend,
                                                         onStop,
-                                                        isLoading
+                                                        isLoading,
+                                                        disabled = false
                                                     }) => {
-    const inputRef = useRef<HTMLTextAreaElement>(null)
+    const textareaRef = useRef<HTMLTextAreaElement>(null)
+    const [rows, setRows] = useState(1)
 
     // Auto-focus on mount
     useEffect(() => {
-        inputRef.current?.focus()
-    }, [])
+        if (!disabled) {
+            textareaRef.current?.focus()
+        }
+    }, [disabled])
+
+    // Auto-resize textarea
+    useEffect(() => {
+        if (textareaRef.current) {
+            textareaRef.current.style.height = 'auto'
+            const scrollHeight = textareaRef.current.scrollHeight
+            const lineHeight = 24 // Approximate line height
+            const maxRows = 6
+            const newRows = Math.min(Math.max(Math.ceil(scrollHeight / lineHeight), 1), maxRows)
+            setRows(newRows)
+            textareaRef.current.style.height = `${scrollHeight}px`
+        }
+    }, [value])
 
     const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
         if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
             e.preventDefault()
-            onSend()
+            if (!disabled && value.trim()) {
+                onSend()
+            }
         }
     }
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault()
-        if (value.trim() && !isLoading) {
+        if (value.trim() && !isLoading && !disabled) {
             onSend()
         }
     }
 
     return (
-        <div className="chat-input-container px-4 lg:px-6 py-4 bg-white dark:bg-gray-950
-                      border-t border-gray-200 dark:border-gray-800">
-            <div className="max-w-4xl mx-auto">
-                <form onSubmit={handleSubmit}>
-                    <div className="relative">
-                        <textarea
-                            ref={inputRef}
-                            value={value}
-                            onChange={(e) => onChange(e.target.value)}
-                            onKeyDown={handleKeyDown}
-                            placeholder={isLoading ? 'AI đang trả lời...' : 'Nhập tin nhắn của bạn...'}
-                            disabled={isLoading}
-                            className="chat-input w-full px-4 py-3 pr-24 bg-gray-100 dark:bg-gray-800
-                                     border border-gray-200 dark:border-gray-700 rounded-xl
-                                     text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400
-                                     focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent
-                                     disabled:opacity-50 disabled:cursor-not-allowed resize-none"
-                            rows={3}
-                        />
+        <div className="chat-input-container border-t border-gray-200 dark:border-gray-800
+                        bg-white dark:bg-gray-950">
+            <form onSubmit={handleSubmit}>
+                <div className="px-4 py-3">
+                    <div className="max-w-3xl mx-auto">
+                        <div className="relative">
+                            {/* Main Input Container */}
+                            <div className={`
+                                flex items-end gap-2 bg-gray-100 dark:bg-gray-800 
+                                rounded-2xl px-3 py-2 transition-all
+                                ${disabled ? 'opacity-50 cursor-not-allowed' : ''}
+                                ${!disabled && !isLoading ? 'hover:bg-gray-50 dark:hover:bg-gray-800/70' : ''}
+                                focus-within:ring-2 focus-within:ring-blue-500 focus-within:bg-white dark:focus-within:bg-gray-900
+                            `}>
+                                {/* Attachment Button */}
+                                <button
+                                    type="button"
+                                    disabled={disabled || isLoading}
+                                    className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300
+                                             transition-colors disabled:opacity-50 disabled:cursor-not-allowed
+                                             hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg"
+                                    title="Đính kèm file">
+                                    <Paperclip className="w-5 h-5" />
+                                </button>
 
-                        <InputControls
-                            inputLength={value.length}
-                            isLoading={isLoading}
-                            hasInput={!!value.trim()}
-                            onSend={onSend}
-                            onStop={onStop}
-                        />
+                                {/* Textarea */}
+                                <textarea
+                                    ref={textareaRef}
+                                    value={value}
+                                    onChange={(e) => onChange(e.target.value)}
+                                    onKeyDown={handleKeyDown}
+                                    placeholder={
+                                        disabled
+                                            ? 'Đã hết lượt chat hôm nay...'
+                                            : isLoading
+                                                ? 'AI đang trả lời...'
+                                                : 'Nhập tin nhắn của bạn...'
+                                    }
+                                    disabled={disabled || isLoading}
+                                    rows={rows}
+                                    className="flex-1 bg-transparent resize-none outline-none
+                                             text-sm text-gray-900 dark:text-white
+                                             placeholder-gray-500 dark:placeholder-gray-400
+                                             disabled:cursor-not-allowed
+                                             min-h-[24px] max-h-[144px]"
+                                    style={{
+                                        lineHeight: '24px',
+                                        overflowY: rows > 5 ? 'auto' : 'hidden'
+                                    }}
+                                />
+
+                                {/* Right Controls */}
+                                <div className="flex items-end gap-1">
+                                    {/* Emoji Button - Hidden on mobile */}
+                                    <button
+                                        type="button"
+                                        disabled={disabled || isLoading}
+                                        className="hidden sm:block p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300
+                                                 transition-colors disabled:opacity-50 disabled:cursor-not-allowed
+                                                 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg"
+                                        title="Emoji">
+                                        <Smile className="w-5 h-5" />
+                                    </button>
+
+                                    {/* Voice Button - Hidden on mobile */}
+                                    <button
+                                        type="button"
+                                        disabled={disabled || isLoading}
+                                        className="hidden sm:block p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300
+                                                 transition-colors disabled:opacity-50 disabled:cursor-not-allowed
+                                                 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg"
+                                        title="Ghi âm">
+                                        <Mic className="w-5 h-5" />
+                                    </button>
+
+                                    {/* Send/Stop Controls */}
+                                    <InputControls
+                                        inputLength={value.length}
+                                        isLoading={isLoading}
+                                        hasInput={!!value.trim()}
+                                        onSend={onSend}
+                                        onStop={onStop}
+                                        disabled={disabled}
+                                    />
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Helper Text */}
+                        <div className="flex items-center justify-between mt-2 px-1">
+                            <span className="text-[10px] text-gray-500 dark:text-gray-400">
+                                {disabled ? (
+                                    <span className="text-red-500">Hết lượt chat. Nâng cấp để tiếp tục</span>
+                                ) : (
+                                    <>
+                                        Nhấn <kbd className="px-1 py-0.5 bg-gray-200 dark:bg-gray-700 rounded text-[10px]">Ctrl</kbd>
+                                        +
+                                        <kbd className="px-1 py-0.5 bg-gray-200 dark:bg-gray-700 rounded text-[10px] ml-0.5">Enter</kbd> để gửi
+                                    </>
+                                )}
+                            </span>
+                            {!disabled && (
+                                <span className="text-[10px] text-gray-500 dark:text-gray-400">
+                                    {value.length}/4000
+                                </span>
+                            )}
+                        </div>
                     </div>
-                </form>
-
-                <div className="mt-2 flex justify-between items-center">
-                    <span className="text-xs text-gray-500 dark:text-gray-400">
-                        Nhấn <kbd className="chat-kbd px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 rounded text-xs">Ctrl</kbd> +
-                        <kbd className="chat-kbd px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 rounded text-xs ml-1">Enter</kbd> để gửi
-                    </span>
-                    {isLoading && (
-                        <span className="text-xs text-blue-600 dark:text-blue-400 animate-pulse">
-                            AI đang suy nghĩ...
-                        </span>
-                    )}
                 </div>
-            </div>
+            </form>
         </div>
     )
 }

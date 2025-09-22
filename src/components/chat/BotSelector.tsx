@@ -61,7 +61,7 @@ export function BotSelector({
                 disabled={disabled}
                 className={`bot-selector-trigger ${compact ? 'compact' : ''} ${disabled ? 'disabled' : ''}`}
                 style={{
-                    '--bot-color': selectedBot?.appearance.primaryColor || 'var(--color-primary)'
+                    '--bot-color': selectedBot?.appearance.primaryColor || '#10b981'
                 } as React.CSSProperties}
             >
                 <span className="bot-emoji">{currentBot.appearance.emoji}</span>
@@ -116,9 +116,9 @@ export function BotSelector({
                                 onMouseLeave={() => setHoveredBot(null)}
                                 className={`bot-option ${selectedBot?.id === bot.id ? 'selected' : ''} ${hoveredBot === bot.id ? 'hovered' : ''}`}
                                 style={{
-                                    '--bot-primary': bot.appearance.primaryColor,
-                                    '--bot-secondary': bot.appearance.secondaryColor,
-                                    '--bot-accent': bot.appearance.accentColor
+                                    '--bot-primary': bot.appearance.primaryColor || '#10b981',
+                                    '--bot-secondary': bot.appearance.secondaryColor || '#86efac',
+                                    '--bot-accent': bot.appearance.accentColor || '#22c55e'
                                 } as React.CSSProperties}
                             >
                                 <div className="bot-option-content">
@@ -171,17 +171,34 @@ export function BotSelector({
                     align-items: center;
                     gap: 0.5rem;
                     padding: 0.5rem 0.75rem;
-                    background: var(--color-surface);
-                    border: 1px solid var(--color-border);
+                    /* FIX: Explicit colors with fallbacks */
+                    background: var(--color-surface, #ffffff);
+                    border: 1px solid var(--color-border, #e5e7eb);
+                    color: var(--color-text, #1f2937);
                     border-radius: 0.5rem;
                     cursor: pointer;
                     transition: all 0.2s;
                     font-size: 0.875rem;
                 }
 
+                /* Dark mode support */
+                @media (prefers-color-scheme: dark) {
+                    .bot-selector-trigger {
+                        background: var(--color-surface, #1f2937);
+                        border-color: var(--color-border, #374151);
+                        color: var(--color-text, #f3f4f6);
+                    }
+                }
+
                 .bot-selector-trigger:hover:not(.disabled) {
-                    background: var(--color-background-secondary);
+                    background: var(--color-background-secondary, #f9fafb);
                     border-color: var(--bot-color);
+                }
+
+                @media (prefers-color-scheme: dark) {
+                    .bot-selector-trigger:hover:not(.disabled) {
+                        background: var(--color-background-secondary, #374151);
+                    }
                 }
 
                 .bot-selector-trigger.compact {
@@ -201,6 +218,7 @@ export function BotSelector({
 
                 .bot-name {
                     font-weight: 500;
+                    color: inherit;
                 }
 
                 .chevron {
@@ -218,13 +236,24 @@ export function BotSelector({
                     right: 0;
                     width: 320px;
                     max-height: 480px;
-                    background: var(--color-surface);
-                    border: 1px solid var(--color-border);
+                    /* FIX: Explicit colors */
+                    background: var(--color-surface, #ffffff);
+                    border: 1px solid var(--color-border, #e5e7eb);
+                    color: var(--color-text, #1f2937);
                     border-radius: 0.75rem;
                     box-shadow: 0 10px 40px rgba(0,0,0,0.15);
-                    z-index: 50 !important; /* FIX: Above messages (1) but below header (100) */
+                    z-index: 50;
                     overflow: hidden;
                     animation: slideDown 0.2s ease-out;
+                }
+
+                @media (prefers-color-scheme: dark) {
+                    .bot-selector-dropdown {
+                        background: var(--color-surface, #1f2937);
+                        border-color: var(--color-border, #374151);
+                        color: var(--color-text, #f3f4f6);
+                        box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+                    }
                 }
 
                 @keyframes slideDown {
@@ -240,8 +269,14 @@ export function BotSelector({
 
                 .divider {
                     height: 1px;
-                    background: var(--color-border);
+                    background: var(--color-border, #e5e7eb);
                     margin: 0.5rem 0;
+                }
+
+                @media (prefers-color-scheme: dark) {
+                    .divider {
+                        background: var(--color-border, #374151);
+                    }
                 }
 
                 .bot-personalities-list {
@@ -260,18 +295,26 @@ export function BotSelector({
                     transition: all 0.2s;
                     text-align: left;
                     position: relative;
+                    /* FIX: Ensure text color */
+                    color: inherit;
                 }
 
                 .bot-option:hover {
-                    background: var(--color-background-secondary);
+                    background: var(--color-background-secondary, #f9fafb);
+                }
+
+                @media (prefers-color-scheme: dark) {
+                    .bot-option:hover {
+                        background: var(--color-background-secondary, #374151);
+                    }
                 }
 
                 .bot-option.selected {
                     background: linear-gradient(135deg,
-                    var(--bot-primary, var(--color-primary))10,
-                    var(--bot-primary, var(--color-primary))05
+                    rgba(var(--bot-primary-rgb, 16, 185, 129), 0.1),
+                    rgba(var(--bot-primary-rgb, 16, 185, 129), 0.05)
                     );
-                    border: 1px solid var(--bot-primary, var(--color-primary))30;
+                    border: 1px solid rgba(var(--bot-primary-rgb, 16, 185, 129), 0.3);
                 }
 
                 .bot-option-content {
@@ -291,14 +334,28 @@ export function BotSelector({
 
                 .bot-option-name {
                     font-weight: 600;
-                    color: var(--color-text);
+                    /* FIX: Explicit color */
+                    color: var(--color-text, #1f2937);
                     margin-bottom: 0.125rem;
+                }
+
+                @media (prefers-color-scheme: dark) {
+                    .bot-option-name {
+                        color: var(--color-text, #f3f4f6);
+                    }
                 }
 
                 .bot-option-tagline {
                     font-size: 0.75rem;
-                    color: var(--color-text-secondary);
+                    /* FIX: Secondary text color */
+                    color: var(--color-text-secondary, #6b7280);
                     margin-bottom: 0.375rem;
+                }
+
+                @media (prefers-color-scheme: dark) {
+                    .bot-option-tagline {
+                        color: var(--color-text-secondary, #9ca3af);
+                    }
                 }
 
                 .bot-option-traits {
@@ -310,10 +367,18 @@ export function BotSelector({
                 .trait {
                     font-size: 0.625rem;
                     padding: 0.125rem 0.375rem;
-                    background: var(--bot-primary, var(--color-primary))20;
-                    color: var(--bot-primary, var(--color-text));
+                    /* FIX: Better trait styling */
+                    background: var(--bot-primary, #10b981);
+                    background-opacity: 0.2;
+                    color: var(--bot-primary, #10b981);
                     border-radius: 0.25rem;
-                    opacity: 0.8;
+                    font-weight: 500;
+                }
+
+                @media (prefers-color-scheme: dark) {
+                    .trait {
+                        filter: brightness(1.2);
+                    }
                 }
 
                 .bot-preview {
@@ -322,12 +387,23 @@ export function BotSelector({
                     top: 0;
                     width: 280px;
                     padding: 1rem;
-                    background: var(--color-surface);
-                    border: 1px solid var(--color-border);
+                    /* FIX: Preview colors */
+                    background: var(--color-surface, #ffffff);
+                    border: 1px solid var(--color-border, #e5e7eb);
+                    color: var(--color-text, #1f2937);
                     border-radius: 0.5rem;
                     box-shadow: 0 5px 20px rgba(0,0,0,0.1);
-                    z-index: 51 !important; /* FIX: Preview slightly above dropdown */
+                    z-index: 51;
                     animation: fadeIn 0.2s ease-out;
+                }
+
+                @media (prefers-color-scheme: dark) {
+                    .bot-preview {
+                        background: var(--color-surface, #1f2937);
+                        border-color: var(--color-border, #374151);
+                        color: var(--color-text, #f3f4f6);
+                        box-shadow: 0 5px 20px rgba(0,0,0,0.5);
+                    }
                 }
 
                 @keyframes fadeIn {
@@ -341,13 +417,20 @@ export function BotSelector({
                     gap: 0.5rem;
                     margin-bottom: 0.5rem;
                     font-size: 1.125rem;
+                    color: inherit;
                 }
 
                 .preview-description {
                     font-size: 0.75rem;
-                    color: var(--color-text-secondary);
+                    color: var(--color-text-secondary, #6b7280);
                     margin-bottom: 0.75rem;
                     line-height: 1.5;
+                }
+
+                @media (prefers-color-scheme: dark) {
+                    .preview-description {
+                        color: var(--color-text-secondary, #9ca3af);
+                    }
                 }
 
                 .preview-capabilities {
@@ -357,13 +440,25 @@ export function BotSelector({
                 .capability-section strong {
                     display: block;
                     margin-bottom: 0.25rem;
-                    color: var(--color-text);
+                    color: var(--color-text, #1f2937);
+                }
+
+                @media (prefers-color-scheme: dark) {
+                    .capability-section strong {
+                        color: var(--color-text, #f3f4f6);
+                    }
                 }
 
                 .capability-section ul {
                     margin: 0;
                     padding-left: 1.25rem;
-                    color: var(--color-text-secondary);
+                    color: var(--color-text-secondary, #6b7280);
+                }
+
+                @media (prefers-color-scheme: dark) {
+                    .capability-section ul {
+                        color: var(--color-text-secondary, #9ca3af);
+                    }
                 }
 
                 .capability-section li {
@@ -376,16 +471,28 @@ export function BotSelector({
                 }
 
                 .bot-personalities-list::-webkit-scrollbar-track {
-                    background: var(--color-background-secondary);
+                    background: var(--color-background-secondary, #f9fafb);
+                }
+
+                @media (prefers-color-scheme: dark) {
+                    .bot-personalities-list::-webkit-scrollbar-track {
+                        background: var(--color-background-secondary, #374151);
+                    }
                 }
 
                 .bot-personalities-list::-webkit-scrollbar-thumb {
-                    background: var(--color-border);
+                    background: var(--color-border, #d1d5db);
                     border-radius: 3px;
                 }
 
+                @media (prefers-color-scheme: dark) {
+                    .bot-personalities-list::-webkit-scrollbar-thumb {
+                        background: var(--color-border, #4b5563);
+                    }
+                }
+
                 .bot-personalities-list::-webkit-scrollbar-thumb:hover {
-                    background: var(--color-accent);
+                    background: var(--color-accent, #10b981);
                 }
 
                 /* Mobile responsive */

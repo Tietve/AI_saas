@@ -1,8 +1,10 @@
 // src/app/api/payment/create/route.ts
 import { NextRequest, NextResponse } from 'next/server'
-import PayOS from '@payos/node'
 import { prisma } from '@/lib/prisma'
 import { requireUserId } from '@/lib/auth/session'
+
+// CÁCH 1: Import với require (cho CommonJS module)
+
 
 // Khởi tạo PayOS client
 const payos = new PayOS(
@@ -11,11 +13,23 @@ const payos = new PayOS(
     process.env.PAYOS_CHECKSUM_KEY!
 )
 
+// HOẶC CÁCH 2: Nếu vẫn lỗi, thử cách này
+// import PayOSLib from '@payos/node'
+// const PayOS = PayOSLib.default || PayOSLib
+// const payos = new PayOS(...)
+
 export async function POST(req: NextRequest) {
     try {
         // Lấy userId từ session
         const userId = await requireUserId()
+        const PayOS = (await import('@payos/node')).default || (await import('@payos/node'))
 
+        // Khởi tạo PayOS client
+        const payos = new PayOS(
+            process.env.PAYOS_CLIENT_ID!,
+            process.env.PAYOS_API_KEY!,
+            process.env.PAYOS_CHECKSUM_KEY!
+        )
         // Kiểm tra user
         const user = await prisma.user.findUnique({
             where: { id: userId },

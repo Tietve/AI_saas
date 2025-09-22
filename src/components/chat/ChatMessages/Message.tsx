@@ -1,83 +1,103 @@
-// src/components/chat/ChatMessages/Message.tsx
+// src/components/chat/ChatMessages/Message.tsx - REDESIGNED VERSION
 
 import { Message as MessageType, BotPersonality } from '../shared/types'
 import { AVAILABLE_MODELS, PROVIDER_STYLES } from '../shared/constants'
 import { formatDate } from '../shared/utils'
+import { Check, CheckCheck } from 'lucide-react'
 
 interface MessageProps {
     message: MessageType
     selectedBot?: BotPersonality
+    showAvatar?: boolean
 }
 
-export function Message({ message, selectedBot }: MessageProps) {
+export function Message({ message, selectedBot, showAvatar = true }: MessageProps) {
     const isUser = message.role === 'USER'
+    const model = AVAILABLE_MODELS.find(m => m.id === message.model)
 
     return (
-        <div className={`chat-message ${isUser ? 'user' : 'assistant'} 
-                       flex gap-4 px-6 py-4 hover:bg-gray-50/50 dark:hover:bg-gray-800/50 
-                       transition-colors ${isUser ? 'bg-gray-50/30 dark:bg-gray-800/30' : ''}`}>
-            {/* Avatar */}
-            <div className="chat-message-avatar flex-shrink-0">
-                {isUser ? (
-                    <div className="user-avatar w-10 h-10 rounded-lg bg-gradient-to-br from-blue-500 to-purple-600
-                                  flex items-center justify-center text-white font-semibold shadow-lg">
-                        U
-                    </div>
-                ) : (
-                    <div className="assistant-avatar relative">
-                        {selectedBot ? (
-                            <div className="w-10 h-10 rounded-lg flex items-center justify-center text-2xl
-                                          bg-gradient-to-br shadow-lg"
-                                 style={{
-                                     backgroundImage: `linear-gradient(135deg, ${selectedBot.appearance.primaryColor}, ${selectedBot.appearance.secondaryColor})`
-                                 }}>
-                                {selectedBot.appearance.emoji}
+        <div className={`message-wrapper flex ${isUser ? 'justify-end' : 'justify-start'} 
+                        animate-in fade-in slide-in-from-bottom-1 duration-200`}>
+            {isUser ? (
+                // User message - No avatar, right aligned
+                <div className="max-w-[85%] lg:max-w-[70%]">
+                    <div className="flex flex-col items-end gap-1">
+                        <div className="group relative">
+                            <div className="bg-blue-600 text-white rounded-2xl px-4 py-2.5 shadow-sm
+                                          hover:bg-blue-700 transition-colors">
+                                <p className="text-sm whitespace-pre-wrap break-words">
+                                    {message.content}
+                                </p>
                             </div>
-                        ) : (
-                            <div className="w-10 h-10 rounded-lg flex items-center justify-center
-                                          text-sm font-medium shadow-lg"
-                                 style={{
-                                     background: PROVIDER_STYLES[
-                                     AVAILABLE_MODELS.find(m => m.id === message.model)?.provider || 'openai'
-                                         ].bgLight,
-                                     color: PROVIDER_STYLES[
-                                     AVAILABLE_MODELS.find(m => m.id === message.model)?.provider || 'openai'
-                                         ].color
-                                 }}>
-                                AI
+
+                            {/* Message status */}
+                            <div className="flex items-center gap-1 mt-1 justify-end">
+                                <span className="text-[10px] text-gray-500 dark:text-gray-400">
+                                    {formatDate(message.createdAt)}
+                                </span>
+                                {/* Read indicator */}
+                                <CheckCheck className="w-3 h-3 text-blue-500" />
                             </div>
-                        )}
-
-                        {message.isStreaming && (
-                            <div className="streaming-indicator absolute -bottom-1 -right-1 w-3 h-3 bg-green-500
-                                          rounded-full animate-pulse" />
-                        )}
+                        </div>
                     </div>
-                )}
-            </div>
-
-            {/* Content */}
-            <div className="chat-message-content flex-1 space-y-2">
-                <div className="chat-message-header flex items-center gap-2">
-                    <span className="chat-message-author font-medium text-gray-900 dark:text-gray-100">
-                        {isUser ? 'You' : (selectedBot?.name || 'Assistant')}
-                    </span>
-                    <span className="chat-message-time text-xs text-gray-500">
-                        {formatDate(message.createdAt)}
-                    </span>
-                    {message.model && !isUser && (
-                        <span className="chat-message-model text-xs px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-800">
-                            {AVAILABLE_MODELS.find(m => m.id === message.model)?.name}
-                        </span>
+                </div>
+            ) : (
+                // Assistant message - With avatar, left aligned
+                <div className="flex gap-3 max-w-[85%] lg:max-w-[70%]">
+                    {/* Avatar */}
+                    {showAvatar && (
+                        <div className="flex-shrink-0 pt-0.5">
+                            {selectedBot ? (
+                                <div className="w-8 h-8 rounded-lg flex items-center justify-center text-xl
+                                              bg-gradient-to-br shadow-sm"
+                                     style={{
+                                         backgroundImage: `linear-gradient(135deg, ${selectedBot.appearance.primaryColor}, ${selectedBot.appearance.secondaryColor})`
+                                     }}>
+                                    {selectedBot.appearance.emoji}
+                                </div>
+                            ) : (
+                                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-green-500 to-emerald-600
+                                              flex items-center justify-center text-white text-xs font-medium shadow-sm">
+                                    AI
+                                </div>
+                            )}
+                        </div>
                     )}
-                </div>
 
-                <div className={`chat-message-text prose prose-sm max-w-none dark:prose-invert
-                              ${message.error ? 'text-red-600 dark:text-red-400' : ''}`}>
-                    {message.content}
-                    {message.isStreaming && <span className="typing-cursor inline-block w-2 h-4 ml-1 bg-gray-400 animate-pulse" />}
+                    {/* Spacer when avatar hidden */}
+                    {!showAvatar && <div className="w-8 flex-shrink-0" />}
+
+                    {/* Message content */}
+                    <div className="flex-1">
+                        <div className="group relative">
+                            <div className="bg-white dark:bg-gray-800 rounded-2xl px-4 py-2.5 shadow-sm
+                                          border border-gray-100 dark:border-gray-700
+                                          hover:shadow-md transition-shadow">
+                                <div className="text-sm whitespace-pre-wrap break-words text-gray-900 dark:text-gray-100">
+                                    {message.content}
+                                    {message.isStreaming && (
+                                        <span className="inline-block w-1 h-4 ml-0.5 bg-gray-400 animate-pulse" />
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Message metadata */}
+                            <div className="flex items-center gap-2 mt-1">
+                                <span className="text-[10px] text-gray-500 dark:text-gray-400">
+                                    {formatDate(message.createdAt)}
+                                </span>
+                                {model && (
+                                    <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium
+                                                   ${PROVIDER_STYLES[model.provider].bgLight} 
+                                                   ${PROVIDER_STYLES[model.provider].color}`}>
+                                        {model.name}
+                                    </span>
+                                )}
+                            </div>
+                        </div>
+                    </div>
                 </div>
-            </div>
+            )}
         </div>
     )
 }

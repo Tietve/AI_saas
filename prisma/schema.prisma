@@ -23,6 +23,9 @@ model User {
   subscriptions      Subscription[]
   tokenUsages        TokenUsage[]
   settings           UserSetting?
+  payments           Payment[]
+  usageRecords       DailyUsageRecord[]
+  invoices           Invoice[]
 }
 
 model EmailVerificationToken {
@@ -56,7 +59,7 @@ model Conversation {
   title        String?      @db.VarChar(200)
   systemPrompt String?
   meta         Json?
-  botId          String?
+  botId        String?
   createdAt    DateTime     @default(now())
   updatedAt    DateTime     @updatedAt
   model        String       @default("gpt-4o-mini")
@@ -99,17 +102,100 @@ model Attachment {
   @@index([conversationId])
 }
 
+// CẬP NHẬT: Thêm các field mới cho Subscription
 model Subscription {
-  id        String    @id @default(cuid())
-  userId    String
-  planTier  PlanTier
-  startAt   DateTime
-  endAt     DateTime?
-  isActive  Boolean   @default(true)
-  createdAt DateTime  @default(now())
-  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id                   String              @id @default(cuid())
+  userId               String
+  planTier             PlanTier
+  status               SubscriptionStatus  @default(ACTIVE)
+  currentPeriodStart   DateTime
+  currentPeriodEnd     DateTime
+  cancelAtPeriodEnd    Boolean            @default(false)
+  canceledAt           DateTime?
+  payosSubscriptionId  String?            @unique
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+  user                 User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  payments             Payment[]
 
-  @@index([userId, isActive])
+  @@index([userId, status])
+  @@index([currentPeriodEnd])
+}
+
+// MỚI: Bảng Payment để lưu lịch sử thanh toán
+model Payment {
+  id                String         @id @default(cuid())
+  userId            String
+  subscriptionId    String?
+  amount            Int            // Lưu theo VND (không có decimal)
+  currency          String         @default("VND")
+  status            PaymentStatus  @default(PENDING)
+  payosOrderCode    Int?           @unique
+  payosPaymentId    String?        @unique
+  payosCheckoutUrl  String?
+  description       String?
+  metadata          Json?
+  paidAt            DateTime?
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+  user              User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  subscription      Subscription?  @relation(fields: [subscriptionId], references: [id])
+
+  @@index([userId])
+  @@index([status])
+  @@index([payosOrderCode])
+}
+
+// MỚI: Bảng theo dõi sử dụng hàng ngày
+model DailyUsageRecord {
+  id              String   @id @default(cuid())
+  userId          String
+  date            DateTime @db.Date
+  messageCount    Int      @default(0)
+  modelUsed       String?  // Model chủ yếu được dùng trong ngày
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, date])
+  @@index([userId, date])
+}
+
+// MỚI: Bảng Webhook Events để log và xử lý idempotency
+model WebhookEvent {
+  id               String              @id @default(cuid())
+  externalId       String              @unique // ID từ PayOS
+  eventType        String              // payment.success, payment.failed, etc.
+  source           String              @default("payos")
+  status           WebhookEventStatus  @default(PENDING)
+  attempts         Int                 @default(0)
+  processedAt      DateTime?
+  errorMessage     String?
+  rawPayload       Json
+  createdAt        DateTime            @default(now())
+
+  @@index([externalId])
+  @@index([status])
+}
+
+// MỚI: Bảng Invoice cho hóa đơn
+model Invoice {
+  id             String          @id @default(cuid())
+  userId         String
+  invoiceNumber  String          @unique
+  amount         Int
+  currency       String          @default("VND")
+  status         InvoiceStatus   @default(PENDING)
+  issuedDate     DateTime        @default(now())
+  paidDate       DateTime?
+  dueDate        DateTime?
+  metadata       Json?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([invoiceNumber])
 }
 
 model TokenUsage {
@@ -134,6 +220,7 @@ model UserSetting {
   user         User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
+// ENUMS
 enum Role {
   USER
   ASSISTANT
@@ -144,6 +231,40 @@ enum PlanTier {
   FREE
   PLUS
   PRO
+}
+
+// MỚI: Enum cho Subscription Status
+enum SubscriptionStatus {
+  ACTIVE
+  CANCELLED
+  EXPIRED
+  PAST_DUE
+  PAUSED
+}
+
+// MỚI: Enum cho Payment Status
+enum PaymentStatus {
+  PENDING
+  SUCCESS
+  FAILED
+  CANCELLED
+  REFUNDED
+}
+
+// MỚI: Enum cho Webhook Event Status
+enum WebhookEventStatus {
+  PENDING
+  PROCESSED
+  FAILED
+  SKIPPED
+}
+
+// MỚI: Enum cho Invoice Status
+enum InvoiceStatus {
+  PENDING
+  PAID
+  CANCELLED
+  REFUNDED
 }
 
 enum ModelId {

@@ -1,5 +1,5 @@
 // src/lib/theme/theme-system.ts
-// Hệ thống theme sang trọng tối giản
+// Hệ thống theme sang trọng tối giản với override Tailwind CSS
 
 export interface ThemeColors {
     primary: string
@@ -185,27 +185,99 @@ export const themes: Record<string, ThemeConfig> = {
     }
 }
 
-// Helper function để apply theme
+// Helper function để apply theme với override mạnh
 export function applyTheme(themeId: string): void {
     const theme = themes[themeId]
     if (!theme) return
 
     const root = document.documentElement
 
-    // Apply colors as CSS variables
+    // 1. Apply colors as CSS variables
     Object.entries(theme.colors).forEach(([key, value]) => {
         const cssVarName = `--color-${key.replace(/([A-Z])/g, '-$1').toLowerCase()}`
         root.style.setProperty(cssVarName, value)
     })
 
-    // Add theme-active class to body to override Tailwind
-    document.body.classList.add('theme-active')
-    document.body.classList.add('theme-transition')
+    // 2. Remove all theme classes first
+    document.documentElement.classList.remove(
+        'theme-override',
+        'theme-noble',
+        'theme-zen',
+        'theme-cyber',
+        'theme-rosegold',
+        'theme-ocean',
+        'theme-sunset',
+        'theme-minimal',
+        'theme-forest'
+    )
 
-    // Save to localStorage
+    // 3. Add specific theme class và override class
+    document.documentElement.classList.add('theme-override')
+    document.documentElement.classList.add(`theme-${themeId}`)
+
+    // 4. Force remove Tailwind dark mode nếu có
+    if (document.documentElement.classList.contains('dark')) {
+        document.documentElement.setAttribute('data-tailwind-dark', 'true')
+        document.documentElement.classList.remove('dark')
+    }
+
+    // 5. Apply inline styles cho một số elements quan trọng để đảm bảo override
+    requestAnimationFrame(() => {
+        // Override body background
+        document.body.style.backgroundColor = theme.colors.background
+        document.body.style.color = theme.colors.text
+
+        // Override tất cả elements có Tailwind bg-white
+        const whiteBackgrounds = document.querySelectorAll(
+            '.bg-white, .bg-gray-50, .bg-gray-100, .dark\\:bg-gray-900, .dark\\:bg-gray-800'
+        )
+        whiteBackgrounds.forEach((el) => {
+            if (el instanceof HTMLElement) {
+                el.style.setProperty('background-color', theme.colors.surface, 'important')
+            }
+        })
+
+        // Override text colors
+        const textElements = document.querySelectorAll(
+            '.text-gray-900, .text-black, .dark\\:text-gray-100, .dark\\:text-white'
+        )
+        textElements.forEach((el) => {
+            if (el instanceof HTMLElement) {
+                el.style.setProperty('color', theme.colors.text, 'important')
+            }
+        })
+
+        // Override secondary text
+        const secondaryTextElements = document.querySelectorAll(
+            '.text-gray-600, .text-gray-500, .dark\\:text-gray-400'
+        )
+        secondaryTextElements.forEach((el) => {
+            if (el instanceof HTMLElement) {
+                el.style.setProperty('color', theme.colors.textSecondary, 'important')
+            }
+        })
+
+        // Override borders
+        const borderElements = document.querySelectorAll(
+            '.border-gray-200, .border-gray-300, .dark\\:border-gray-700'
+        )
+        borderElements.forEach((el) => {
+            if (el instanceof HTMLElement) {
+                el.style.setProperty('border-color', theme.colors.border, 'important')
+            }
+        })
+    })
+
+    // 6. Save to localStorage
     if (typeof window !== 'undefined') {
         localStorage.setItem('selectedTheme', themeId)
+        localStorage.setItem('themeColors', JSON.stringify(theme.colors))
     }
+
+    // 7. Dispatch custom event để các components khác có thể listen
+    window.dispatchEvent(new CustomEvent('themeChanged', {
+        detail: { themeId, colors: theme.colors }
+    }))
 }
 
 // Get current theme from localStorage
@@ -214,8 +286,53 @@ export function getCurrentTheme(): string {
     return localStorage.getItem('selectedTheme') || 'noble'
 }
 
-// Initialize theme on load
+// Get current theme colors
+export function getCurrentThemeColors(): ThemeColors | null {
+    if (typeof window === 'undefined') return null
+    const saved = localStorage.getItem('themeColors')
+    if (saved) {
+        try {
+            return JSON.parse(saved)
+        } catch {
+            return null
+        }
+    }
+    return null
+}
+
+// Initialize theme on load với override mạnh
 export function initializeTheme(): void {
     const currentTheme = getCurrentTheme()
-    applyTheme(currentTheme)
+
+    // Delay một chút để đảm bảo DOM đã load
+    if (typeof window !== 'undefined') {
+        // Apply ngay lập tức
+        applyTheme(currentTheme)
+
+        // Apply lại sau khi DOM ready
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', () => {
+                applyTheme(currentTheme)
+            })
+        }
+
+        // Apply lại sau 100ms để đảm bảo override Tailwind
+        setTimeout(() => {
+            applyTheme(currentTheme)
+        }, 100)
+    }
 }
+
+// Utility function để get CSS variable value
+export function getCSSVariable(name: string): string {
+    if (typeof window === 'undefined') return ''
+    return getComputedStyle(document.documentElement)
+        .getPropertyValue(name)
+        .trim()
+}
+
+// Export all theme IDs for easy access
+export const themeIds = Object.keys(themes)
+
+// Export default theme
+export const defaultTheme = 'noble'

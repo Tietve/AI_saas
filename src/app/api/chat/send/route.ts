@@ -16,19 +16,23 @@ type SendReq = {
     content?: string
     model?: string
     requestId?: string
-    systemPrompt?: string  // Added to accept bot's system prompt
-    botId?: string  // Added to track which bot is being used
+    systemPrompt?: string
+    botId?: string
 }
 
 const HISTORY_LIMIT = 20
 const OUTPUT_RESERVE = 500
 const MAX_INPUT_CHARS = 8_000
 
+// THÊM MỚI: Model fallback cho FREE users
+const FREE_MODELS = ['gpt_4o_mini', 'gpt_3_5_turbo']
+const FALLBACK_MODEL = ModelId.gpt_3_5_turbo // Model rẻ nhất
+
 export const POST = withRateLimit(async (req: Request) => {
     try {
         const body = (await req.json()) as SendReq
 
-        // Auth (DEV): thay bằng session thực sau
+        // Auth
         const userId = await getUserIdFromSession()
         if (!userId) return json(401, { code: 'UNAUTHENTICATED' })
 
@@ -39,27 +43,92 @@ export const POST = withRateLimit(async (req: Request) => {
             return json(400, { code: 'PER_REQUEST_TOO_LARGE', message: `Nội dung quá dài (> ${MAX_INPUT_CHARS} ký tự).` })
         }
 
-        // Get system prompt from request (bot personality) or use default
+        // THÊM MỚI: Kiểm tra quota và subscription
+        const user = await prisma.user.findUnique({
+            where: { id: userId },
+            include: {
+                subscriptions: {
+                    where: {
+                        status: 'ACTIVE',
+                        currentPeriodEnd: { gte: new Date() }
+                    },
+                    orderBy: { createdAt: 'desc' },
+                    take: 1
+                }
+            }
+        })
+
+        if (!user) {
+            return json(404, { code: 'NOT_FOUND', message: 'User không tồn tại.' })
+        }
+
+        // Xác định plan tier
+        const currentPlan = user.subscriptions[0]?.planTier || user.planTier || 'FREE'
+        const isFreeTier = currentPlan === 'FREE'
+
+        // THÊM MỚI: Kiểm tra daily usage cho FREE users
+        if (isFreeTier) {
+            const today = new Date()
+            today.setHours(0, 0, 0, 0)
+
+            const dailyUsage = await prisma.dailyUsageRecord.findUnique({
+                where: {
+                    userId_date: {
+                        userId: userId,
+                        date: today
+                    }
+                }
+            })
+
+            const messagesUsedToday = dailyUsage?.messageCount || 0
+            const dailyLimit = 20
+
+            // Nếu đã vượt limit
+            if (messagesUsedToday >= dailyLimit) {
+                return json(402, {
+                    code: 'DAILY_LIMIT_EXCEEDED',
+                    message: `Bạn đã hết ${dailyLimit} tin nhắn miễn phí hôm nay.`,
+                    showUpgrade: true,
+                    usage: {
+                        daily: messagesUsedToday,
+                        dailyLimit: dailyLimit,
+                        resetTime: new Date(today.getTime() + 24 * 60 * 60 * 1000)
+                    }
+                })
+            }
+        }
+
+        // Get system prompt
         const botSystemPrompt = body?.systemPrompt
         const botId = body?.botId
 
-        // ——— Conversation: cho phép auto-create khi rỗng hoặc "new"
+        // Conversation handling
         const requestedConvId = (body?.conversationId ?? '').trim()
-        const requestedModel = coerceModelId(body?.model)
+        let requestedModel = coerceModelId(body?.model)
+
+        // THÊM MỚI: Giới hạn model cho FREE users
+        if (isFreeTier && requestedModel) {
+            const modelStr = requestedModel.toString()
+            if (!FREE_MODELS.includes(modelStr)) {
+                console.log(`[chat/send] FREE user tried to use ${modelStr}, fallback to ${FALLBACK_MODEL}`)
+                requestedModel = FALLBACK_MODEL
+            }
+        }
+
         const convo = await ensureConversation({
             userId,
             conversationId: requestedConvId,
             initialTitle: rawContent.slice(0, 80) || 'New chat',
-            initialModel: requestedModel ?? defaultModel(),
-            // Store bot system prompt and ID in conversation if it's a new conversation
+            initialModel: requestedModel ?? (isFreeTier ? FALLBACK_MODEL : defaultModel()),
             initialSystemPrompt: requestedConvId === 'new' || !requestedConvId ? botSystemPrompt : undefined,
             initialBotId: requestedConvId === 'new' || !requestedConvId ? botId : undefined
         })
+
         if (!convo) {
             return json(404, { code: 'NOT_FOUND', message: 'Conversation không tồn tại hoặc không thuộc về bạn.' })
         }
 
-        // Idempotency: nếu requestId đã có assistant message -> trả lại ngay
+        // Idempotency check
         if (body?.requestId) {
             const existing = await prisma.message.findFirst({
                 where: { conversationId: convo.id, role: Role.ASSISTANT, idempotencyKey: body.requestId },
@@ -75,51 +144,55 @@ export const POST = withRateLimit(async (req: Request) => {
             }
         }
 
-        // --- Model resolver: map string -> ModelId enum
-        const getDesiredModel = (requestedModel?: ModelId | null, convo?: { model: string | null } ): ModelId => {
-            // 1) Nếu body có model và hợp lệ enum
+        // Model resolver với giới hạn cho FREE
+        const getDesiredModel = (requestedModel?: ModelId | null, convo?: { model: string | null }): ModelId => {
             if (requestedModel && Object.values(ModelId).includes(requestedModel as ModelId)) {
+                // THÊM MỚI: Check if FREE user can use this model
+                if (isFreeTier) {
+                    const modelStr = (requestedModel as ModelId).toString()
+                    if (!FREE_MODELS.includes(modelStr)) {
+                        return FALLBACK_MODEL
+                    }
+                }
                 return requestedModel as ModelId
             }
 
-            // 2) Nếu Conversation có model (đang lưu dạng string)
             if (convo?.model) {
                 const modelPartRaw = convo.model.split(':').pop() || convo.model
                 const key = modelPartRaw.toLowerCase()
 
                 const modelMapping: Record<string, ModelId> = {
-                    // OpenAI
                     'gpt-4o-mini': ModelId.gpt_4o_mini,
                     'gpt-4o': ModelId.gpt_4o,
                     'gpt-4-turbo': ModelId.gpt_4_turbo,
                     'gpt-3.5-turbo': ModelId.gpt_3_5_turbo,
-
-                    // Anthropic
                     'claude-3-opus': ModelId.claude_3_opus,
                     'claude-3.5-sonnet': ModelId.claude_3_5_sonnet,
                     'claude-3.5-haiku': ModelId.claude_3_5_haiku,
-
-                    // Google
                     'gemini-1.5-pro': ModelId.gemini_1_5_pro,
                     'gemini-1.5-flash': ModelId.gemini_1_5_flash,
                     'gemini-2.0-flash': ModelId.gemini_2_0_flash,
-
-                    // Legacy
                     'gpt5_mini': ModelId.gpt5_mini,
                     'gpt4o_mini': ModelId.gpt4o_mini,
                 }
 
                 const mapped = modelMapping[key]
-                if (mapped) return mapped
+                if (mapped) {
+                    // THÊM MỚI: Check FREE tier restriction
+                    if (isFreeTier && !FREE_MODELS.includes(mapped.toString())) {
+                        return FALLBACK_MODEL
+                    }
+                    return mapped
+                }
             }
 
-            // 3) Fallback
-            return defaultModel()
+            // Fallback
+            return isFreeTier ? FALLBACK_MODEL : defaultModel()
         }
 
         const desiredModel: ModelId = getDesiredModel(requestedModel, convo)
 
-        // Lấy 20 tin NHỮNG LẦN GẦN NHẤT
+        // Get conversation history
         const recent = await prisma.message.findMany({
             where: { conversationId: convo.id },
             orderBy: { createdAt: 'desc' },
@@ -130,41 +203,80 @@ export const POST = withRateLimit(async (req: Request) => {
             .reverse()
             .map(m => ({ role: m.role.toLowerCase() as 'user' | 'assistant' | 'system', content: m.content }))
 
-        // Ước lượng token
+        // Token estimation
         const estimateIn = estimateTokensFromMessages(preparedHistory) + estimateTokensFromText(rawContent)
         const estimateOut = OUTPUT_RESERVE
         const estimateTotal = estimateIn + estimateOut
 
-        // Quota guard
+        // Quota guard (cho cả FREE và PLUS)
         const preCheck = await canSpend(userId, estimateTotal)
         if (!preCheck.ok) {
             if (preCheck.reason === 'PER_REQUEST_TOO_LARGE') {
                 return json(400, { code: 'PER_REQUEST_TOO_LARGE', message: 'Thông điệp quá dài, hãy rút gọn hoặc chia nhỏ.' })
             }
             const q = await getUsageSummary(userId)
-            return json(402, { code: 'QUOTA_EXCEEDED', message: 'Bạn đã vượt hạn mức tháng.', quota: q })
+            return json(402, {
+                code: 'QUOTA_EXCEEDED',
+                message: 'Bạn đã vượt hạn mức.',
+                showUpgrade: isFreeTier,
+                quota: q
+            })
         }
 
-        // Lưu USER message
+        // THÊM MỚI: Update daily usage cho FREE users
+        if (isFreeTier) {
+            const today = new Date()
+            today.setHours(0, 0, 0, 0)
+
+            await prisma.dailyUsageRecord.upsert({
+                where: {
+                    userId_date: {
+                        userId: userId,
+                        date: today
+                    }
+                },
+                update: {
+                    messageCount: { increment: 1 },
+                    modelUsed: desiredModel.toString(),
+                    updatedAt: new Date()
+                },
+                create: {
+                    userId: userId,
+                    date: today,
+                    messageCount: 1,
+                    modelUsed: desiredModel.toString()
+                }
+            })
+        }
+
+        // Save USER message
         await prisma.message.create({
             data: { conversationId: convo.id, role: Role.USER, content: rawContent }
         })
 
-        // Determine which system prompt to use
-        // Priority: bot system prompt from request > conversation system prompt > default
+        // Determine system prompt
         const effectiveSystemPrompt = botSystemPrompt || convo.systemPrompt || 'You are a helpful AI assistant.'
 
-        // Build messages gửi provider
+        // Build messages for provider
         const sys = [{ role: 'system' as const, content: effectiveSystemPrompt }]
         const allMessages = [...sys, ...preparedHistory, { role: 'user' as const, content: rawContent }]
 
-        // Streaming với fallback provider
+        // Streaming với fallback
         const controller = new AbortController()
         const startedAt = Date.now()
-        const candidates: { enum: ModelId; id: string }[] = [
-            { enum: desiredModel, id: toProviderModelId(desiredModel) },
-            ...cheaperAlternatives(desiredModel).map(m => ({ enum: m, id: toProviderModelId(m) }))
-        ]
+
+        // THÊM MỚI: Giới hạn candidates cho FREE users
+        let candidates: { enum: ModelId; id: string }[]
+        if (isFreeTier) {
+            // FREE users chỉ dùng được model được chỉ định
+            candidates = [{ enum: desiredModel, id: toProviderModelId(desiredModel) }]
+        } else {
+            // PLUS users có thể fallback sang model khác
+            candidates = [
+                { enum: desiredModel, id: toProviderModelId(desiredModel) },
+                ...cheaperAlternatives(desiredModel).map(m => ({ enum: m, id: toProviderModelId(m) }))
+            ]
+        }
 
         const gen = (async function* () {
             let picked: { enum: ModelId; id: string } | null = null
@@ -172,12 +284,13 @@ export const POST = withRateLimit(async (req: Request) => {
             const promptTokens = estimateIn
             let lastErrorMessage = ''
 
-            // Add metadata about conversation and bot
+            // Add metadata
             yield {
                 meta: {
                     conversationId: convo.id,
                     model: desiredModel,
-                    systemPrompt: effectiveSystemPrompt
+                    systemPrompt: effectiveSystemPrompt,
+                    planTier: currentPlan // THÊM MỚI: Include plan tier
                 }
             }
 
@@ -199,8 +312,7 @@ export const POST = withRateLimit(async (req: Request) => {
                             console.log('[chat/send] Streaming delta:', delta.substring(0, 50))
                         }
                     }
-                    // OK -> dừng fallback
-                    break
+                    break // Success
                 } catch (err: unknown) {
                     const msg = err instanceof Error ? err.message : String(err)
                     lastErrorMessage = msg
@@ -218,7 +330,7 @@ export const POST = withRateLimit(async (req: Request) => {
             const latencyMs = Date.now() - startedAt
             const completionTokens = estimateTokensFromText(fullText)
 
-            // Lưu ASSISTANT message
+            // Save ASSISTANT message
             let assistantMsgId: string | null = null
             try {
                 const assistantMsg = await prisma.message.create({
@@ -257,13 +369,13 @@ export const POST = withRateLimit(async (req: Request) => {
                 }
             }
 
-            // Cập nhật updatedAt của Conversation
+            // Update conversation
             await prisma.conversation.update({
                 where: { id: convo.id },
                 data: { updatedAt: new Date() }
             })
 
-            // Ghi usage
+            // Record usage
             await recordUsage({
                 userId,
                 model: picked.enum,
@@ -273,7 +385,8 @@ export const POST = withRateLimit(async (req: Request) => {
                     requestId: body?.requestId,
                     conversationId: convo.id,
                     messageId: assistantMsgId!,
-                    latencyMs
+                    latencyMs,
+                    planTier: currentPlan // THÊM MỚI
                 }
             })
 
@@ -291,7 +404,7 @@ export const POST = withRateLimit(async (req: Request) => {
     }
 }, { scope: 'chat-send', limit: 20, windowMs: 60_000, burst: 20 })
 
-// ---------- Helpers ----------
+// ---------- Helpers (giữ nguyên) ----------
 function json(status: number, data: unknown) {
     return new NextResponse(JSON.stringify(data), {
         status,
@@ -328,26 +441,24 @@ async function ensureConversation(args: {
     conversationId?: string
     initialTitle: string
     initialModel: ModelId
-    initialSystemPrompt?: string  // Added to store bot system prompt
-    initialBotId?: string  // Added to store bot ID
+    initialSystemPrompt?: string
+    initialBotId?: string
 }) {
     const cid = (args.conversationId ?? '').trim().toLowerCase()
 
-    // Auto create new conversation
     if (!cid || cid === 'new') {
         return prisma.conversation.create({
             data: {
                 userId: args.userId,
                 title: args.initialTitle,
                 model: args.initialModel,
-                systemPrompt: args.initialSystemPrompt,  // Store bot's system prompt
-                botId: args.initialBotId  // Store bot ID
+                systemPrompt: args.initialSystemPrompt,
+                botId: args.initialBotId
             },
             select: { id: true, userId: true, systemPrompt: true, model: true, botId: true }
         })
     }
 
-    // Find existing conversation
     const found = await prisma.conversation.findUnique({
         where: { id: args.conversationId! },
         select: { id: true, userId: true, systemPrompt: true, model: true, botId: true }

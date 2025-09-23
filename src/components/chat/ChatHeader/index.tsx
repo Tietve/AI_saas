@@ -38,52 +38,44 @@ export function ChatHeader({
     return (
         <>
             {}
-            <header className="chat-header h-14 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800">
+            <header className="chat-header h-16">
                 <div className="h-full px-3 lg:px-4 flex items-center justify-between gap-3">
-                    {}
                     <div className="flex items-center gap-2 min-w-0">
-                        {}
                         <button
                             onClick={onToggleSidebar}
-                            className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800
-                                     text-gray-600 dark:text-gray-400 transition-colors flex-shrink-0"
+                            className="icon-button flex-shrink-0"
                             aria-label="Toggle sidebar">
                             <Menu className="w-5 h-5" />
                         </button>
 
-                        {}
                         <div className="flex items-center gap-2 min-w-0">
-                            <h1 className="text-base lg:text-lg font-semibold text-gray-900 dark:text-gray-100 hidden sm:block">
+                            <h1 className="chat-title text-base lg:text-lg font-semibold hidden sm:block">
                                 AI Chat
                             </h1>
                             {selectedBot && (
-                                <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-800
-                                              text-gray-600 dark:text-gray-400 truncate max-w-[120px]">
+                                <span className="text-xs px-2 py-0.5 rounded-full truncate max-w-[120px]"
+                                      style={{
+                                          background: 'var(--chat-surface-soft)',
+                                          color: 'var(--chat-muted)'
+                                      }}>
                                     với {selectedBot.name}
                                 </span>
                             )}
                         </div>
                     </div>
 
-                    {}
                     <div className="flex items-center gap-1 lg:gap-2 flex-shrink-0">
-                        {}
                         {onToggleSystemPrompt && (
                             <button
                                 onClick={onToggleSystemPrompt}
                                 disabled={disabled}
-                                className={`p-2 rounded-lg transition-colors flex-shrink-0
-                                         ${showSystemPrompt
-                                    ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
-                                    : 'hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-400'}
-                                         ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                className={`icon-button flex-shrink-0 ${showSystemPrompt ? 'is-active' : ''} ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
                                 title="System Prompt">
                                 <Settings className="w-4 h-4 lg:w-5 lg:h-5" />
                             </button>
                         )}
 
-                        {}
-                        <div className="bot-selector-wrapper">
+                        <div className="bot-selector-wrapper hidden sm:block">
                             <BotSelector
                                 selectedBot={selectedBot}
                                 onBotChange={onBotChange}
@@ -92,7 +84,6 @@ export function ChatHeader({
                             />
                         </div>
 
-                        {}
                         <div className="model-selector-wrapper hidden sm:block">
                             <ModelSelector
                                 selectedModel={selectedModel}
@@ -101,7 +92,6 @@ export function ChatHeader({
                             />
                         </div>
 
-                        {}
                         <div className="theme-selector-wrapper">
                             <ThemeSelector />
                         </div>

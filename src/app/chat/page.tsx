@@ -15,6 +15,7 @@ import UpgradeModal from '@/components/UpgradeModal'
 
 import { initializeTheme, injectChatThemeStyles, resetTheme } from '@/lib/theme/theme-system'
 import '@/styles/animations.css'
+import '@/styles/chat-theme.css'
 
 export default function ChatPage() {
     const router = useRouter()
@@ -204,9 +205,8 @@ export default function ChatPage() {
     }
 
     return (
-        <div data-theme-scope="chat" className="chat-page-container min-h-screen">
-            <div className="chat-container flex h-screen overflow-hidden">
-                {}
+        <div data-theme-scope="chat" className="chat-page-container">
+            <div className="chat-container flex overflow-hidden">
                 <ChatSidebar
                     isOpen={isSidebarOpen}
                     isCollapsed={isSidebarCollapsed}
@@ -227,7 +227,6 @@ export default function ChatPage() {
                     onSignOut={handleSignOut}
                 />
 
-                {}
                 {isSidebarOpen && !isSidebarCollapsed && (
                     <div
                         className="fixed inset-0 bg-black/50 z-20 lg:hidden"
@@ -235,9 +234,7 @@ export default function ChatPage() {
                     />
                 )}
 
-                {}
                 <div className="flex-1 flex flex-col min-w-0">
-                    {}
                     <ChatHeader
                         onToggleSidebar={() => {
                             if (window.innerWidth < 1024) {
@@ -257,7 +254,6 @@ export default function ChatPage() {
                         disabled={isLoading}
                     />
 
-                    {}
                     <ChatMessages
                         messages={messages}
                         currentConversationId={currentConversationId}
@@ -266,25 +262,24 @@ export default function ChatPage() {
                         messagesEndRef={messagesEndRef}
                     />
 
-                    {}
                     {userPlanTier === 'FREE' && userUsage.dailyMessages > 10 && (
-                        <div className="px-4 py-2 border-t usage-indicator">
-                            <div className="max-w-3xl mx-auto flex items-center justify-between">
-                                <div className="flex items-center gap-3">
-                                    <div className="relative w-32 h-1.5 rounded-full overflow-hidden usage-bar">
+                        <div className="usage-banner">
+                            <div className="max-w-3xl mx-auto usage-banner__content">
+                                <div className="usage-progress">
+                                    <div className="usage-progress__bar">
                                         <div
-                                            className="absolute inset-y-0 left-0 rounded-full transition-all duration-500 usage-bar-fill"
+                                            className="usage-progress__fill"
                                             style={{ width: `${Math.min(100, (userUsage.dailyMessages / userUsage.dailyLimit) * 100)}%` }}
                                         />
                                     </div>
-                                    <span className="text-xs usage-text">
+                                    <span className="usage-progress__label">
                                         {userUsage.dailyMessages}/{userUsage.dailyLimit} tin nhắn
                                     </span>
                                 </div>
                                 {userUsage.dailyMessages >= userUsage.dailyLimit - 3 && (
                                     <button
                                         onClick={() => setShowUpgradeModal(true)}
-                                        className="text-xs px-3 py-1 rounded-full transition-all upgrade-button"
+                                        className="upgrade-badge"
                                     >
                                         Nâng cấp Plus ✨
                                     </button>
@@ -293,14 +288,14 @@ export default function ChatPage() {
                         </div>
                     )}
 
-                    {}
                     {error && (
                         <div className="mx-auto max-w-3xl px-4 pb-4">
-                            <div className="rounded-lg px-4 py-3 flex items-center justify-between error-message">
-                                <p className="text-sm">{error}</p>
+                            <div className="error-banner">
+                                <p className="text-sm font-medium">{error}</p>
                                 <button
                                     onClick={() => setError(null)}
-                                    className="hover:opacity-70">
+                                    className="icon-button"
+                                >
                                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                                     </svg>
@@ -309,7 +304,6 @@ export default function ChatPage() {
                         </div>
                     )}
 
-                    {}
                     <ChatInput
                         value={inputMessage}
                         onChange={setInputMessage}
@@ -324,7 +318,6 @@ export default function ChatPage() {
                     />
                 </div>
 
-                {}
                 <UpgradeModal
                     isOpen={showUpgradeModal}
                     onClose={() => setShowUpgradeModal(false)}
@@ -332,65 +325,6 @@ export default function ChatPage() {
                     userId={userId}
                 />
             </div>
-
-            <style jsx>{`
-                .chat-page-container {
-                    background: var(--color-background, #ffffff);
-                    color: var(--color-text, #111827);
-                }
-                
-                .usage-indicator {
-                    background: linear-gradient(to right, 
-                        rgba(147, 51, 234, 0.05), 
-                        rgba(59, 130, 246, 0.05));
-                    border-color: var(--color-border, #e5e7eb);
-                }
-                
-                .usage-bar {
-                    background: var(--color-background-secondary, #f3f4f6);
-                }
-                
-                .usage-bar-fill {
-                    background: linear-gradient(to right, #8b5cf6, #3b82f6);
-                }
-                
-                .usage-text {
-                    color: var(--color-text-secondary, #6b7280);
-                }
-                
-                .upgrade-button {
-                    background: linear-gradient(to right, #9333ea, #3b82f6);
-                    color: white;
-                }
-                
-                .upgrade-button:hover {
-                    background: linear-gradient(to right, #7c3aed, #2563eb);
-                }
-                
-                .error-message {
-                    background: rgba(239, 68, 68, 0.1);
-                    border: 1px solid rgba(239, 68, 68, 0.3);
-                    color: var(--color-error, #ef4444);
-                }
-                
-                /* Dark theme adjustments */
-                [data-theme*="dark"] .usage-indicator,
-                [data-theme*="noble"] .usage-indicator,
-                [data-theme*="cyber"] .usage-indicator,
-                [data-theme*="ocean"] .usage-indicator {
-                    background: linear-gradient(to right,
-                        rgba(147, 51, 234, 0.1),
-                        rgba(59, 130, 246, 0.1));
-                }
-                
-                [data-theme*="dark"] .error-message,
-                [data-theme*="noble"] .error-message,
-                [data-theme*="cyber"] .error-message,
-                [data-theme*="ocean"] .error-message {
-                    background: rgba(239, 68, 68, 0.2);
-                    border-color: rgba(239, 68, 68, 0.5);
-                }
-            `}</style>
         </div>
     )
 }

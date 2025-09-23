@@ -40,18 +40,20 @@ export const AttachmentList: React.FC<AttachmentListProps> = ({ attachments = []
                             href={att.url}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className={`group overflow-hidden rounded-2xl border ${
-                                isUser
-                                    ? 'border-blue-500/40 bg-blue-500/10 text-white'
-                                    : 'border-gray-200 bg-white text-gray-900 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-100'
-                            } max-w-sm shadow-sm hover:shadow-md transition`}
+                            className="group overflow-hidden rounded-2xl border max-w-sm shadow-sm hover:shadow-md transition message-attachment"
+                            style={{
+                                background: isUser
+                                    ? 'linear-gradient(135deg, var(--chat-primary), var(--chat-primary-accent))'
+                                    : 'var(--chat-surface-strong)',
+                                color: isUser ? 'var(--chat-on-primary)' : 'var(--color-text)',
+                                borderColor: isUser ? 'transparent' : 'var(--chat-border)'
+                            }}
                         >
                             <div className="w-full h-48 bg-gray-200 dark:bg-gray-700 overflow-hidden">
                                 <img src={att.url} alt={name} className="w-full h-full object-cover" />
                             </div>
-                            <div className={`flex items-center justify-between px-3 py-2 text-xs ${
-                                isUser ? 'text-white/80' : 'text-gray-600 dark:text-gray-300'
-                            }`}
+                            <div className="flex items-center justify-between px-3 py-2 text-xs"
+                                 style={{ color: isUser ? 'var(--chat-on-primary)' : 'var(--chat-muted)' }}
                             >
                                 <span className="truncate" title={name}>
                                     {name}
@@ -68,16 +70,21 @@ export const AttachmentList: React.FC<AttachmentListProps> = ({ attachments = []
                         href={att.url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className={`flex items-center gap-3 px-3 py-2 rounded-2xl border shadow-sm hover:shadow-md transition ${
-                            isUser
-                                ? 'bg-blue-600 text-white border-blue-500/50'
-                                : 'bg-white text-gray-900 border-gray-200 dark:bg-gray-800 dark:text-gray-100 dark:border-gray-700'
-                        }`}
+                        className="flex items-center gap-3 px-3 py-2 rounded-2xl border shadow-sm hover:shadow-md transition message-attachment"
+                        style={{
+                            background: isUser
+                                ? 'linear-gradient(135deg, var(--chat-primary), var(--chat-primary-accent))'
+                                : 'var(--chat-surface-strong)',
+                            color: isUser ? 'var(--chat-on-primary)' : 'var(--color-text)',
+                            borderColor: isUser ? 'transparent' : 'var(--chat-border)'
+                        }}
                     >
                         <div
-                            className={`p-2 rounded-xl ${
-                                isUser ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-200'
-                            }`}
+                            className="p-2 rounded-xl"
+                            style={{
+                                background: isUser ? 'rgba(255,255,255,0.15)' : 'var(--chat-surface-soft)',
+                                color: isUser ? 'var(--chat-on-primary)' : 'var(--chat-muted)'
+                            }}
                         >
                             <FileIcon className="w-4 h-4" />
                         </div>
@@ -86,7 +93,7 @@ export const AttachmentList: React.FC<AttachmentListProps> = ({ attachments = []
                                 {name}
                             </span>
                             {size && (
-                                <span className={isUser ? 'text-white/70' : 'text-gray-500 dark:text-gray-400'}>
+                                <span style={{ color: isUser ? 'rgba(255,255,255,0.7)' : 'var(--chat-muted)' }}>
                                     {formatFileSize(size)}
                                 </span>
                             )}

@@ -2,7 +2,7 @@ import { useState, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { useConversations } from './useConversations'
 import { useMessages } from './useMessages'
-import { BotPersonality, Message } from '@/components/chat/shared/types'
+import { BotPersonality, Message, Attachment } from '@/components/chat/shared/types'
 
 export function useChat() {
     const router = useRouter()
@@ -12,6 +12,8 @@ export function useChat() {
     const [systemPrompt, setSystemPrompt] = useState('')
     const [isLoading, setIsLoading] = useState(false)
     const [error, setError] = useState<string | null>(null)
+    const [pendingAttachments, setPendingAttachments] = useState<Attachment[]>([])
+    const [isUploading, setIsUploading] = useState(false)
     const abortControllerRef = useRef<AbortController | null>(null)
 
     const {
@@ -35,13 +37,16 @@ export function useChat() {
     } = useMessages(currentConversationId)
 
     const sendMessage = useCallback(async () => {
-        if (!inputMessage.trim() || isLoading) return
+        const text = inputMessage.trim()
+        if ((text.length === 0 && pendingAttachments.length === 0) || isLoading || isUploading) return false
 
-        const messageText = inputMessage.trim()
+        const messageText = text
+        const attachmentsToSend = pendingAttachments.map(att => ({ ...att }))
         const conversationId = currentConversationId || 'new'
         const requestId = `req_${Date.now()}_${Math.random().toString(36).slice(2)}`
 
         setInputMessage('')
+        setPendingAttachments([])
         setIsLoading(true)
         setError(null)
 
@@ -49,7 +54,8 @@ export function useChat() {
             id: `user_${Date.now()}`,
             role: 'USER',
             content: messageText,
-            createdAt: new Date().toISOString()
+            createdAt: new Date().toISOString(),
+            attachments: attachmentsToSend
         }
 
         const assistantMessage: Message = {
@@ -64,6 +70,8 @@ export function useChat() {
         addMessage(userMessage)
         addMessage(assistantMessage)
 
+        let sent = false
+
         try {
             abortControllerRef.current = new AbortController()
             const res = await fetch('/api/chat/send', {
@@ -76,7 +84,8 @@ export function useChat() {
                     model: selectedModel,
                     requestId,
                     systemPrompt: selectedBot ? selectedBot.systemPrompt : systemPrompt || undefined,
-                    botId: selectedBot?.id
+                    botId: selectedBot?.id,
+                    attachments: attachmentsToSend
                 }),
                 signal: abortControllerRef.current.signal
             })
@@ -84,7 +93,7 @@ export function useChat() {
             if (!res.ok) {
                 if (res.status === 401) {
                     router.push('/auth/signin')
-                    return
+                    return false
                 }
                 throw new Error(`HTTP ${res.status}`)
             }
@@ -144,6 +153,8 @@ export function useChat() {
 
             await loadConversations()
 
+            sent = true
+
         } catch (error: any) {
             console.error('[Send] Error:', error)
 
@@ -162,7 +173,68 @@ export function useChat() {
             setIsLoading(false)
             abortControllerRef.current = null
         }
-    }, [inputMessage, currentConversationId, selectedModel, selectedBot, systemPrompt, router])
+
+        return sent
+    }, [inputMessage, pendingAttachments, isLoading, isUploading, currentConversationId, selectedModel, selectedBot, systemPrompt, router])
+
+    const uploadAttachments = useCallback(
+        async (files: FileList | File[]) => {
+            const list = Array.from(files || []).filter((file): file is File => file instanceof File)
+            if (!list.length) return
+
+            const MAX_FILES = 5
+            const MAX_SIZE_BYTES = 10 * 1024 * 1024 // 10MB
+
+            if (pendingAttachments.length + list.length > MAX_FILES) {
+                setError(`Bạn chỉ có thể đính kèm tối đa ${MAX_FILES} tệp mỗi tin nhắn.`)
+                return
+            }
+
+            const oversize = list.find(file => file.size > MAX_SIZE_BYTES)
+            if (oversize) {
+                setError('Mỗi tệp chỉ được tối đa 10MB.')
+                return
+            }
+
+            const formData = new FormData()
+            for (const file of list) {
+                formData.append('files', file)
+            }
+
+            setIsUploading(true)
+            try {
+                const res = await fetch('/api/upload', {
+                    method: 'POST',
+                    credentials: 'include',
+                    body: formData
+                })
+
+                if (!res.ok) {
+                    throw new Error(`HTTP ${res.status}`)
+                }
+
+                const data = await res.json()
+                const uploaded: Attachment[] = Array.isArray(data.attachments)
+                    ? data.attachments.map((att: Attachment) => ({
+                          ...att,
+                          meta: att.meta ?? undefined
+                      }))
+                    : []
+
+                setPendingAttachments(prev => [...prev, ...uploaded])
+            } catch (err) {
+                console.error('[Upload] Error:', err)
+                setError('Không thể tải tệp lên. Vui lòng thử lại.')
+            } finally {
+                setIsUploading(false)
+            }
+        },
+        [pendingAttachments, setError]
+    )
+
+    const removeAttachment = useCallback((id: string) => {
+        setPendingAttachments(prev => prev.filter(att => att.id !== id))
+    }, [])
 
     const stopStreaming = () => {
         if (abortControllerRef.current) {
@@ -186,13 +258,17 @@ export function useChat() {
         messages,
         messagesEndRef,
 
-        
+
         inputMessage,
         setInputMessage,
         sendMessage,
         stopStreaming,
+        pendingAttachments,
+        uploadAttachments,
+        removeAttachment,
+        isUploading,
 
-        
+
         selectedModel,
         setSelectedModel,
         selectedBot,

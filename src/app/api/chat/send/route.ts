@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { ModelId, Role } from '@prisma/client'
+import { ModelId, Role, Prisma } from '@prisma/client'
 import { estimateTokensFromText, estimateTokensFromMessages } from '@/lib/tokenizer/estimate'
 import { getUsageSummary, canSpend, recordUsage } from '@/lib/billing/quota'
 import { defaultModel, cheaperAlternatives, toProviderModelId } from '@/lib/ai/models'
@@ -11,6 +11,19 @@ import { getUserIdFromSession } from '@/lib/auth/session'
 
 const DEBUG = process.env.NODE_ENV === 'development'
 
+type AttachmentPayload = {
+    id?: string
+    kind?: string
+    url?: string
+    meta?: unknown
+}
+
+type NormalizedAttachment = {
+    kind: 'image' | 'file'
+    url: string
+    meta?: Prisma.InputJsonValue
+}
+
 type SendReq = {
     conversationId?: string
     content?: string
@@ -18,6 +31,7 @@ type SendReq = {
     requestId?: string
     systemPrompt?: string
     botId?: string
+    attachments?: AttachmentPayload[]
 }
 
 const HISTORY_LIMIT = 20
@@ -32,15 +46,18 @@ export const POST = withRateLimit(async (req: Request) => {
     try {
         const body = (await req.json()) as SendReq
 
-        
+
         const userId = await getUserIdFromSession()
         if (!userId) return json(401, { code: 'UNAUTHENTICATED' })
 
-        
+
+        const attachments = normalizeAttachments(body?.attachments)
         const rawContent = String(body?.content ?? '').trim()
-        if (!rawContent) return json(400, { code: 'BAD_REQUEST', message: 'Thiếu content.' })
         if (rawContent.length > MAX_INPUT_CHARS) {
             return json(400, { code: 'PER_REQUEST_TOO_LARGE', message: `Nội dung quá dài (> ${MAX_INPUT_CHARS} ký tự).` })
+        }
+        if (!rawContent && attachments.length === 0) {
+            return json(400, { code: 'BAD_REQUEST', message: 'Thiếu nội dung hoặc tệp đính kèm.' })
         }
 
         
@@ -99,6 +116,11 @@ export const POST = withRateLimit(async (req: Request) => {
         }
 
         
+        const messageForModel = combineContentWithAttachments(rawContent, attachments)
+        const firstAttachmentName = attachments
+            .map(att => getMetaString(att.meta, 'name'))
+            .find(name => typeof name === 'string') as string | undefined
+
         const botSystemPrompt = body?.systemPrompt
         const botId = body?.botId
 
@@ -115,10 +137,12 @@ export const POST = withRateLimit(async (req: Request) => {
             }
         }
 
+        const initialPreview = rawContent || firstAttachmentName || 'New chat'
+
         const convo = await ensureConversation({
             userId,
             conversationId: requestedConvId,
-            initialTitle: rawContent.slice(0, 80) || 'New chat',
+            initialTitle: initialPreview.slice(0, 80) || 'New chat',
             initialModel: requestedModel ?? (isFreeTier ? FALLBACK_MODEL : defaultModel()),
             initialSystemPrompt: requestedConvId === 'new' || !requestedConvId ? botSystemPrompt : undefined,
             initialBotId: requestedConvId === 'new' || !requestedConvId ? botId : undefined
@@ -196,15 +220,28 @@ export const POST = withRateLimit(async (req: Request) => {
         const recent = await prisma.message.findMany({
             where: { conversationId: convo.id },
             orderBy: { createdAt: 'desc' },
-            select: { role: true, content: true },
+            select: {
+                role: true,
+                content: true,
+                attachments: {
+                    select: {
+                        kind: true,
+                        url: true,
+                        meta: true
+                    }
+                }
+            },
             take: HISTORY_LIMIT
         })
         const preparedHistory = recent
             .reverse()
-            .map(m => ({ role: m.role.toLowerCase() as 'user' | 'assistant' | 'system', content: m.content }))
+            .map(m => ({
+                role: m.role.toLowerCase() as 'user' | 'assistant' | 'system',
+                content: combineContentWithAttachments(m.content, normalizeAttachments(m.attachments))
+            }))
 
         
-        const estimateIn = estimateTokensFromMessages(preparedHistory) + estimateTokensFromText(rawContent)
+        const estimateIn = estimateTokensFromMessages(preparedHistory) + estimateTokensFromText(messageForModel)
         const estimateOut = OUTPUT_RESERVE
         const estimateTotal = estimateIn + estimateOut
 
@@ -250,16 +287,29 @@ export const POST = withRateLimit(async (req: Request) => {
         }
 
         
-        await prisma.message.create({
-            data: { conversationId: convo.id, role: Role.USER, content: rawContent }
+        const userDbMessage = await prisma.message.create({
+            data: { conversationId: convo.id, role: Role.USER, content: rawContent },
+            select: { id: true }
         })
+
+        if (attachments.length > 0) {
+            await prisma.attachment.createMany({
+                data: attachments.map(att => ({
+                    conversationId: convo.id,
+                    messageId: userDbMessage.id,
+                    kind: att.kind,
+                    url: att.url,
+                    meta: att.meta === undefined ? undefined : att.meta
+                }))
+            })
+        }
 
         
         const effectiveSystemPrompt = botSystemPrompt || convo.systemPrompt || 'You are a helpful AI assistant.'
 
         
         const sys = [{ role: 'system' as const, content: effectiveSystemPrompt }]
-        const allMessages = [...sys, ...preparedHistory, { role: 'user' as const, content: rawContent }]
+        const allMessages = [...sys, ...preparedHistory, { role: 'user' as const, content: messageForModel }]
 
         
         const controller = new AbortController()
@@ -404,6 +454,66 @@ export const POST = withRateLimit(async (req: Request) => {
     }
 }, { scope: 'chat-send', limit: 20, windowMs: 60_000, burst: 20 })
 
+
+function normalizeAttachments(input: unknown): NormalizedAttachment[] {
+    if (!Array.isArray(input)) return []
+
+    const normalized: NormalizedAttachment[] = []
+    for (const item of input) {
+        if (!item || typeof item !== 'object') continue
+        const raw = item as { kind?: unknown; url?: unknown; meta?: unknown }
+        if (typeof raw.url !== 'string') continue
+
+        const kind = raw.kind === 'image' ? 'image' : 'file'
+        let meta: Prisma.InputJsonValue | undefined
+        if (raw.meta !== undefined) {
+            if (raw.meta === null) {
+                meta = undefined
+            } else if (typeof raw.meta === 'object') {
+                meta = raw.meta as Prisma.InputJsonValue
+            }
+        }
+
+        normalized.push({ kind, url: raw.url, meta })
+    }
+
+    return normalized
+}
+
+function getMetaString(meta: Prisma.InputJsonValue | undefined, key: string): string | undefined {
+    if (!meta || typeof meta !== 'object' || meta === null) return undefined
+    const record = meta as Record<string, unknown>
+    const value = record[key]
+    return typeof value === 'string' ? value : undefined
+}
+
+function buildAttachmentSummary(attachments: NormalizedAttachment[]): string {
+    if (!attachments.length) return ''
+
+    const lines = attachments.map((att, index) => {
+        const name = getMetaString(att.meta, 'name') ?? att.url.split('/').pop() ?? att.url
+        const mime = getMetaString(att.meta, 'mimeType')
+        const parts = [name]
+        if (mime) parts.push(mime)
+        return `${index + 1}. ${parts.filter(Boolean).join(' · ')}`.trim()
+    })
+
+    return lines.join('\n')
+}
+
+function combineContentWithAttachments(content: string, attachments: NormalizedAttachment[]): string {
+    const summary = buildAttachmentSummary(attachments)
+    if (!summary) {
+        return content
+    }
+
+    const segments: string[] = []
+    if (content && content.trim().length > 0) {
+        segments.push(content)
+    }
+    segments.push(`Đính kèm:\n${summary}`)
+    return segments.join('\n\n')
+}
 
 function json(status: number, data: unknown) {
     return new NextResponse(JSON.stringify(data), {

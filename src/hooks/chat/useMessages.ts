@@ -17,7 +17,16 @@ export function useMessages(conversationId: string | null) {
             })
             if (!res.ok) throw new Error('Failed to load messages')
             const data = await res.json()
-            setMessages(data.items || [])
+            const normalized = (data.items || []).map((item: any) => ({
+                ...item,
+                attachments: Array.isArray(item.attachments)
+                    ? item.attachments.map((att: any) => ({
+                          ...att,
+                          meta: att?.meta ?? undefined
+                      }))
+                    : []
+            }))
+            setMessages(normalized)
         } catch (error) {
             console.error('[Messages] Load error:', error)
             setError('Không thể tải tin nhắn')

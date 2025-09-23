@@ -3,6 +3,22 @@
 
 export type { BotPersonality } from '@/lib/bots/personality-templates'
 
+export interface AttachmentMeta {
+    name?: string
+    size?: number
+    mimeType?: string
+    width?: number
+    height?: number
+    [key: string]: unknown
+}
+
+export interface Attachment {
+    id: string
+    kind: 'image' | 'file'
+    url: string
+    meta?: AttachmentMeta | null
+}
+
 export interface Message {
     id: string
     role: 'USER' | 'ASSISTANT' | 'SYSTEM'
@@ -12,6 +28,7 @@ export interface Message {
     error?: boolean
     model?: string
     botId?: string
+    attachments?: Attachment[]
 }
 
 export interface Conversation {

@@ -48,6 +48,10 @@ export default function ChatPage() {
         setInputMessage,
         sendMessage: originalSendMessage,
         stopStreaming,
+        pendingAttachments,
+        uploadAttachments,
+        removeAttachment,
+        isUploading,
         selectedModel,
         setSelectedModel,
         selectedBot,
@@ -313,6 +317,10 @@ export default function ChatPage() {
                         onStop={stopStreaming}
                         isLoading={isLoading}
                         disabled={userPlanTier === 'FREE' && userUsage.dailyMessages >= userUsage.dailyLimit}
+                        attachments={pendingAttachments}
+                        onUpload={uploadAttachments}
+                        onRemoveAttachment={removeAttachment}
+                        isUploading={isUploading}
                     />
                 </div>
 

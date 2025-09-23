@@ -1,3 +1,5 @@
+import type { Attachment } from '@/components/chat/shared/types';
+
 export type MessageRole = "USER" | "ASSISTANT";
 
 export interface Conversation {
@@ -13,6 +15,7 @@ export interface Message {
     role: MessageRole;
     content: string;
     createdAt: string;
+    attachments?: Attachment[];
 }
 
 export interface ChatReply {

@@ -25,7 +25,7 @@ export const AttachmentList: React.FC<AttachmentListProps> = ({ attachments = []
     const isUser = role === 'USER'
 
     return (
-        <div className={`flex flex-col gap-2 ${isUser ? 'items-end' : 'items-start'}`}>
+        <div className="attachment-list">
             {attachments.map(att => {
                 const meta = att.meta || {}
                 const name = typeof meta.name === 'string' ? meta.name : att.url.split('/').pop() || 'Tệp đính kèm'
@@ -40,19 +40,13 @@ export const AttachmentList: React.FC<AttachmentListProps> = ({ attachments = []
                             href={att.url}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className={`group overflow-hidden rounded-2xl border ${
-                                isUser
-                                    ? 'border-blue-500/40 bg-blue-500/10 text-white'
-                                    : 'border-gray-200 bg-white text-gray-900 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-100'
-                            } max-w-sm shadow-sm hover:shadow-md transition`}
+                            className={`attachment-card ${isUser ? 'attachment-card--user' : ''}`}
+                            title={name}
                         >
-                            <div className="w-full h-48 bg-gray-200 dark:bg-gray-700 overflow-hidden">
+                            <div className="attachment-image">
                                 <img src={att.url} alt={name} className="w-full h-full object-cover" />
                             </div>
-                            <div className={`flex items-center justify-between px-3 py-2 text-xs ${
-                                isUser ? 'text-white/80' : 'text-gray-600 dark:text-gray-300'
-                            }`}
-                            >
+                            <div className="flex items-center justify-between w-full text-xs mt-2">
                                 <span className="truncate" title={name}>
                                     {name}
                                 </span>
@@ -68,28 +62,17 @@ export const AttachmentList: React.FC<AttachmentListProps> = ({ attachments = []
                         href={att.url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className={`flex items-center gap-3 px-3 py-2 rounded-2xl border shadow-sm hover:shadow-md transition ${
-                            isUser
-                                ? 'bg-blue-600 text-white border-blue-500/50'
-                                : 'bg-white text-gray-900 border-gray-200 dark:bg-gray-800 dark:text-gray-100 dark:border-gray-700'
-                        }`}
+                        className={`attachment-card ${isUser ? 'attachment-card--user' : ''}`}
+                        title={name}
                     >
-                        <div
-                            className={`p-2 rounded-xl ${
-                                isUser ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-200'
-                            }`}
-                        >
-                            <FileIcon className="w-4 h-4" />
+                        <div className="attachment-card__icon">
+                            <FileIcon className="w-5 h-5" />
                         </div>
-                        <div className="flex flex-col text-xs">
-                            <span className="font-medium truncate" title={name}>
+                        <div className="flex-1 text-xs">
+                            <div className="font-medium truncate" title={name}>
                                 {name}
-                            </span>
-                            {size && (
-                                <span className={isUser ? 'text-white/70' : 'text-gray-500 dark:text-gray-400'}>
-                                    {formatFileSize(size)}
-                                </span>
-                            )}
+                            </div>
+                            {size && <div className="opacity-75 mt-0.5">{formatFileSize(size)}</div>}
                         </div>
                     </a>
                 )

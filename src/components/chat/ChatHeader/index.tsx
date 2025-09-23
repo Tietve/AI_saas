@@ -1,7 +1,4 @@
-
-
-import { ModelOption, BotPersonality } from '../shared/types'
-import { AVAILABLE_MODELS } from '../shared/constants'
+import { BotPersonality } from '../shared/types'
 import { ModelSelector } from './ModelSelector'
 import { SystemPromptBar } from './SystemPromptBar'
 import { BotSelector } from '../BotSelector'
@@ -22,77 +19,61 @@ interface ChatHeaderProps {
 }
 
 export function ChatHeader({
-                               selectedModel,
-                               onModelChange,
-                               systemPrompt,
-                               onSystemPromptChange,
-                               onToggleSidebar,
-                               selectedBot,
-                               onBotChange,
-                               showSystemPrompt = false,
-                               onToggleSystemPrompt,
-                               disabled = false
-                           }: ChatHeaderProps) {
-    const currentModel = AVAILABLE_MODELS.find(m => m.id === selectedModel)
-
+    selectedModel,
+    onModelChange,
+    systemPrompt,
+    onSystemPromptChange,
+    onToggleSidebar,
+    selectedBot,
+    onBotChange,
+    showSystemPrompt = false,
+    onToggleSystemPrompt,
+    disabled = false,
+}: ChatHeaderProps) {
     return (
         <>
-            {}
-            <header className="chat-header h-14 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800">
-                <div className="h-full px-3 lg:px-4 flex items-center justify-between gap-3">
-                    {}
-                    <div className="flex items-center gap-2 min-w-0">
-                        {}
+            <header className="chat-header">
+                <div className="flex items-center justify-between gap-4">
+                    <div className="flex items-center gap-3 min-w-0">
                         <button
                             onClick={onToggleSidebar}
-                            className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800
-                                     text-gray-600 dark:text-gray-400 transition-colors flex-shrink-0"
-                            aria-label="Toggle sidebar">
+                            className="chat-icon-button"
+                            aria-label="Toggle sidebar"
+                        >
                             <Menu className="w-5 h-5" />
                         </button>
 
-                        {}
-                        <div className="flex items-center gap-2 min-w-0">
-                            <h1 className="text-base lg:text-lg font-semibold text-gray-900 dark:text-gray-100 hidden sm:block">
-                                AI Chat
-                            </h1>
+                        <div className="flex items-center gap-3 min-w-0">
+                            <h1 className="chat-header__title truncate">AI Chat</h1>
                             {selectedBot && (
-                                <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-800
-                                              text-gray-600 dark:text-gray-400 truncate max-w-[120px]">
-                                    với {selectedBot.name}
+                                <span className="chat-header__badge truncate" title={`Đang trò chuyện với ${selectedBot.name}`}>
+                                    {selectedBot.appearance.emoji} {selectedBot.name}
                                 </span>
                             )}
                         </div>
                     </div>
 
-                    {}
-                    <div className="flex items-center gap-1 lg:gap-2 flex-shrink-0">
-                        {}
+                    <div className="chat-toolbar">
                         {onToggleSystemPrompt && (
                             <button
                                 onClick={onToggleSystemPrompt}
                                 disabled={disabled}
-                                className={`p-2 rounded-lg transition-colors flex-shrink-0
-                                         ${showSystemPrompt
-                                    ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
-                                    : 'hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-400'}
-                                         ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
-                                title="System Prompt">
-                                <Settings className="w-4 h-4 lg:w-5 lg:h-5" />
+                                className={`chat-icon-button ${showSystemPrompt ? 'is-active' : ''}`}
+                                title="System Prompt"
+                            >
+                                <Settings className="w-5 h-5" />
                             </button>
                         )}
 
-                        {}
                         <div className="bot-selector-wrapper">
                             <BotSelector
                                 selectedBot={selectedBot}
                                 onBotChange={onBotChange}
-                                compact={true}
+                                compact
                                 disabled={disabled}
                             />
                         </div>
 
-                        {}
                         <div className="model-selector-wrapper hidden sm:block">
                             <ModelSelector
                                 selectedModel={selectedModel}
@@ -101,7 +82,6 @@ export function ChatHeader({
                             />
                         </div>
 
-                        {}
                         <div className="theme-selector-wrapper">
                             <ThemeSelector />
                         </div>
@@ -109,10 +89,9 @@ export function ChatHeader({
                 </div>
             </header>
 
-            {}
             {showSystemPrompt && (
                 <SystemPromptBar
-                    show={true}
+                    show
                     systemPrompt={systemPrompt}
                     onSystemPromptChange={onSystemPromptChange}
                     disabled={disabled}
@@ -120,8 +99,7 @@ export function ChatHeader({
                 />
             )}
 
-            {}
-            <div className="sm:hidden bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 px-3 py-2">
+            <div className="sm:hidden px-4 py-3 border-b border-transparent/40">
                 <ModelSelector
                     selectedModel={selectedModel}
                     onModelChange={onModelChange}

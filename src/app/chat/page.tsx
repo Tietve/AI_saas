@@ -1,5 +1,3 @@
-
-
 'use client'
 
 import { useState, useEffect } from 'react'
@@ -9,19 +7,17 @@ import { ChatSidebar } from '@/components/chat/ChatSidebar'
 import { ChatHeader } from '@/components/chat/ChatHeader'
 import { ChatMessages } from '@/components/chat/ChatMessages'
 import { ChatInput } from '@/components/chat/ChatInput'
-import { getBotById, getRandomGreeting } from '@/lib/bots/personality-templates'
+import { getRandomGreeting } from '@/lib/bots/personality-templates'
 import UpgradeModal from '@/components/UpgradeModal'
-
-
 import { initializeTheme, injectChatThemeStyles, resetTheme } from '@/lib/theme/theme-system'
 import '@/styles/animations.css'
+import '@/styles/chat.css'
 
 export default function ChatPage() {
     const router = useRouter()
     const [loading, setLoading] = useState(true)
     const [authenticated, setAuthenticated] = useState(false)
 
-    
     const [isSidebarOpen, setIsSidebarOpen] = useState(true)
     const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false)
 
@@ -29,7 +25,7 @@ export default function ChatPage() {
     const [showUpgradeModal, setShowUpgradeModal] = useState(false)
     const [userUsage, setUserUsage] = useState({
         dailyMessages: 0,
-        dailyLimit: 20
+        dailyLimit: 20,
     })
     const [userId, setUserId] = useState<string | undefined>()
     const [userPlanTier, setUserPlanTier] = useState<string>('FREE')
@@ -60,31 +56,24 @@ export default function ChatPage() {
         setSystemPrompt,
         isLoading,
         error,
-        setError
+        setError,
     } = useChat()
 
-    
     useEffect(() => {
-        
         document.body.setAttribute('data-page', 'chat')
-
-        
         initializeTheme()
         injectChatThemeStyles()
 
-        
         return () => {
             document.body.removeAttribute('data-page')
-            resetTheme() 
+            resetTheme()
         }
     }, [])
 
-    
     useEffect(() => {
         checkAuthentication()
     }, [])
 
-    
     useEffect(() => {
         if (authenticated) {
             checkUsageQuota()
@@ -93,11 +82,13 @@ export default function ChatPage() {
         }
     }, [authenticated])
 
-    
     useEffect(() => {
         const handleResize = () => {
-            if (window.innerWidth < 768) {
+            if (window.innerWidth < 1024) {
                 setIsSidebarCollapsed(true)
+            } else {
+                setIsSidebarCollapsed(false)
+                setIsSidebarOpen(true)
             }
         }
         handleResize()
@@ -109,7 +100,7 @@ export default function ChatPage() {
         try {
             const res = await fetch('/api/me', {
                 credentials: 'include',
-                cache: 'no-store'
+                cache: 'no-store',
             })
             const data = await res.json()
             if (data.authenticated) {
@@ -130,7 +121,7 @@ export default function ChatPage() {
     async function checkUsageQuota() {
         try {
             const res = await fetch('/api/usage/check', {
-                credentials: 'include'
+                credentials: 'include',
             })
 
             if (res.ok) {
@@ -138,7 +129,7 @@ export default function ChatPage() {
                 if (data.success) {
                     setUserUsage({
                         dailyMessages: data.data.usage.daily,
-                        dailyLimit: data.data.usage.dailyLimit
+                        dailyLimit: data.data.usage.dailyLimit,
                     })
                     setUserPlanTier(data.data.user.planTier)
                 }
@@ -159,7 +150,7 @@ export default function ChatPage() {
         if (result) {
             setUserUsage(prev => ({
                 ...prev,
-                dailyMessages: prev.dailyMessages + 1
+                dailyMessages: prev.dailyMessages + 1,
             }))
             checkUsageQuota()
         }
@@ -171,7 +162,7 @@ export default function ChatPage() {
         try {
             await fetch('/api/auth/signout', {
                 method: 'POST',
-                credentials: 'include'
+                credentials: 'include',
             })
             router.push('/auth/signin')
         } catch (error) {
@@ -186,27 +177,33 @@ export default function ChatPage() {
         setSelectedBot(bot)
         if (bot) {
             const greeting = getRandomGreeting(bot.id)
+            if (!inputMessage) {
+                setInputMessage(greeting)
+            }
         }
     }
 
     if (loading) {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-950">
-                <div className="text-center">
+            <div className="min-h-screen flex items-center justify-center bg-slate-950/5">
+                <div className="text-center space-y-4">
                     <div className="relative w-16 h-16 mx-auto">
-                        <div className="absolute inset-0 rounded-full border-4 border-gray-200 dark:border-gray-700"></div>
-                        <div className="absolute inset-0 rounded-full border-4 border-blue-600 border-t-transparent animate-spin"></div>
+                        <div className="absolute inset-0 rounded-full border-4 border-white/40 dark:border-slate-800" />
+                        <div className="absolute inset-0 rounded-full border-4 border-emerald-500 border-t-transparent animate-spin" />
                     </div>
-                    <p className="mt-4 text-gray-600 dark:text-gray-400 font-medium">Đang tải...</p>
+                    <div>
+                        <p className="text-sm font-medium text-slate-500 dark:text-slate-300">Đang tải không gian trò chuyện...</p>
+                    </div>
                 </div>
             </div>
         )
     }
 
+    const shouldShowOverlay = isSidebarOpen && !isSidebarCollapsed && typeof window !== 'undefined' && window.innerWidth < 1024
+
     return (
-        <div data-theme-scope="chat" className="chat-page-container min-h-screen">
-            <div className="chat-container flex h-screen overflow-hidden">
-                {}
+        <div data-theme-scope="chat" className="chat-app">
+            <div className="chat-shell">
                 <ChatSidebar
                     isOpen={isSidebarOpen}
                     isCollapsed={isSidebarCollapsed}
@@ -221,23 +218,19 @@ export default function ChatPage() {
                         if (newId) {
                             setCurrentConversationId(newId)
                         }
+                        setIsSidebarOpen(false)
                     }}
-                    onSelectConversation={setCurrentConversationId}
+                    onSelectConversation={id => {
+                        setCurrentConversationId(id)
+                        if (window.innerWidth < 1024) {
+                            setIsSidebarOpen(false)
+                        }
+                    }}
                     onDeleteConversation={deleteConversation}
                     onSignOut={handleSignOut}
                 />
 
-                {}
-                {isSidebarOpen && !isSidebarCollapsed && (
-                    <div
-                        className="fixed inset-0 bg-black/50 z-20 lg:hidden"
-                        onClick={() => setIsSidebarOpen(false)}
-                    />
-                )}
-
-                {}
-                <div className="flex-1 flex flex-col min-w-0">
-                    {}
+                <div className="chat-main">
                     <ChatHeader
                         onToggleSidebar={() => {
                             if (window.innerWidth < 1024) {
@@ -257,7 +250,6 @@ export default function ChatPage() {
                         disabled={isLoading}
                     />
 
-                    {}
                     <ChatMessages
                         messages={messages}
                         currentConversationId={currentConversationId}
@@ -266,25 +258,24 @@ export default function ChatPage() {
                         messagesEndRef={messagesEndRef}
                     />
 
-                    {}
                     {userPlanTier === 'FREE' && userUsage.dailyMessages > 10 && (
-                        <div className="px-4 py-2 border-t usage-indicator">
-                            <div className="max-w-3xl mx-auto flex items-center justify-between">
-                                <div className="flex items-center gap-3">
-                                    <div className="relative w-32 h-1.5 rounded-full overflow-hidden usage-bar">
+                        <div className="chat-usage">
+                            <div className="max-w-3xl mx-auto flex items-center justify-between gap-4">
+                                <div className="flex items-center gap-3 flex-1">
+                                    <div className="chat-usage__bar">
                                         <div
-                                            className="absolute inset-y-0 left-0 rounded-full transition-all duration-500 usage-bar-fill"
+                                            className="chat-usage__bar-fill"
                                             style={{ width: `${Math.min(100, (userUsage.dailyMessages / userUsage.dailyLimit) * 100)}%` }}
                                         />
                                     </div>
-                                    <span className="text-xs usage-text">
+                                    <span className="chat-usage__label">
                                         {userUsage.dailyMessages}/{userUsage.dailyLimit} tin nhắn
                                     </span>
                                 </div>
                                 {userUsage.dailyMessages >= userUsage.dailyLimit - 3 && (
                                     <button
                                         onClick={() => setShowUpgradeModal(true)}
-                                        className="text-xs px-3 py-1 rounded-full transition-all upgrade-button"
+                                        className="chat-sidebar__button chat-sidebar__button--primary text-xs px-4 py-1.5"
                                     >
                                         Nâng cấp Plus ✨
                                     </button>
@@ -293,14 +284,11 @@ export default function ChatPage() {
                         </div>
                     )}
 
-                    {}
                     {error && (
-                        <div className="mx-auto max-w-3xl px-4 pb-4">
-                            <div className="rounded-lg px-4 py-3 flex items-center justify-between error-message">
+                        <div className="px-6">
+                            <div className="chat-error">
                                 <p className="text-sm">{error}</p>
-                                <button
-                                    onClick={() => setError(null)}
-                                    className="hover:opacity-70">
+                                <button onClick={() => setError(null)} className="chat-icon-button">
                                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                                     </svg>
@@ -309,7 +297,6 @@ export default function ChatPage() {
                         </div>
                     )}
 
-                    {}
                     <ChatInput
                         value={inputMessage}
                         onChange={setInputMessage}
@@ -323,74 +310,19 @@ export default function ChatPage() {
                         isUploading={isUploading}
                     />
                 </div>
-
-                {}
-                <UpgradeModal
-                    isOpen={showUpgradeModal}
-                    onClose={() => setShowUpgradeModal(false)}
-                    currentUsage={userUsage}
-                    userId={userId}
-                />
             </div>
 
-            <style jsx>{`
-                .chat-page-container {
-                    background: var(--color-background, #ffffff);
-                    color: var(--color-text, #111827);
-                }
-                
-                .usage-indicator {
-                    background: linear-gradient(to right, 
-                        rgba(147, 51, 234, 0.05), 
-                        rgba(59, 130, 246, 0.05));
-                    border-color: var(--color-border, #e5e7eb);
-                }
-                
-                .usage-bar {
-                    background: var(--color-background-secondary, #f3f4f6);
-                }
-                
-                .usage-bar-fill {
-                    background: linear-gradient(to right, #8b5cf6, #3b82f6);
-                }
-                
-                .usage-text {
-                    color: var(--color-text-secondary, #6b7280);
-                }
-                
-                .upgrade-button {
-                    background: linear-gradient(to right, #9333ea, #3b82f6);
-                    color: white;
-                }
-                
-                .upgrade-button:hover {
-                    background: linear-gradient(to right, #7c3aed, #2563eb);
-                }
-                
-                .error-message {
-                    background: rgba(239, 68, 68, 0.1);
-                    border: 1px solid rgba(239, 68, 68, 0.3);
-                    color: var(--color-error, #ef4444);
-                }
-                
-                /* Dark theme adjustments */
-                [data-theme*="dark"] .usage-indicator,
-                [data-theme*="noble"] .usage-indicator,
-                [data-theme*="cyber"] .usage-indicator,
-                [data-theme*="ocean"] .usage-indicator {
-                    background: linear-gradient(to right,
-                        rgba(147, 51, 234, 0.1),
-                        rgba(59, 130, 246, 0.1));
-                }
-                
-                [data-theme*="dark"] .error-message,
-                [data-theme*="noble"] .error-message,
-                [data-theme*="cyber"] .error-message,
-                [data-theme*="ocean"] .error-message {
-                    background: rgba(239, 68, 68, 0.2);
-                    border-color: rgba(239, 68, 68, 0.5);
-                }
-            `}</style>
+            <div
+                className={`chat-sidebar-overlay ${shouldShowOverlay ? 'visible' : ''}`}
+                onClick={() => setIsSidebarOpen(false)}
+            />
+
+            <UpgradeModal
+                isOpen={showUpgradeModal}
+                onClose={() => setShowUpgradeModal(false)}
+                currentUsage={userUsage}
+                userId={userId}
+            />
         </div>
     )
 }

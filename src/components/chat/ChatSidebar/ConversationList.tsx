@@ -11,35 +11,32 @@ interface ConversationListProps {
 }
 
 export const ConversationList: React.FC<ConversationListProps> = ({
-                                                                      conversations,
-                                                                      currentConversationId,
-                                                                      onSelect,
-                                                                      onDelete
-                                                                  }) => {
+    conversations,
+    currentConversationId,
+    onSelect,
+    onDelete,
+}) => {
     const conversationGroups = groupConversationsByDate(conversations)
 
     if (conversations.length === 0) {
         return (
-            <div className="text-center py-8">
-                <svg className="w-12 h-12 mx-auto text-gray-300 dark:text-gray-600"
-                     fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
-                          d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-4l-4 4z" />
-                </svg>
-                <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
-                    Chưa có hội thoại nào
-                </p>
+            <div className="conversation-empty">
+                <div className="conversation-empty__icon">
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-4l-4 4z" />
+                    </svg>
+                </div>
+                <p className="text-sm font-medium">Chưa có hội thoại nào</p>
+                <p className="text-xs opacity-80 mt-1">Tạo cuộc trò chuyện mới để bắt đầu</p>
             </div>
         )
     }
 
     return (
-        <div className="px-2 py-2">
+        <div className="conversation-list">
             {Object.entries(conversationGroups).map(([date, convs]) => (
-                <div key={date}>
-                    <div className="px-3 py-2 text-xs font-semibold text-gray-500 dark:text-gray-400">
-                        {date}
-                    </div>
+                <div key={date} className="conversation-group">
+                    <div className="conversation-section-label">{date}</div>
                     {convs.map(conv => (
                         <ConversationItem
                             key={conv.id}

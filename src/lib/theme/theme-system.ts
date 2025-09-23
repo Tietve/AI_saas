@@ -206,123 +206,195 @@ export const themes: Record<string, ThemeConfig> = {
 }
 
 
+function normalizeHex(color: string): string | null {
+    if (!color) return null
+    const hex = color.trim().replace('#', '')
+    if (hex.length === 3) {
+        const expanded = hex.split('').map(char => char + char).join('')
+        return `#${expanded}`.toLowerCase()
+    }
+    if (hex.length === 6) {
+        return `#${hex.toLowerCase()}`
+    }
+    return null
+}
+
+function hexToRgb(color: string): [number, number, number] | null {
+    const normalized = normalizeHex(color)
+    if (!normalized) return null
+    const bigint = Number.parseInt(normalized.slice(1), 16)
+    const r = (bigint >> 16) & 255
+    const g = (bigint >> 8) & 255
+    const b = bigint & 255
+    return [r, g, b]
+}
+
+function rgbToHex(r: number, g: number, b: number): string {
+    const clamp = (value: number) => Math.max(0, Math.min(255, Math.round(value)))
+    return `#${[clamp(r), clamp(g), clamp(b)]
+        .map(value => value.toString(16).padStart(2, '0'))
+        .join('')}`
+}
+
+function mixColors(colorA: string, colorB: string, weightA: number): string {
+    const rgbA = hexToRgb(colorA)
+    const rgbB = hexToRgb(colorB)
+    if (!rgbA || !rgbB) return colorA
+    const wA = Math.max(0, Math.min(1, weightA))
+    const wB = 1 - wA
+    const mixed = [
+        rgbA[0] * wA + rgbB[0] * wB,
+        rgbA[1] * wA + rgbB[1] * wB,
+        rgbA[2] * wA + rgbB[2] * wB
+    ] as const
+    return rgbToHex(mixed[0], mixed[1], mixed[2])
+}
+
+function toRgba(color: string, alpha: number): string {
+    const rgb = hexToRgb(color)
+    if (!rgb) return color
+    const normalizedAlpha = Math.max(0, Math.min(1, alpha))
+    const [r, g, b] = rgb
+    return `rgba(${r}, ${g}, ${b}, ${normalizedAlpha})`
+}
+
+function getLuminance(color: string): number {
+    const rgb = hexToRgb(color)
+    if (!rgb) return 0
+    const [r, g, b] = rgb.map(component => {
+        const channel = component / 255
+        return channel <= 0.03928 ? channel / 12.92 : Math.pow((channel + 0.055) / 1.055, 2.4)
+    })
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b
+}
+
+function getContrastingText(color: string): string {
+    const luminance = getLuminance(color)
+    return luminance > 0.6 ? '#111827' : '#ffffff'
+}
+
+function setCssVariables(element: HTMLElement, variables: Record<string, string>) {
+    Object.entries(variables).forEach(([name, value]) => {
+        element.style.setProperty(name, value)
+    })
+}
+
+const BASE_THEME_VARS = [
+    '--color-primary',
+    '--color-primary-hover',
+    '--color-background',
+    '--color-background-secondary',
+    '--color-surface',
+    '--color-text',
+    '--color-text-secondary',
+    '--color-accent',
+    '--color-border',
+    '--color-success',
+    '--color-error',
+    '--color-warning'
+]
+
+const CHAT_THEME_VARS = [
+    '--chat-surface',
+    '--chat-surface-soft',
+    '--chat-surface-strong',
+    '--chat-border',
+    '--chat-border-strong',
+    '--chat-muted',
+    '--chat-primary',
+    '--chat-primary-soft',
+    '--chat-primary-accent',
+    '--chat-accent',
+    '--chat-ring',
+    '--chat-ring-outer',
+    '--chat-on-primary',
+    '--chat-on-surface',
+    '--chat-on-soft',
+    '--chat-shadow-color',
+    '--chat-shadow-soft',
+    '--chat-scrollbar-color',
+    '--chat-background-gradient',
+    '--chat-glass-blur'
+]
+
 export function applyTheme(themeId: string): void {
-    
+    if (typeof document === 'undefined') return
+
     if (!isOnChatPage()) {
         console.log('Theme only applies to /chat page')
-        return
     }
 
     const theme = themes[themeId] || themes.default
+    const chatContainer = document.querySelector('[data-theme-scope="chat"]') as HTMLElement | null
+    const root = document.documentElement
 
-    
-    const chatContainer = document.querySelector('[data-theme-scope="chat"]') ||
-        document.querySelector('.chat-page-container') ||
-        document.querySelector('main')
+    const surfaceSoft = mixColors(theme.colors.surface, theme.colors.background, 0.55)
+    const surfaceStrong = mixColors(theme.colors.surface, theme.colors.background, 0.8)
+    const borderSoft = mixColors(theme.colors.border, theme.colors.background, 0.65)
+    const borderStrong = mixColors(theme.colors.border, theme.colors.background, 0.45)
+    const muted = mixColors(theme.colors.textSecondary, theme.colors.background, 0.5)
+    const primarySoft = mixColors(theme.colors.primary, theme.colors.background, 0.25)
+    const primaryAccent = mixColors(theme.colors.primary, theme.colors.accent, 0.6)
+    const accentSoft = mixColors(theme.colors.accent, theme.colors.background, 0.25)
+    const ring = mixColors(theme.colors.primary, '#ffffff', 0.35)
+    const ringOuter = toRgba(theme.colors.primary, 0.18)
+    const gradientStart = mixColors(theme.colors.primary, theme.colors.background, 0.12)
+    const gradientEnd = mixColors(theme.colors.accent, theme.colors.background, 0.08)
+    const scrollThumb = mixColors(theme.colors.border, theme.colors.textSecondary, 0.4)
 
-    if (!chatContainer) {
-        console.warn('Chat container not found, applying to root as fallback')
-    }
+    const backgroundLuminance = getLuminance(theme.colors.background)
+    const darkBackground = backgroundLuminance < 0.45
+    const shadowColor = darkBackground ? 'rgba(0, 0, 0, 0.35)' : 'rgba(15, 23, 42, 0.12)'
+    const shadowSoft = darkBackground ? 'rgba(0, 0, 0, 0.28)' : 'rgba(15, 23, 42, 0.08)'
 
-    const targetElement = chatContainer || document.documentElement
-
-    
+    const baseVariables: Record<string, string> = {}
     Object.entries(theme.colors).forEach(([key, value]) => {
         const cssVarName = `--color-${key.replace(/([A-Z])/g, '-$1').toLowerCase()}`
-        if (targetElement instanceof HTMLElement) {
-            targetElement.style.setProperty(cssVarName, value)
-        }
+        baseVariables[cssVarName] = value
     })
 
-    
-    if (targetElement instanceof HTMLElement) {
-        
-        targetElement.className = targetElement.className.replace(/theme-\w+/g, '')
-        // Add new theme class
-        targetElement.classList.add(`theme-${themeId}`)
-        targetElement.setAttribute('data-theme', themeId)
+    const chatVariables: Record<string, string> = {
+        '--chat-surface': theme.colors.surface,
+        '--chat-surface-soft': surfaceSoft,
+        '--chat-surface-strong': surfaceStrong,
+        '--chat-border': borderSoft,
+        '--chat-border-strong': borderStrong,
+        '--chat-muted': muted,
+        '--chat-primary': theme.colors.primary,
+        '--chat-primary-soft': primarySoft,
+        '--chat-primary-accent': primaryAccent,
+        '--chat-accent': accentSoft,
+        '--chat-ring': ring,
+        '--chat-ring-outer': ringOuter,
+        '--chat-on-primary': getContrastingText(theme.colors.primary),
+        '--chat-on-surface': getContrastingText(surfaceStrong),
+        '--chat-on-soft': getContrastingText(surfaceSoft),
+        '--chat-shadow-color': shadowColor,
+        '--chat-shadow-soft': shadowSoft,
+        '--chat-scrollbar-color': scrollThumb,
+        '--chat-background-gradient': `radial-gradient(circle at top left, ${gradientStart}, transparent 55%), radial-gradient(circle at bottom right, ${gradientEnd}, transparent 60%)`,
+        '--chat-glass-blur': '18px'
     }
 
-    
-    requestAnimationFrame(() => {
-        if (!chatContainer) return
+    setCssVariables(root, { ...baseVariables, ...chatVariables })
+    if (chatContainer) {
+        setCssVariables(chatContainer, { ...baseVariables, ...chatVariables })
+    }
 
-        
-        const bgElements = chatContainer.querySelectorAll(`
-            .bg-white, .bg-gray-50, .bg-gray-100, 
-            .dark\\:bg-gray-900, .dark\\:bg-gray-950, .dark\\:bg-gray-800,
-            .chat-header, .chat-sidebar, .chat-messages, .chat-input-container
-        `)
-        bgElements.forEach((el) => {
-            if (el instanceof HTMLElement) {
-                
-                if (el.classList.contains('chat-sidebar') ||
-                    el.classList.contains('bg-gray-100') ||
-                    el.classList.contains('dark:bg-gray-800')) {
-                    el.style.setProperty('background-color', theme.colors.backgroundSecondary, 'important')
-                } else {
-                    el.style.setProperty('background-color', theme.colors.background, 'important')
-                }
-            }
-        })
+    const removeThemeClasses = Array.from(root.classList).filter(cls => cls.startsWith('theme-'))
+    removeThemeClasses.forEach(cls => root.classList.remove(cls))
+    root.classList.add(`theme-${theme.id}`)
+    root.setAttribute('data-theme', theme.id)
 
-        
-        const textElements = chatContainer.querySelectorAll(`
-            .text-gray-900, .text-gray-800, .text-black,
-            .dark\\:text-gray-100, .dark\\:text-gray-200, .dark\\:text-white
-        `)
-        textElements.forEach((el) => {
-            if (el instanceof HTMLElement) {
-                el.style.setProperty('color', theme.colors.text, 'important')
-            }
-        })
+    if (chatContainer) {
+        chatContainer.setAttribute('data-theme', theme.id)
+    }
 
-        
-        const secondaryTextElements = chatContainer.querySelectorAll(`
-            .text-gray-600, .text-gray-500, .text-gray-400,
-            .dark\\:text-gray-400, .dark\\:text-gray-500
-        `)
-        secondaryTextElements.forEach((el) => {
-            if (el instanceof HTMLElement) {
-                el.style.setProperty('color', theme.colors.textSecondary, 'important')
-            }
-        })
-
-        
-        const borderElements = chatContainer.querySelectorAll(`
-            .border-gray-200, .border-gray-300,
-            .dark\\:border-gray-700, .dark\\:border-gray-800
-        `)
-        borderElements.forEach((el) => {
-            if (el instanceof HTMLElement) {
-                el.style.setProperty('border-color', theme.colors.border, 'important')
-            }
-        })
-
-        
-        const hoverElements = chatContainer.querySelectorAll(`
-            .hover\\:bg-gray-100, .hover\\:bg-gray-200,
-            .dark\\:hover\\:bg-gray-800, .dark\\:hover\\:bg-gray-700
-        `)
-        hoverElements.forEach((el) => {
-            if (el instanceof HTMLElement) {
-                el.addEventListener('mouseenter', () => {
-                    el.style.setProperty('background-color', theme.colors.surface, 'important')
-                })
-                el.addEventListener('mouseleave', () => {
-                    el.style.setProperty('background-color', 'transparent', 'important')
-                })
-            }
-        })
-    })
-
-    
     if (typeof window !== 'undefined') {
         localStorage.setItem('chat-theme', themeId)
         localStorage.setItem('chat-theme-colors', JSON.stringify(theme.colors))
     }
 
-    
     if (chatContainer) {
         chatContainer.dispatchEvent(new CustomEvent('chatThemeChanged', {
             detail: { themeId, colors: theme.colors },
@@ -389,163 +461,60 @@ export function initializeTheme(): void {
 
 
 export function injectChatThemeStyles(): void {
-    if (!isOnChatPage()) return
+    if (typeof document === 'undefined' || !isOnChatPage()) return
 
     const styleId = 'chat-theme-styles'
+    let style = document.getElementById(styleId) as HTMLStyleElement | null
 
-    
-    const existing = document.getElementById(styleId)
-    if (existing) existing.remove()
+    if (!style) {
+        style = document.createElement('style')
+        style.id = styleId
+        document.head.appendChild(style)
+    }
 
-    
-    const style = document.createElement('style')
-    style.id = styleId
     style.textContent = `
-        /* ULTIMATE OVERRIDE - Maximum specificity with !important */
-        html body [data-theme-scope="chat"][data-theme]:not([data-theme="default"]) * {
-            /* Remove all Tailwind color classes effect */
-            transition: background-color 0.2s, color 0.2s, border-color 0.2s;
+        [data-theme-scope="chat"] {
+            transition: background-color 0.35s ease, color 0.35s ease;
         }
-        
-        /* ULTRA HIGH SPECIFICITY - Ensure theme override everything */
-        html body [data-theme-scope="chat"][data-theme]:not([data-theme="default"]),
-        html body [data-theme-scope="chat"][data-theme]:not([data-theme="default"]) .chat-container,
-        html body [data-theme-scope="chat"][data-theme]:not([data-theme="default"]) .flex.h-screen {
-            background-color: var(--color-background) !important;
-            color: var(--color-text) !important;
+
+        [data-theme-scope="chat"] ::-webkit-scrollbar-track {
+            background: transparent;
         }
-        
-        /* Override ALL possible backgrounds with max specificity */
-        html body [data-theme-scope="chat"][data-theme]:not([data-theme="default"]) div[class*="bg-white"],
-        html body [data-theme-scope="chat"][data-theme]:not([data-theme="default"]) div[class*="bg-gray"],
-        html body [data-theme-scope="chat"][data-theme]:not([data-theme="default"]) header,
-        html body [data-theme-scope="chat"][data-theme]:not([data-theme="default"]) aside,
-        html body [data-theme-scope="chat"][data-theme]:not([data-theme="default"]) main,
-        html body [data-theme-scope="chat"][data-theme]:not([data-theme="default"]) section,
-        html body [data-theme-scope="chat"][data-theme]:not([data-theme="default"]) .chat-header {
-            background-color: var(--color-background) !important;
-        }
-        
-        /* Sidebar with different background */
-        html body [data-theme-scope="chat"][data-theme]:not([data-theme="default"]) aside[class*="border-r"],
-        html body [data-theme-scope="chat"][data-theme]:not([data-theme="default"]) .w-60,
-        html body [data-theme-scope="chat"][data-theme]:not([data-theme="default"]) [class*="lg:w-60"] {
-            background-color: var(--color-background-secondary) !important;
-        }
-        
-        /* Messages area specific */
-        html body [data-theme-scope="chat"][data-theme]:not([data-theme="default"]) .chat-messages,
-        html body [data-theme-scope="chat"][data-theme]:not([data-theme="default"]) div[class*="overflow-y-auto"] {
-            background-color: var(--color-background) !important;
-        }
-        
-        /* Input area specific */
-        html body [data-theme-scope="chat"][data-theme]:not([data-theme="default"]) .chat-input-container,
-        html body [data-theme-scope="chat"][data-theme]:not([data-theme="default"]) div[class*="border-t"] {
-            background-color: var(--color-background) !important;
-            border-color: var(--color-border) !important;
-        }
-        
-        /* Override ALL text colors */
-        html body [data-theme-scope="chat"][data-theme]:not([data-theme="default"]) *:not(button):not(a) {
-            color: inherit !important;
-        }
-        
-        html body [data-theme-scope="chat"][data-theme]:not([data-theme="default"]) h1,
-        html body [data-theme-scope="chat"][data-theme]:not([data-theme="default"]) h2,
-        html body [data-theme-scope="chat"][data-theme]:not([data-theme="default"]) h3,
-        html body [data-theme-scope="chat"][data-theme]:not([data-theme="default"]) p,
-        html body [data-theme-scope="chat"][data-theme]:not([data-theme="default"]) span:not(.color-dot),
-        html body [data-theme-scope="chat"][data-theme]:not([data-theme="default"]) div {
-            color: var(--color-text) !important;
-        }
-        
-        /* Secondary text elements */
-        html body [data-theme-scope="chat"][data-theme]:not([data-theme="default"]) [class*="text-gray-600"],
-        html body [data-theme-scope="chat"][data-theme]:not([data-theme="default"]) [class*="text-gray-500"],
-        html body [data-theme-scope="chat"][data-theme]:not([data-theme="default"]) [class*="text-gray-400"] {
-            color: var(--color-text-secondary) !important;
-        }
-        
-        /* All borders */
-        html body [data-theme-scope="chat"][data-theme]:not([data-theme="default"]) [class*="border"] {
-            border-color: var(--color-border) !important;
-        }
-        
-        /* Buttons and interactive elements */
-        html body [data-theme-scope="chat"][data-theme]:not([data-theme="default"]) button:not([class*="bg-gradient"]):not(.upgrade-button) {
-            color: var(--color-text) !important;
-            background-color: transparent !important;
-        }
-        
-        html body [data-theme-scope="chat"][data-theme]:not([data-theme="default"]) button:hover:not([class*="bg-gradient"]):not(.upgrade-button) {
-            background-color: var(--color-surface) !important;
-        }
-        
-        /* Surface elements like cards, modals */
-        html body [data-theme-scope="chat"][data-theme]:not([data-theme="default"]) [class*="bg-gray-100"],
-        html body [data-theme-scope="chat"][data-theme]:not([data-theme="default"]) [class*="hover:bg-gray-100"]:hover {
-            background-color: var(--color-surface) !important;
-        }
-        
-        /* Inputs and textareas */
-        html body [data-theme-scope="chat"][data-theme]:not([data-theme="default"]) input,
-        html body [data-theme-scope="chat"][data-theme]:not([data-theme="default"]) textarea,
-        html body [data-theme-scope="chat"][data-theme]:not([data-theme="default"]) select {
-            background-color: var(--color-surface) !important;
-            color: var(--color-text) !important;
-            border-color: var(--color-border) !important;
-        }
-        
-        /* Dropdown menus */
-        html body .theme-selector-dropdown,
-        html body .bot-selector-dropdown,
-        html body .model-selector-dropdown {
-            background-color: var(--color-surface) !important;
-            border-color: var(--color-border) !important;
-            z-index: 99999 !important;
-        }
-        
-        /* Force dark theme colors for specific themes */
-        html body [data-theme-scope="chat"][data-theme="noble"],
-        html body [data-theme-scope="chat"][data-theme="cyber"],
-        html body [data-theme-scope="chat"][data-theme="ocean"] {
-            background-color: var(--color-background) !important;
-            color: var(--color-text) !important;
-        }
-        
-        /* Scrollbars */
-        html body [data-theme-scope="chat"][data-theme]:not([data-theme="default"]) ::-webkit-scrollbar-track {
-            background: var(--color-background-secondary) !important;
-        }
-        
-        html body [data-theme-scope="chat"][data-theme]:not([data-theme="default"]) ::-webkit-scrollbar-thumb {
-            background: var(--color-border) !important;
+
+        [data-theme-scope="chat"] ::-webkit-scrollbar-thumb {
+            background: var(--chat-scrollbar-color, rgba(148, 163, 184, 0.45));
+            border-radius: 999px;
         }
     `
-
-    document.head.appendChild(style)
 }
 
 
 export function resetTheme(): void {
-    const root = document.documentElement
+    if (typeof document === 'undefined') return
 
-    
-    root.className = root.className.replace(/theme-\w+/g, '')
+    const root = document.documentElement
+    const chatContainer = document.querySelector('[data-theme-scope="chat"]') as HTMLElement | null
+
+    const themeClasses = Array.from(root.classList).filter(cls => cls.startsWith('theme-'))
+    themeClasses.forEach(cls => root.classList.remove(cls))
+    rootClassesCleanup(root)
     root.removeAttribute('data-theme')
 
-    
-    const themeVars = [
-        '--color-primary', '--color-primary-hover', '--color-background',
-        '--color-background-secondary', '--color-surface', '--color-text',
-        '--color-text-secondary', '--color-accent', '--color-border',
-        '--color-success', '--color-error', '--color-warning'
-    ]
-
-    themeVars.forEach(varName => {
+    const allVars = [...BASE_THEME_VARS, ...CHAT_THEME_VARS]
+    allVars.forEach(varName => {
         root.style.removeProperty(varName)
+        if (chatContainer) {
+            chatContainer.style.removeProperty(varName)
+        }
     })
+
+    if (chatContainer) {
+        chatContainer.removeAttribute('data-theme')
+    }
+}
+
+function rootClassesCleanup(root: HTMLElement) {
+    root.className = root.className.trim()
 }
 
 

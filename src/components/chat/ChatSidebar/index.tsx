@@ -39,24 +39,19 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
 
     return (
         <>
-            {}
-            <aside className={`
+            <aside className={`chat-sidebar
                 ${sidebarWidth}
                 ${isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
                 fixed lg:relative h-full z-30
                 transition-all duration-300 ease-in-out
-                bg-white dark:bg-gray-950 
-                border-r border-gray-200 dark:border-gray-800
                 flex flex-col
+                ${isCollapsed ? 'collapsed' : ''}
             `}>
-                {}
-                <div className="flex-shrink-0 p-3 border-b border-gray-200 dark:border-gray-800">
-                    {}
+                <div className="flex-shrink-0 p-3 border-b border-transparent">
                     {onToggleCollapse && (
                         <button
                             onClick={onToggleCollapse}
-                            className="hidden lg:flex items-center justify-center w-full mb-3 p-2 rounded-lg
-                                     hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors group"
+                            className={`hidden lg:flex icon-button w-full mb-3 group ${isCollapsed ? 'justify-center' : 'justify-between'}`}
                             title={isCollapsed ? 'Mở rộng' : 'Thu gọn'}
                         >
                             {isCollapsed ? (
@@ -73,14 +68,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
                     {}
                     <button
                         onClick={onCreateNew}
-                        className={`
-                            w-full flex items-center justify-center
-                            bg-gradient-to-r from-blue-600 to-blue-700 
-                            text-white rounded-lg transition-all
-                            hover:from-blue-700 hover:to-blue-800
-                            hover:shadow-lg hover:-translate-y-0.5
-                            ${isCollapsed ? 'p-2.5' : 'py-2.5 px-4 gap-2'}
-                        `}
+                        className={`chat-button chat-button--primary ${isCollapsed ? 'p-2.5' : 'px-4 py-2.5 gap-2'}`}
                         title={isCollapsed ? 'Hội thoại mới' : ''}
                     >
                         <Plus className="w-4 h-4 flex-shrink-0" />
@@ -145,18 +133,11 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
                 </div>
 
                 {/* Footer with Pricing and Sign Out */}
-                <div className="flex-shrink-0 p-3 border-t border-gray-200 dark:border-gray-800 space-y-2">
+                <div className="flex-shrink-0 p-3 border-t border-transparent space-y-2">
                     {/* Pricing Button */}
                     <Link
                         href="/pricing"
-                        className={`
-                            w-full flex items-center justify-center
-                            bg-gradient-to-r from-purple-600 to-pink-600 
-                            text-white rounded-lg transition-all
-                            hover:from-purple-700 hover:to-pink-700
-                            hover:shadow-lg
-                            ${isCollapsed ? 'p-2.5' : 'py-2.5 px-4 gap-2'}
-                        `}
+                        className={`chat-button chat-button--primary ${isCollapsed ? 'p-2.5' : 'px-4 py-2.5 gap-2'}`}
                         title={isCollapsed ? 'Nâng cấp' : ''}
                     >
                         <Sparkles className="w-4 h-4 flex-shrink-0" />
@@ -166,13 +147,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
                     {/* Sign Out Button */}
                     <button
                         onClick={onSignOut}
-                        className={`
-                            w-full flex items-center justify-center
-                            text-gray-700 dark:text-gray-300
-                            hover:bg-gray-100 dark:hover:bg-gray-800
-                            rounded-lg transition-colors
-                            ${isCollapsed ? 'p-2.5' : 'py-2.5 px-4 gap-2'}
-                        `}
+                        className={`chat-button chat-button--ghost ${isCollapsed ? 'p-2.5' : 'px-4 py-2.5 gap-2'}`}
                         title={isCollapsed ? 'Đăng xuất' : ''}
                     >
                         <LogOut className="w-4 h-4 flex-shrink-0" />

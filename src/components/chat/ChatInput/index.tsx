@@ -2,7 +2,7 @@
 
 import React, { useRef, useEffect, useState } from 'react'
 import { InputControls } from './InputControls'
-import { Paperclip, Smile, Mic, X, Loader2, File as FileIcon } from 'lucide-react'
+import { Paperclip, Smile, Mic, X, Loader2, File as FileIcon, Send, Square, MoreHorizontal, ThumbsUp, ThumbsDown, Copy, Share2, Bookmark, Flag } from 'lucide-react'
 import type { Attachment } from '../shared/types'
 
 interface ChatInputProps {
@@ -86,12 +86,13 @@ export const ChatInput: React.FC<ChatInputProps> = ({
         }
     }
 
+
     return (
         <div className="chat-input-container border-t border-gray-200 dark:border-gray-800
                         bg-white dark:bg-gray-950">
             <form onSubmit={handleSubmit}>
                 <div className="px-4 py-3">
-                    <div className="max-w-3xl mx-auto">
+                        <div className="max-w-4xl mx-auto transition-all duration-300">
                         <div className="relative">
                             {}
                             <div className={`
@@ -107,6 +108,8 @@ export const ChatInput: React.FC<ChatInputProps> = ({
                                     multiple
                                     className="hidden"
                                     onChange={handleFileChange}
+                                    aria-label="Chọn tệp đính kèm"
+                                    title="Chọn tệp đính kèm"
                                 />
 
                                 <div className="flex items-end gap-2">
@@ -124,6 +127,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
                                             <Paperclip className="w-5 h-5" />
                                         )}
                                     </button>
+
 
                                 <textarea
                                     ref={textareaRef}
@@ -148,6 +152,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
                                         lineHeight: '24px',
                                         overflowY: rows > 5 ? 'auto' : 'hidden'
                                     }}
+                                    aria-label="Nhập tin nhắn của bạn"
                                 />
 
                                 <div className="flex items-end gap-1">

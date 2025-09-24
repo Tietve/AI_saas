@@ -2,6 +2,7 @@
 
 import React from 'react'
 import { Message } from './Message'
+import { DateSeparator } from './DateSeparator'
 import { WelcomeScreen } from './WelcomeScreen'
 import { Message as MessageType, BotPersonality } from '../shared/types'
 
@@ -25,22 +26,30 @@ export const ChatMessages: React.FC<ChatMessagesProps> = ({
     return (
         <div className="chat-messages-area flex-1 overflow-y-auto">
             {}
-            <div className="min-h-full bg-gradient-to-b from-gray-50/50 to-white dark:from-gray-900/50 dark:to-gray-950">
+            <div className="min-h-full bg-transparent">
                 {}
-                <div className="px-4 lg:px-6 py-6">
-                    <div className="max-w-3xl mx-auto">
+                <div className="px-2 lg:px-4 py-4">
+                    <div className="w-full max-w-4xl mx-auto transition-all duration-300">
                         {!hasMessages && !currentConversationId ? (
                             <WelcomeScreen />
                         ) : (
                             <div className="space-y-4">
-                                {messages.map((message, index) => (
-                                    <Message
-                                        key={message.id || index}
-                                        message={message}
-                                        selectedBot={selectedBot}
-                                        showAvatar={index === 0 || messages[index - 1]?.role !== message.role}
-                                    />
-                                ))}
+                                {messages.map((message, index) => {
+                                    const prev = messages[index - 1]
+                                    const showSeparator = !prev || new Date(prev.createdAt).toDateString() !== new Date(message.createdAt).toDateString()
+                                    return (
+                                        <React.Fragment key={message.id || index}>
+                                            {showSeparator && (
+                                                <DateSeparator label={new Date(message.createdAt).toLocaleDateString()} />
+                                            )}
+                                            <Message
+                                                message={message}
+                                                selectedBot={selectedBot}
+                                                showAvatar={index === 0 || messages[index - 1]?.role !== message.role}
+                                            />
+                                        </React.Fragment>
+                                    )
+                                })}
 
                                 {}
                                 {isTyping && (

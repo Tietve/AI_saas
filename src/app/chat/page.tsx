@@ -204,7 +204,7 @@ export default function ChatPage() {
     }
 
     return (
-        <div data-theme-scope="chat" className="chat-page-container min-h-screen">
+        <div data-theme-scope="chat" className="chat-page-container theme-override min-h-screen">
             <div className="chat-container flex h-screen overflow-hidden">
                 {}
                 <ChatSidebar
@@ -269,7 +269,7 @@ export default function ChatPage() {
                     {}
                     {userPlanTier === 'FREE' && userUsage.dailyMessages > 10 && (
                         <div className="px-4 py-2 border-t usage-indicator">
-                            <div className="max-w-3xl mx-auto flex items-center justify-between">
+                            <div className="max-w-4xl mx-auto flex items-center justify-between transition-all duration-300">
                                 <div className="flex items-center gap-3">
                                     <div className="relative w-32 h-1.5 rounded-full overflow-hidden usage-bar">
                                         <div
@@ -295,12 +295,13 @@ export default function ChatPage() {
 
                     {}
                     {error && (
-                        <div className="mx-auto max-w-3xl px-4 pb-4">
+                        <div className="mx-auto max-w-4xl px-4 pb-4 transition-all duration-300">
                             <div className="rounded-lg px-4 py-3 flex items-center justify-between error-message">
                                 <p className="text-sm">{error}</p>
                                 <button
                                     onClick={() => setError(null)}
-                                    className="hover:opacity-70">
+                                    className="hover:opacity-70"
+                                    aria-label="Đóng thông báo lỗi">
                                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                                     </svg>

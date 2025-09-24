@@ -38,7 +38,7 @@ export function ChatHeader({
     return (
         <>
             {}
-            <header className="chat-header h-14 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800">
+            <header className="chat-header h-14 bg-transparent border-b border-gray-200/60 dark:border-gray-800/60">
                 <div className="h-full px-3 lg:px-4 flex items-center justify-between gap-3">
                     {}
                     <div className="flex items-center gap-2 min-w-0">
@@ -46,20 +46,20 @@ export function ChatHeader({
                         <button
                             onClick={onToggleSidebar}
                             className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800
-                                     text-gray-600 dark:text-gray-400 transition-colors flex-shrink-0"
+                                     text-gray-600 dark:text-gray-400 transition-colors flex-shrink-0 border border-transparent hover:border-gray-200 dark:hover:border-gray-800"
                             aria-label="Toggle sidebar">
                             <Menu className="w-5 h-5" />
                         </button>
 
                         {}
                         <div className="flex items-center gap-2 min-w-0">
-                            <h1 className="text-base lg:text-lg font-semibold text-gray-900 dark:text-gray-100 hidden sm:block">
-                                AI Chat
+                            <h1 className="text-[15px] lg:text-base font-semibold tracking-tight text-gray-900 dark:text-gray-100 hidden sm:block">
+                                Trợ lý AI
                             </h1>
                             {selectedBot && (
-                                <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-800
-                                              text-gray-600 dark:text-gray-400 truncate max-w-[120px]">
-                                    với {selectedBot.name}
+                                <span className="text-xs px-2 py-0.5 rounded-md bg-gray-100 dark:bg-gray-800
+                                              text-gray-600 dark:text-gray-400 truncate max-w-[140px] border border-gray-200 dark:border-gray-700">
+                                    {selectedBot.name}
                                 </span>
                             )}
                         </div>
@@ -72,10 +72,10 @@ export function ChatHeader({
                             <button
                                 onClick={onToggleSystemPrompt}
                                 disabled={disabled}
-                                className={`p-2 rounded-lg transition-colors flex-shrink-0
+                                className={`p-2 rounded-lg transition-colors flex-shrink-0 border
                                          ${showSystemPrompt
-                                    ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
-                                    : 'hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-400'}
+                                    ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 border-blue-200/60 dark:border-blue-800'
+                                    : 'hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-400 border-transparent'}
                                          ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
                                 title="System Prompt">
                                 <Settings className="w-4 h-4 lg:w-5 lg:h-5" />

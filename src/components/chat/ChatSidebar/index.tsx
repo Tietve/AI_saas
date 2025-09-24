@@ -35,7 +35,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
                                                             onSignOut
                                                         }) => {
     
-    const sidebarWidth = isCollapsed ? 'w-[60px]' : 'w-[240px]'
+    const sidebarWidth = isCollapsed ? 'w-[64px]' : 'w-[260px]'
 
     return (
         <>
@@ -45,12 +45,12 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
                 ${isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
                 fixed lg:relative h-full z-30
                 transition-all duration-300 ease-in-out
-                bg-white dark:bg-gray-950 
-                border-r border-gray-200 dark:border-gray-800
+                chat-sidebar bg-transparent
+                border-r border-gray-200/60 dark:border-gray-800/60
                 flex flex-col
             `}>
                 {}
-                <div className="flex-shrink-0 p-3 border-b border-gray-200 dark:border-gray-800">
+                <div className="chat-sidebar-header flex-shrink-0 p-3 border-b border-gray-200/60 dark:border-gray-800/60">
                     {}
                     {onToggleCollapse && (
                         <button
@@ -74,17 +74,16 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
                     <button
                         onClick={onCreateNew}
                         className={`
-                            w-full flex items-center justify-center
-                            bg-gradient-to-r from-blue-600 to-blue-700 
-                            text-white rounded-lg transition-all
-                            hover:from-blue-700 hover:to-blue-800
-                            hover:shadow-lg hover:-translate-y-0.5
-                            ${isCollapsed ? 'p-2.5' : 'py-2.5 px-4 gap-2'}
+                            w-full inline-flex items-center justify-center
+                            rounded-lg transition-colors border
+                            bg-gray-50 hover:bg-gray-100 dark:bg-gray-900 dark:hover:bg-gray-800
+                            border-gray-200 dark:border-gray-800 text-gray-900 dark:text-gray-100
+                            ${isCollapsed ? 'p-2.5' : 'py-2.5 px-3 gap-2'}
                         `}
                         title={isCollapsed ? 'Hội thoại mới' : ''}
                     >
                         <Plus className="w-4 h-4 flex-shrink-0" />
-                        {!isCollapsed && <span className="font-medium">Hội thoại mới</span>}
+                        {!isCollapsed && <span className="text-sm font-medium">Hội thoại mới</span>}
                     </button>
 
                     {/* Search Bar - Hide when collapsed */}
@@ -108,7 +107,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
                                         w-full p-2 rounded-lg transition-colors
                                         flex items-center justify-center group relative
                                         ${currentConversationId === conv.id
-                                        ? 'bg-blue-50 dark:bg-blue-900/20'
+                                        ? 'bg-blue-50/70 dark:bg-blue-900/20'
                                         : 'hover:bg-gray-100 dark:hover:bg-gray-800'
                                     }
                                     `}
@@ -121,7 +120,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
                                                 : 'text-gray-600 dark:text-gray-400'
                                         }`} />
                                         {currentConversationId === conv.id && (
-                                            <div className="absolute -left-[14px] top-1/2 -translate-y-1/2 w-0.5 h-4 bg-blue-500" />
+                                            <div className="absolute -left-[14px] top-1/2 -translate-y-1/2 w-0.5 h-4 bg-blue-500/80 rounded" />
                                         )}
                                     </div>
                                 </button>
@@ -145,44 +144,43 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
                 </div>
 
                 {/* Footer with Pricing and Sign Out */}
-                <div className="flex-shrink-0 p-3 border-t border-gray-200 dark:border-gray-800 space-y-2">
+                <div className="chat-sidebar-footer flex-shrink-0 p-3 border-t border-gray-200/60 dark:border-gray-800/60 space-y-2">
                     {/* Pricing Button */}
                     <Link
                         href="/pricing"
                         className={`
-                            w-full flex items-center justify-center
-                            bg-gradient-to-r from-purple-600 to-pink-600 
-                            text-white rounded-lg transition-all
-                            hover:from-purple-700 hover:to-pink-700
-                            hover:shadow-lg
-                            ${isCollapsed ? 'p-2.5' : 'py-2.5 px-4 gap-2'}
+                            w-full inline-flex items-center justify-center
+                            rounded-lg transition-colors border
+                            bg-white hover:bg-gray-100 dark:bg-gray-900 dark:hover:bg-gray-800
+                            border-gray-200 dark:border-gray-800 text-gray-900 dark:text-gray-100
+                            ${isCollapsed ? 'p-2.5' : 'py-2.5 px-3 gap-2'}
                         `}
                         title={isCollapsed ? 'Nâng cấp' : ''}
                     >
                         <Sparkles className="w-4 h-4 flex-shrink-0" />
-                        {!isCollapsed && <span className="font-medium">Nâng cấp Plus</span>}
+                        {!isCollapsed && <span className="text-sm font-medium">Nâng cấp</span>}
                     </Link>
 
                     {/* Sign Out Button */}
                     <button
                         onClick={onSignOut}
                         className={`
-                            w-full flex items-center justify-center
+                            w-full inline-flex items-center justify-center
                             text-gray-700 dark:text-gray-300
                             hover:bg-gray-100 dark:hover:bg-gray-800
                             rounded-lg transition-colors
-                            ${isCollapsed ? 'p-2.5' : 'py-2.5 px-4 gap-2'}
+                            ${isCollapsed ? 'p-2.5' : 'py-2.5 px-3 gap-2'}
                         `}
                         title={isCollapsed ? 'Đăng xuất' : ''}
                     >
                         <LogOut className="w-4 h-4 flex-shrink-0" />
-                        {!isCollapsed && <span>Đăng xuất</span>}
+                        {!isCollapsed && <span className="text-sm">Đăng xuất</span>}
                     </button>
                 </div>
             </aside>
 
-            {/* Spacer for desktop when sidebar is visible */}
-            <div className={`hidden lg:block flex-shrink-0 transition-all duration-300 ${sidebarWidth}`} />
+            {/* Spacer only when sidebar is fixed (mobile). On desktop it's relative so no spacer. */}
+            <div className={`block lg:hidden flex-shrink-0 transition-all duration-300 ${sidebarWidth}`} aria-hidden="true" />
         </>
     )
 }

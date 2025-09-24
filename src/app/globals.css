@@ -269,6 +269,17 @@ html.theme-override body {
     color: var(--color-text) !important;
 }
 
+/* Noble Dark hard overrides to avoid bright surfaces */
+[data-theme*="noble"],
+.theme-override[data-theme*="noble"] {
+    --color-background: #0b1220;
+    --color-background-secondary: #0e1526;
+    --color-surface: #121b31;
+    --color-text: #e6ebff;
+    --color-text-secondary: #9fb0d1;
+    --color-border: #1e2a47;
+}
+
 .theme-override .chat-main-area {
     background: var(--color-background) !important;
 }
@@ -330,13 +341,181 @@ html.theme-override body {
 
 .theme-override .chat-messages-area {
     background: var(--color-background) !important;
-    background-image: linear-gradient(to bottom,
-    var(--color-background),
-    var(--color-background-secondary)) !important;
 }
 
 .theme-override .chat-messages-container {
     
+}
+
+/* Chat message separators */
+.theme-override .message-separator-line {
+    height: 1px;
+    width: 100%;
+    background: var(--color-border);
+}
+.theme-override .message-separator-label {
+    position: absolute;
+    padding: 2px 8px;
+    font-size: 11px;
+    border-radius: 9999px;
+    color: var(--color-text-secondary);
+    background: var(--color-background);
+    border: 1px solid var(--color-border);
+}
+
+/* Artifact card styling */
+.theme-override .artifact-card {
+    border: 1px solid var(--color-border);
+    background: var(--color-surface);
+    border-radius: 12px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.12);
+    overflow: hidden;
+}
+.theme-override .artifact-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 10px;
+    background: var(--color-background-secondary);
+    border-bottom: 1px solid var(--color-border);
+}
+.theme-override .artifact-title {
+    font-size: 12px;
+    color: var(--color-text-secondary);
+}
+.theme-override .artifact-actions {
+    display: flex;
+    gap: 6px;
+}
+.theme-override .artifact-action {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+    color: var(--color-text-secondary);
+    background: transparent;
+    border: 1px solid var(--color-border);
+}
+.theme-override .artifact-action:hover {
+    background: var(--color-surface);
+}
+.theme-override .artifact-content {
+    margin: 0;
+    padding: 12px;
+    font-size: 12px;
+    line-height: 1.5;
+    color: var(--color-text);
+    white-space: pre-wrap;
+}
+
+/* Document Canvas styling */
+.theme-override .document-canvas {
+    border: 1px solid var(--color-border);
+    background: var(--color-surface);
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    overflow: hidden;
+    margin: 8px 0;
+}
+.theme-override .document-canvas-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    background: var(--color-background-secondary);
+    border-bottom: 1px solid var(--color-border);
+}
+.theme-override .document-canvas-title {
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--color-text);
+}
+.theme-override .document-canvas-actions {
+    display: flex;
+    gap: 8px;
+}
+.theme-override .document-canvas-action {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    color: var(--color-text-secondary);
+    background: transparent;
+    border: 1px solid var(--color-border);
+    transition: all 0.2s;
+}
+.theme-override .document-canvas-action:hover {
+    background: var(--color-surface);
+    color: var(--color-text);
+}
+.theme-override .document-canvas-content {
+    padding: 20px;
+    color: var(--color-text);
+    line-height: 1.6;
+}
+.theme-override .document-section {
+    margin-bottom: 20px;
+}
+.theme-override .document-section-title {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--color-text);
+    margin-bottom: 8px;
+}
+.theme-override .document-section-content {
+    color: var(--color-text-secondary);
+}
+.theme-override .document-text {
+    margin: 0;
+    font-size: 14px;
+}
+.theme-override .document-list {
+    margin: 0;
+    padding-left: 20px;
+}
+.theme-override .document-list-item {
+    margin-bottom: 4px;
+    font-size: 14px;
+}
+.theme-override .document-code {
+    background: var(--color-background-secondary);
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    padding: 12px;
+    margin: 0;
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+    font-size: 13px;
+    overflow-x: auto;
+}
+.theme-override .document-canvas-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    background: var(--color-background-secondary);
+    border-top: 1px solid var(--color-border);
+}
+.theme-override .document-comment-button,
+.theme-override .document-edit-button {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 12px;
+    color: var(--color-text-secondary);
+    background: transparent;
+    border: 1px solid var(--color-border);
+    transition: all 0.2s;
+}
+.theme-override .document-comment-button:hover,
+.theme-override .document-edit-button:hover {
+    background: var(--color-surface);
+    color: var(--color-text);
 }
 
 .theme-override .conversation-item {

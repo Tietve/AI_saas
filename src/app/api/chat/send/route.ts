@@ -1,4 +1,6 @@
 import { NextResponse } from 'next/server'
+import { promises as fs } from 'fs'
+import path from 'path'
 import { prisma } from '@/lib/prisma'
 import { ModelId, Role, Prisma } from '@prisma/client'
 import { estimateTokensFromText, estimateTokensFromMessages } from '@/lib/tokenizer/estimate'
@@ -115,8 +117,9 @@ export const POST = withRateLimit(async (req: Request) => {
             }
         }
 
-        
-        const messageForModel = combineContentWithAttachments(rawContent, attachments)
+        // Build content for model later based on model/provider (vision vs text-only)
+        // Default textual fallback (used for history or non-vision models)
+        const textOnlyCombined = combineContentWithAttachments(rawContent, attachments)
         const firstAttachmentName = attachments
             .map(att => getMetaString(att.meta, 'name'))
             .find(name => typeof name === 'string') as string | undefined
@@ -241,7 +244,7 @@ export const POST = withRateLimit(async (req: Request) => {
             }))
 
         
-        const estimateIn = estimateTokensFromMessages(preparedHistory) + estimateTokensFromText(messageForModel)
+        const estimateIn = estimateTokensFromMessages(preparedHistory) + estimateTokensFromText(textOnlyCombined)
         const estimateOut = OUTPUT_RESERVE
         const estimateTotal = estimateIn + estimateOut
 
@@ -309,7 +312,77 @@ export const POST = withRateLimit(async (req: Request) => {
 
         
         const sys = [{ role: 'system' as const, content: effectiveSystemPrompt }]
-        const allMessages = [...sys, ...preparedHistory, { role: 'user' as const, content: messageForModel }]
+
+        // Helper: absolute URL for public uploads
+        const toAbsoluteUrl = (url: string): string => {
+            try {
+                // If already absolute
+                new URL(url)
+                return url
+            } catch {
+                const origin = (typeof process !== 'undefined' && process.env.NEXT_PUBLIC_APP_URL)
+                    || req.headers.get('origin')
+                    || ''
+                if (!origin) return url
+                const base = origin.endsWith('/') ? origin.slice(0, -1) : origin
+                return url.startsWith('/') ? `${base}${url}` : `${base}/${url}`
+            }
+        }
+
+        // Decide if we should send multimodal content (OpenAI vision-capable)
+        const providerModelId = toProviderModelId(desiredModel)
+        const isOpenAIVision = providerModelId.includes('gpt-4o') || providerModelId.includes('gpt-4-turbo')
+
+        // Build the final user content
+        async function buildImagePart(att: { url: string; meta?: Prisma.InputJsonValue }) {
+            // If absolute and not localhost, use as-is
+            try {
+                const u = new URL(att.url)
+                const host = u.hostname
+                const isLocalhost = host === 'localhost' || host === '127.0.0.1' || host.endsWith('.local')
+                if (!isLocalhost) {
+                    return { type: 'image_url', image_url: { url: att.url } }
+                }
+            } catch {}
+
+            // Relative or localhost: try to embed as data URL
+            const mime = getMetaString(att.meta as any, 'mimeType')
+            const filePath = att.url.startsWith('/')
+                ? path.join(process.cwd(), 'public', att.url)
+                : path.join(process.cwd(), 'public', att.url)
+            try {
+                const data = await fs.readFile(filePath)
+                const base64 = data.toString('base64')
+                const inferredMime = mime || inferMimeFromPath(filePath) || 'image/png'
+                const dataUrl = `data:${inferredMime};base64,${base64}`
+                return { type: 'image_url', image_url: { url: dataUrl } }
+            } catch {
+                // Fallback to absolute URL attempt
+                return { type: 'image_url', image_url: { url: toAbsoluteUrl(att.url) } }
+            }
+        }
+
+        function inferMimeFromPath(p: string): string | null {
+            const ext = path.extname(p).toLowerCase()
+            if (ext === '.jpg' || ext === '.jpeg') return 'image/jpeg'
+            if (ext === '.png') return 'image/png'
+            if (ext === '.gif') return 'image/gif'
+            if (ext === '.webp') return 'image/webp'
+            return null
+        }
+
+        const imageAttachments = attachments.filter(a => a.kind === 'image')
+        const finalUserMessage = (isOpenAIVision && imageAttachments.length > 0)
+            ? {
+                role: 'user' as const,
+                content: [
+                    ...(rawContent ? [{ type: 'text', text: rawContent }] : []),
+                    ...(await Promise.all(imageAttachments.map(a => buildImagePart(a))))
+                ]
+              }
+            : { role: 'user' as const, content: textOnlyCombined }
+
+        const allMessages = [...sys, ...preparedHistory, finalUserMessage]
 
         
         const controller = new AbortController()

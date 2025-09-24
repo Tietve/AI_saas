@@ -49,15 +49,18 @@ export const AttachmentList: React.FC<AttachmentListProps> = ({ attachments = []
                             <div className="w-full h-48 bg-gray-200 dark:bg-gray-700 overflow-hidden">
                                 <img src={att.url} alt={name} className="w-full h-full object-cover" />
                             </div>
-                            <div className={`flex items-center justify-between px-3 py-2 text-xs ${
-                                isUser ? 'text-white/80' : 'text-gray-600 dark:text-gray-300'
-                            }`}
-                            >
-                                <span className="truncate" title={name}>
-                                    {name}
-                                </span>
-                                {size && <span>{formatFileSize(size)}</span>}
-                            </div>
+                            {/* Hide caption under assistant-generated images for cleaner UI */}
+                            {!isUser && false && (
+                                <div className={`flex items-center justify-between px-3 py-2 text-xs ${
+                                    isUser ? 'text-white/80' : 'text-gray-600 dark:text-gray-300'
+                                }`}
+                                >
+                                    <span className="truncate" title={name}>
+                                        {name}
+                                    </span>
+                                    {size && <span>{formatFileSize(size)}</span>}
+                                </div>
+                            )}
                         </a>
                     )
                 }

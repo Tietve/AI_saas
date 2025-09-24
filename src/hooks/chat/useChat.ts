@@ -2,7 +2,7 @@ import { useState, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { useConversations } from './useConversations'
 import { useMessages } from './useMessages'
-import { BotPersonality, Message, Attachment } from '@/components/chat/shared/types'
+import { BotPersonality, Message, Attachment } from '../../components/chat/shared/types'
 
 export function useChat() {
     const router = useRouter()
@@ -41,6 +41,24 @@ export function useChat() {
         if ((text.length === 0 && pendingAttachments.length === 0) || isLoading || isUploading) return false
 
         const messageText = text
+        const isImageCommand = /^\s*(?:\/imagine|\/image)\b/i.test(messageText)
+        const isVietnameseImageIntent = (() => {
+            const t = messageText.toLowerCase()
+            // Examples: "tạo ảnh ...", "tạo tôi ảnh ...", "vẽ một bức ảnh ...", "hãy tạo hình ..."
+            return /(tạo|vẽ)[^\n]{0,30}(ảnh|hình)/i.test(t)
+        })()
+        const extractImagePrompt = () => {
+            // Try to strip common Vietnamese prefixes; otherwise return original
+            const prefixes = [
+                /^\s*(?:hãy\s+)?(?:tạo|vẽ)(?:\s+(?:cho\s+tôi|tôi))?\s*(?:một|1)?\s*(?:bức\s+)?(?:ảnh|hình)\s*(?:của|về)?\s*/i,
+            ]
+            for (const rx of prefixes) {
+                if (rx.test(messageText)) return messageText.replace(rx, '').trim()
+            }
+            // Slash command: remove the command keyword to get prompt
+            if (isImageCommand) return messageText.replace(/^\s*(?:\/imagine|\/image)\b/i, '').trim()
+            return messageText
+        }
         const attachmentsToSend = pendingAttachments.map(att => ({ ...att }))
         const conversationId = currentConversationId || 'new'
         const requestId = `req_${Date.now()}_${Math.random().toString(36).slice(2)}`
@@ -74,6 +92,86 @@ export function useChat() {
 
         try {
             abortControllerRef.current = new AbortController()
+            // If image generation command, call image API first
+            if ((isImageCommand || isVietnameseImageIntent) && extractImagePrompt().length > 0) {
+                const prompt = extractImagePrompt()
+                try {
+                    const genRes = await fetch('/api/images/generate', {
+                        method: 'POST',
+                        credentials: 'include',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ prompt, size: '1024x1024', n: 1 })
+                    })
+                    if (genRes.ok) {
+                        const data = await genRes.json()
+                        const genAtt = Array.isArray(data.attachments) ? data.attachments : []
+                        // Update assistant message to show generated image and stop streaming
+                        updateLastMessage({ content: `Đã tạo ảnh cho: "${prompt}"`, isStreaming: false })
+                        // Immediately insert a new assistant message with the image attachment
+                        addMessage({
+                            id: `assistant_img_${Date.now()}`,
+                            role: 'ASSISTANT',
+                            content: '',
+                            createdAt: new Date().toISOString(),
+                            attachments: genAtt,
+                            model: selectedModel
+                        })
+                        setIsLoading(false)
+                        if (abortControllerRef.current) {
+                            abortControllerRef.current = null
+                        }
+                        return true
+                    }
+                } catch (e) {
+                    console.error('[Image Generate] Error:', e)
+                    // fall-through to normal chat as a fallback
+                }
+            }
+
+            // If not matched by heuristics, call lightweight intent classifier
+            if (!isImageCommand && !isVietnameseImageIntent) {
+                try {
+                    const clsRes = await fetch('/api/intent/classify', {
+                        method: 'POST',
+                        credentials: 'include',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ message: messageText })
+                    })
+                    if (clsRes.ok) {
+                        const cls = await clsRes.json()
+                        if (cls.intent === 'image') {
+                            const prompt = messageText
+                            const genRes = await fetch('/api/images/generate', {
+                                method: 'POST',
+                                credentials: 'include',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ prompt, size: '1024x1024', n: 1 })
+                            })
+                            if (genRes.ok) {
+                                const data = await genRes.json()
+                                const genAtt = Array.isArray(data.attachments) ? data.attachments : []
+                                updateLastMessage({ content: `Đã tạo ảnh cho: "${prompt}"`, isStreaming: false })
+                                addMessage({
+                                    id: `assistant_img_${Date.now()}`,
+                                    role: 'ASSISTANT',
+                                    content: '',
+                                    createdAt: new Date().toISOString(),
+                                    attachments: genAtt,
+                                    model: selectedModel
+                                })
+                                setIsLoading(false)
+                                if (abortControllerRef.current) {
+                                    abortControllerRef.current = null
+                                }
+                                return true
+                            }
+                        }
+                    }
+                } catch (e) {
+                    console.warn('[Intent Classify] Error:', e)
+                }
+            }
+
             const res = await fetch('/api/chat/send', {
                 method: 'POST',
                 credentials: 'include',
@@ -87,7 +185,7 @@ export function useChat() {
                     botId: selectedBot?.id,
                     attachments: attachmentsToSend
                 }),
-                signal: abortControllerRef.current.signal
+                signal: abortControllerRef.current?.signal
             })
 
             if (!res.ok) {
@@ -171,7 +269,9 @@ export function useChat() {
             }
         } finally {
             setIsLoading(false)
-            abortControllerRef.current = null
+            if (abortControllerRef.current) {
+                abortControllerRef.current = null
+            }
         }
 
         return sent

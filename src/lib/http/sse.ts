@@ -1,5 +1,4 @@
-
-export function streamSSEFromGenerator<T extends { delta?: string }>(
+export function streamSSEFromGenerator<T extends { delta?: string; meta?: any; done?: boolean }>(
     gen: AsyncGenerator<T, any, unknown>,
     opts?: { onClose?: () => void }
 ): Response {
@@ -8,20 +7,31 @@ export function streamSSEFromGenerator<T extends { delta?: string }>(
     const readable = new ReadableStream({
         async start(controller) {
             try {
-                
                 for await (const chunk of gen) {
+                    // Handle metadata
+                    if (chunk.meta) {
+                        const payload = JSON.stringify({ meta: chunk.meta })
+                        const frame = `data: ${payload}\n\n`
+                        controller.enqueue(encoder.encode(frame))
+                    }
+
+                    // Handle delta content
                     if (chunk.delta) {
                         const payload = JSON.stringify({ delta: chunk.delta })
                         const frame = `data: ${payload}\n\n`
                         controller.enqueue(encoder.encode(frame))
                     }
+
+                    // Handle done signal
+                    if (chunk.done) {
+                        const payload = JSON.stringify({ done: true })
+                        const frame = `data: ${payload}\n\n`
+                        controller.enqueue(encoder.encode(frame))
+                    }
                 }
 
-                
-                controller.enqueue(encoder.encode('data: {"done":true}\n\n'))
-
             } catch (e: any) {
-                
+                // Send error to client
                 const errorPayload = JSON.stringify({
                     error: e?.message || 'Stream error'
                 })
@@ -38,7 +48,7 @@ export function streamSSEFromGenerator<T extends { delta?: string }>(
             'Content-Type': 'text/event-stream',
             'Cache-Control': 'no-cache',
             'Connection': 'keep-alive',
-            'X-Accel-Buffering': 'no' 
+            'X-Accel-Buffering': 'no'
         }
     })
 }

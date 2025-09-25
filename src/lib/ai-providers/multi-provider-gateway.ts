@@ -2,6 +2,7 @@ import { AIProvider, GenerateOptions, AIResponse } from './types';
 import { OpenAIProvider } from './openai-provider';
 import { ClaudeProvider } from './claude-provider';
 import { QueryComplexityAnalyzer } from './query-analyzer';
+import { withCircuitBreaker } from '@/lib/error/error-handler';
 
 interface ProviderConfig {
     openai?: string;
@@ -46,14 +47,20 @@ export class MultiProviderGateway {
 
         
         try {
-            const response = await provider.generate(query, {
-                ...options,
-                model: options?.model || model
-            });
+            const response = await withCircuitBreaker(
+                provider.name,
+                () => provider.generate(query, {
+                    ...options,
+                    model: options?.model || model
+                }),
+                {
+                    failureThreshold: 3,
+                    recoveryTimeout: 30000, // 30 seconds
+                }
+            );
 
             this.lastUsedProvider = provider.name;
 
-            
             console.log(`Used ${provider.name}/${response.model} - Cost: $${response.usage.totalCost.toFixed(6)}`);
 
             return response;

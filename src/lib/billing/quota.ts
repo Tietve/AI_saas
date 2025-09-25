@@ -3,55 +3,77 @@ import { prisma } from '@/lib/prisma'
 import { ModelId, PlanTier } from '@prisma/client'
 import { PLAN_LIMITS } from './limits'
 import { calcCostUsd } from './costs'
+import { enhancedCache, CacheKeys, CacheTTL } from '@/lib/cache/redis-client'
+import { performanceMonitor } from '@/lib/monitoring/performance'
 
 export type CanSpendResult =
     | { ok: true; remaining: number; limit: number }
     | { ok: false; reason: 'NO_USER' | 'OVER_LIMIT' | 'PER_REQUEST_TOO_LARGE'; remaining: number; limit: number; wouldExceedBy?: number }
 
 export async function getUserLimits(userId: string) {
+    const cacheKey = CacheKeys.userLimits(userId)
+    
+    // Try cache first
+    const cached = await enhancedCache.get(cacheKey)
+    if (cached) {
+        return cached
+    }
+
+    // Fallback to database
     const user = await prisma.user.findUnique({ where: { id: userId }, select: { planTier: true } })
     if (!user) return null
+    
     const conf = PLAN_LIMITS[user.planTier]
-    return { ...conf } 
+    const result = { ...conf }
+    
+    // Cache the result
+    await enhancedCache.set(cacheKey, result, CacheTTL.USER_DATA)
+    
+    return result
 }
 
 
 export async function canSpend(userId: string, estimateTokens: number): Promise<CanSpendResult> {
-    const user = await prisma.user.findUnique({
-        where: { id: userId },
-        select: { planTier: true, monthlyTokenUsed: true },
-    })
-    if (!user) {
-        return { ok: false, reason: 'NO_USER', remaining: 0, limit: 0 }
-    }
-    const { monthlyTokenLimit, perRequestMaxTokens } = PLAN_LIMITS[user.planTier]
+    return performanceMonitor.measureDbQuery(
+        'canSpend - find user by id',
+        async () => {
+            const user = await prisma.user.findUnique({
+                where: { id: userId },
+                select: { planTier: true, monthlyTokenUsed: true },
+            })
+            if (!user) {
+                return { ok: false, reason: 'NO_USER', remaining: 0, limit: 0 }
+            }
+            const { monthlyTokenLimit, perRequestMaxTokens } = PLAN_LIMITS[user.planTier]
 
-    if (estimateTokens > perRequestMaxTokens) {
-        return {
-            ok: false,
-            reason: 'PER_REQUEST_TOO_LARGE',
-            remaining: Math.max(0, monthlyTokenLimit - user.monthlyTokenUsed),
-            limit: monthlyTokenLimit,
-            wouldExceedBy: estimateTokens - perRequestMaxTokens,
+            if (estimateTokens > perRequestMaxTokens) {
+                return {
+                    ok: false,
+                    reason: 'PER_REQUEST_TOO_LARGE',
+                    remaining: Math.max(0, monthlyTokenLimit - user.monthlyTokenUsed),
+                    limit: monthlyTokenLimit,
+                    wouldExceedBy: estimateTokens - perRequestMaxTokens,
+                }
+            }
+
+            const projected = user.monthlyTokenUsed + estimateTokens
+            if (projected > monthlyTokenLimit) {
+                return {
+                    ok: false,
+                    reason: 'OVER_LIMIT',
+                    remaining: Math.max(0, monthlyTokenLimit - user.monthlyTokenUsed),
+                    limit: monthlyTokenLimit,
+                    wouldExceedBy: projected - monthlyTokenLimit,
+                }
+            }
+
+            return {
+                ok: true,
+                remaining: monthlyTokenLimit - projected,
+                limit: monthlyTokenLimit,
+            }
         }
-    }
-
-    const projected = user.monthlyTokenUsed + estimateTokens
-    if (projected > monthlyTokenLimit) {
-        return {
-            ok: false,
-            reason: 'OVER_LIMIT',
-            remaining: Math.max(0, monthlyTokenLimit - user.monthlyTokenUsed),
-            limit: monthlyTokenLimit,
-            wouldExceedBy: projected - monthlyTokenLimit,
-        }
-    }
-
-    return {
-        ok: true,
-        remaining: monthlyTokenLimit - projected,
-        limit: monthlyTokenLimit,
-    }
+    )
 }
 
 
@@ -113,14 +135,30 @@ export async function recordUsage(args: {
 
 
 export async function getUsageSummary(userId: string) {
+    const cacheKey = CacheKeys.usageSummary(userId)
+    
+    // Try cache first
+    const cached = await enhancedCache.get(cacheKey)
+    if (cached) {
+        return cached
+    }
+
+    // Fallback to database
     const user = await prisma.user.findUnique({
         where: { id: userId },
         select: { monthlyTokenUsed: true, planTier: true },
     })
     if (!user) return null
+    
     const limit = PLAN_LIMITS[user.planTier].monthlyTokenLimit
     const used = user.monthlyTokenUsed
     const remaining = Math.max(0, limit - used)
     const percent = limit > 0 ? Math.min(100, Math.round((used / limit) * 100)) : 0
-    return { used, limit, remaining, percent, plan: user.planTier as PlanTier }
+    
+    const result = { used, limit, remaining, percent, plan: user.planTier as PlanTier }
+    
+    // Cache the result (short TTL for usage data)
+    await enhancedCache.set(cacheKey, result, CacheTTL.USAGE_DATA)
+    
+    return result
 }

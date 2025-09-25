@@ -14,6 +14,28 @@ const prismaClientSingleton = () => {
             ? ['query', 'error', 'warn']
             : ['error'],
         errorFormat: 'pretty',
+        datasources: {
+            db: {
+                url: process.env.DATABASE_URL,
+            },
+        },
+        // Connection pooling configuration
+        __internal: {
+            engine: {
+                connectTimeout: 60000,
+                queryTimeout: 30000,
+                pool: {
+                    min: 2,
+                    max: 10,
+                    acquireTimeoutMillis: 30000,
+                    createTimeoutMillis: 30000,
+                    destroyTimeoutMillis: 5000,
+                    idleTimeoutMillis: 30000,
+                    reapIntervalMillis: 1000,
+                    createRetryIntervalMillis: 200,
+                },
+            },
+        },
     })
 }
 

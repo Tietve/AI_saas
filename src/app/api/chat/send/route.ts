@@ -10,6 +10,8 @@ import { streamChat } from '@/lib/ai/adapter'
 import { streamSSEFromGenerator } from '@/lib/http/sse'
 import { withRateLimit } from '@/lib/rate-limit/withRateLimit'
 import { getUserIdFromSession } from '@/lib/auth/session'
+import { performanceMonitor } from '@/lib/monitoring/performance'
+import { withMemoryOptimization, logMemoryUsage } from '@/lib/optimization/memory-manager'
 
 const DEBUG = process.env.NODE_ENV === 'development'
 
@@ -40,493 +42,516 @@ const HISTORY_LIMIT = 20
 const OUTPUT_RESERVE = 500
 const MAX_INPUT_CHARS = 8_000
 
-
 const FREE_MODELS = ['gpt_4o_mini', 'gpt_3_5_turbo']
 const FALLBACK_MODEL = ModelId.gpt_3_5_turbo 
 
 export const POST = withRateLimit(async (req: Request) => {
     try {
-        const body = (await req.json()) as SendReq
+        return await withMemoryOptimization(async () => {
+            return await performanceMonitor.measureApi('/api/chat/send', 'POST', async () => {
+                logMemoryUsage('Chat send start')
+                
+                const body = (await req.json()) as SendReq
 
+                const userId = await getUserIdFromSession()
+                if (!userId) return json(401, { code: 'UNAUTHENTICATED' })
 
-        const userId = await getUserIdFromSession()
-        if (!userId) return json(401, { code: 'UNAUTHENTICATED' })
-
-
-        const attachments = normalizeAttachments(body?.attachments)
-        const rawContent = String(body?.content ?? '').trim()
-        if (rawContent.length > MAX_INPUT_CHARS) {
-            return json(400, { code: 'PER_REQUEST_TOO_LARGE', message: `Nội dung quá dài (> ${MAX_INPUT_CHARS} ký tự).` })
-        }
-        if (!rawContent && attachments.length === 0) {
-            return json(400, { code: 'BAD_REQUEST', message: 'Thiếu nội dung hoặc tệp đính kèm.' })
-        }
-
-        
-        const user = await prisma.user.findUnique({
-            where: { id: userId },
-            include: {
-                subscriptions: {
-                    where: {
-                        status: 'ACTIVE',
-                        currentPeriodEnd: { gte: new Date() }
-                    },
-                    orderBy: { createdAt: 'desc' },
-                    take: 1
+                const attachments = normalizeAttachments(body?.attachments)
+                const rawContent = String(body?.content ?? '').trim()
+                if (rawContent.length > MAX_INPUT_CHARS) {
+                    return json(400, { code: 'PER_REQUEST_TOO_LARGE', message: `Nội dung quá dài (> ${MAX_INPUT_CHARS} ký tự).` })
                 }
-            }
-        })
-
-        if (!user) {
-            return json(404, { code: 'NOT_FOUND', message: 'User không tồn tại.' })
-        }
-
-        
-        const currentPlan = user.subscriptions[0]?.planTier || user.planTier || 'FREE'
-        const isFreeTier = currentPlan === 'FREE'
-
-        
-        if (isFreeTier) {
-            const today = new Date()
-            today.setHours(0, 0, 0, 0)
-
-            const dailyUsage = await prisma.dailyUsageRecord.findUnique({
-                where: {
-                    userId_date: {
-                        userId: userId,
-                        date: today
-                    }
+                if (!rawContent && attachments.length === 0) {
+                    return json(400, { code: 'BAD_REQUEST', message: 'Thiếu nội dung hoặc tệp đính kèm.' })
                 }
-            })
 
-            const messagesUsedToday = dailyUsage?.messageCount || 0
-            const dailyLimit = 20
-
-            
-            if (messagesUsedToday >= dailyLimit) {
-                return json(402, {
-                    code: 'DAILY_LIMIT_EXCEEDED',
-                    message: `Bạn đã hết ${dailyLimit} tin nhắn miễn phí hôm nay.`,
-                    showUpgrade: true,
-                    usage: {
-                        daily: messagesUsedToday,
-                        dailyLimit: dailyLimit,
-                        resetTime: new Date(today.getTime() + 24 * 60 * 60 * 1000)
+                const user = await prisma.user.findUnique({
+                    where: { id: userId },
+                    include: {
+                        subscriptions: {
+                            where: {
+                                status: 'ACTIVE',
+                                currentPeriodEnd: { gte: new Date() }
+                            },
+                            orderBy: { createdAt: 'desc' },
+                            take: 1
+                        }
                     }
                 })
-            }
-        }
 
-        // Build content for model later based on model/provider (vision vs text-only)
-        // Default textual fallback (used for history or non-vision models)
-        const textOnlyCombined = combineContentWithAttachments(rawContent, attachments)
-        const firstAttachmentName = attachments
-            .map(att => getMetaString(att.meta, 'name'))
-            .find(name => typeof name === 'string') as string | undefined
-
-        const botSystemPrompt = body?.systemPrompt
-        const botId = body?.botId
-
-        
-        const requestedConvId = (body?.conversationId ?? '').trim()
-        let requestedModel = coerceModelId(body?.model)
-
-        // THÊM MỚI: Giới hạn model cho FREE users
-        if (isFreeTier && requestedModel) {
-            const modelStr = requestedModel.toString()
-            if (!FREE_MODELS.includes(modelStr)) {
-                console.log(`[chat/send] FREE user tried to use ${modelStr}, fallback to ${FALLBACK_MODEL}`)
-                requestedModel = FALLBACK_MODEL
-            }
-        }
-
-        const initialPreview = rawContent || firstAttachmentName || 'New chat'
-
-        const convo = await ensureConversation({
-            userId,
-            conversationId: requestedConvId,
-            initialTitle: initialPreview.slice(0, 80) || 'New chat',
-            initialModel: requestedModel ?? (isFreeTier ? FALLBACK_MODEL : defaultModel()),
-            initialSystemPrompt: requestedConvId === 'new' || !requestedConvId ? botSystemPrompt : undefined,
-            initialBotId: requestedConvId === 'new' || !requestedConvId ? botId : undefined
-        })
-
-        if (!convo) {
-            return json(404, { code: 'NOT_FOUND', message: 'Conversation không tồn tại hoặc không thuộc về bạn.' })
-        }
-
-        
-        if (body?.requestId) {
-            const existing = await prisma.message.findFirst({
-                where: { conversationId: convo.id, role: Role.ASSISTANT, idempotencyKey: body.requestId },
-                select: { content: true }
-            })
-
-            if (existing?.content) {
-                const cached = existing.content
-                async function* once() {
-                    yield { delta: cached }
+                if (!user) {
+                    return json(404, { code: 'NOT_FOUND', message: 'User không tồn tại.' })
                 }
-                return streamSSEFromGenerator(once())
-            }
-        }
 
-        
-        const getDesiredModel = (requestedModel?: ModelId | null, convo?: { model: string | null }): ModelId => {
-            if (requestedModel && Object.values(ModelId).includes(requestedModel as ModelId)) {
-                
+                const currentPlan = user.subscriptions[0]?.planTier || user.planTier || 'FREE'
+                const isFreeTier = currentPlan === 'FREE'
+
                 if (isFreeTier) {
-                    const modelStr = (requestedModel as ModelId).toString()
+                    const today = new Date()
+                    today.setHours(0, 0, 0, 0)
+
+                    const dailyUsage = await prisma.dailyUsageRecord.findUnique({
+                        where: {
+                            userId_date: {
+                                userId: userId,
+                                date: today
+                            }
+                        }
+                    })
+
+                    const messagesUsedToday = dailyUsage?.messageCount || 0
+                    const dailyLimit = 20
+
+                    if (messagesUsedToday >= dailyLimit) {
+                        return json(402, {
+                            code: 'DAILY_LIMIT_EXCEEDED',
+                            message: `Bạn đã hết ${dailyLimit} tin nhắn miễn phí hôm nay.`,
+                            showUpgrade: true,
+                            usage: {
+                                daily: messagesUsedToday,
+                                dailyLimit: dailyLimit,
+                                resetTime: new Date(today.getTime() + 24 * 60 * 60 * 1000)
+                            }
+                        })
+                    }
+                }
+
+                // Build content for model later based on model/provider (vision vs text-only)
+                // Default textual fallback (used for history or non-vision models)
+                const textOnlyCombined = combineContentWithAttachments(rawContent, attachments)
+                const firstAttachmentName = attachments
+                    .map(att => getMetaString(att.meta, 'name'))
+                    .find(name => typeof name === 'string') as string | undefined
+
+                const botSystemPrompt = body?.systemPrompt
+                const botId = body?.botId
+
+                const requestedConvId = (body?.conversationId ?? '').trim()
+                let requestedModel = coerceModelId(body?.model)
+
+                // THÊM MỚI: Giới hạn model cho FREE users
+                if (isFreeTier && requestedModel) {
+                    const modelStr = requestedModel.toString()
                     if (!FREE_MODELS.includes(modelStr)) {
-                        return FALLBACK_MODEL
+                        console.log(`[chat/send] FREE user tried to use ${modelStr}, fallback to ${FALLBACK_MODEL}`)
+                        requestedModel = FALLBACK_MODEL
                     }
                 }
-                return requestedModel as ModelId
-            }
 
-            if (convo?.model) {
-                const modelPartRaw = convo.model.split(':').pop() || convo.model
-                const key = modelPartRaw.toLowerCase()
+                const initialPreview = rawContent || firstAttachmentName || 'New chat'
 
-                const modelMapping: Record<string, ModelId> = {
-                    'gpt-4o-mini': ModelId.gpt_4o_mini,
-                    'gpt-4o': ModelId.gpt_4o,
-                    'gpt-4-turbo': ModelId.gpt_4_turbo,
-                    'gpt-3.5-turbo': ModelId.gpt_3_5_turbo,
-                    'claude-3-opus': ModelId.claude_3_opus,
-                    'claude-3.5-sonnet': ModelId.claude_3_5_sonnet,
-                    'claude-3.5-haiku': ModelId.claude_3_5_haiku,
-                    'gemini-1.5-pro': ModelId.gemini_1_5_pro,
-                    'gemini-1.5-flash': ModelId.gemini_1_5_flash,
-                    'gemini-2.0-flash': ModelId.gemini_2_0_flash,
-                    'gpt5_mini': ModelId.gpt5_mini,
-                    'gpt4o_mini': ModelId.gpt4o_mini,
+                const convo = await ensureConversation({
+                    userId,
+                    conversationId: requestedConvId,
+                    initialTitle: initialPreview.slice(0, 80) || 'New chat',
+                    initialModel: requestedModel ?? (isFreeTier ? FALLBACK_MODEL : defaultModel()),
+                    initialSystemPrompt: requestedConvId === 'new' || !requestedConvId ? botSystemPrompt : undefined,
+                    initialBotId: requestedConvId === 'new' || !requestedConvId ? botId : undefined
+                })
+
+                if (!convo) {
+                    return json(404, { code: 'NOT_FOUND', message: 'Conversation không tồn tại hoặc không thuộc về bạn.' })
                 }
 
-                const mapped = modelMapping[key]
-                if (mapped) {
-                    
-                    if (isFreeTier && !FREE_MODELS.includes(mapped.toString())) {
-                        return FALLBACK_MODEL
+                if (body?.requestId) {
+                    const existing = await prisma.message.findFirst({
+                        where: { conversationId: convo.id, role: Role.ASSISTANT, idempotencyKey: body.requestId },
+                        select: { content: true }
+                    })
+
+                    if (existing?.content) {
+                        const cached = existing.content
+                        async function* once() {
+                            yield { delta: cached }
+                        }
+                        return streamSSEFromGenerator(once())
                     }
-                    return mapped
                 }
-            }
 
-            
-            return isFreeTier ? FALLBACK_MODEL : defaultModel()
-        }
+                const getDesiredModel = (requestedModel?: ModelId | null, convo?: { model: string | null }): ModelId => {
+                    if (requestedModel && Object.values(ModelId).includes(requestedModel as ModelId)) {
+                        if (isFreeTier) {
+                            const modelStr = (requestedModel as ModelId).toString()
+                            if (!FREE_MODELS.includes(modelStr)) {
+                                return FALLBACK_MODEL
+                            }
+                        }
+                        return requestedModel as ModelId
+                    }
 
-        const desiredModel: ModelId = getDesiredModel(requestedModel, convo)
+                    if (convo?.model) {
+                        const modelPartRaw = convo.model.split(':').pop() || convo.model
+                        const key = modelPartRaw.toLowerCase()
 
-        
-        const recent = await prisma.message.findMany({
-            where: { conversationId: convo.id },
-            orderBy: { createdAt: 'desc' },
-            select: {
-                role: true,
-                content: true,
-                attachments: {
+                        const modelMapping: Record<string, ModelId> = {
+                            'gpt-4o-mini': ModelId.gpt_4o_mini,
+                            'gpt-4o': ModelId.gpt_4o,
+                            'gpt-4-turbo': ModelId.gpt_4_turbo,
+                            'gpt-3.5-turbo': ModelId.gpt_3_5_turbo,
+                            'claude-3-opus': ModelId.claude_3_opus,
+                            'claude-3.5-sonnet': ModelId.claude_3_5_sonnet,
+                            'claude-3.5-haiku': ModelId.claude_3_5_haiku,
+                            'gemini-1.5-pro': ModelId.gemini_1_5_pro,
+                            'gemini-1.5-flash': ModelId.gemini_1_5_flash,
+                            'gemini-2.0-flash': ModelId.gemini_2_0_flash,
+                            'gpt5_mini': ModelId.gpt5_mini,
+                            'gpt4o_mini': ModelId.gpt4o_mini,
+                        }
+
+                        const mapped = modelMapping[key]
+                        if (mapped) {
+                            if (isFreeTier && !FREE_MODELS.includes(mapped.toString())) {
+                                return FALLBACK_MODEL
+                            }
+                            return mapped
+                        }
+                    }
+
+                    return isFreeTier ? FALLBACK_MODEL : defaultModel()
+                }
+
+                const desiredModel: ModelId = getDesiredModel(requestedModel, convo)
+
+                const recent = await prisma.message.findMany({
+                    where: { conversationId: convo.id },
+                    orderBy: { createdAt: 'desc' },
                     select: {
-                        kind: true,
-                        url: true,
-                        meta: true
-                    }
-                }
-            },
-            take: HISTORY_LIMIT
-        })
-        const preparedHistory = recent
-            .reverse()
-            .map(m => ({
-                role: m.role.toLowerCase() as 'user' | 'assistant' | 'system',
-                content: combineContentWithAttachments(m.content, normalizeAttachments(m.attachments))
-            }))
-
-        
-        const estimateIn = estimateTokensFromMessages(preparedHistory) + estimateTokensFromText(textOnlyCombined)
-        const estimateOut = OUTPUT_RESERVE
-        const estimateTotal = estimateIn + estimateOut
-
-        
-        const preCheck = await canSpend(userId, estimateTotal)
-        if (!preCheck.ok) {
-            if (preCheck.reason === 'PER_REQUEST_TOO_LARGE') {
-                return json(400, { code: 'PER_REQUEST_TOO_LARGE', message: 'Thông điệp quá dài, hãy rút gọn hoặc chia nhỏ.' })
-            }
-            const q = await getUsageSummary(userId)
-            return json(402, {
-                code: 'QUOTA_EXCEEDED',
-                message: 'Bạn đã vượt hạn mức.',
-                showUpgrade: isFreeTier,
-                quota: q
-            })
-        }
-
-        
-        if (isFreeTier) {
-            const today = new Date()
-            today.setHours(0, 0, 0, 0)
-
-            await prisma.dailyUsageRecord.upsert({
-                where: {
-                    userId_date: {
-                        userId: userId,
-                        date: today
-                    }
-                },
-                update: {
-                    messageCount: { increment: 1 },
-                    modelUsed: desiredModel.toString(),
-                    updatedAt: new Date()
-                },
-                create: {
-                    userId: userId,
-                    date: today,
-                    messageCount: 1,
-                    modelUsed: desiredModel.toString()
-                }
-            })
-        }
-
-        
-        const userDbMessage = await prisma.message.create({
-            data: { conversationId: convo.id, role: Role.USER, content: rawContent },
-            select: { id: true }
-        })
-
-        if (attachments.length > 0) {
-            await prisma.attachment.createMany({
-                data: attachments.map(att => ({
-                    conversationId: convo.id,
-                    messageId: userDbMessage.id,
-                    kind: att.kind,
-                    url: att.url,
-                    meta: att.meta === undefined ? undefined : att.meta
-                }))
-            })
-        }
-
-        
-        const effectiveSystemPrompt = botSystemPrompt || convo.systemPrompt || 'You are a helpful AI assistant.'
-
-        
-        const sys = [{ role: 'system' as const, content: effectiveSystemPrompt }]
-
-        // Helper: absolute URL for public uploads
-        const toAbsoluteUrl = (url: string): string => {
-            try {
-                // If already absolute
-                new URL(url)
-                return url
-            } catch {
-                const origin = (typeof process !== 'undefined' && process.env.NEXT_PUBLIC_APP_URL)
-                    || req.headers.get('origin')
-                    || ''
-                if (!origin) return url
-                const base = origin.endsWith('/') ? origin.slice(0, -1) : origin
-                return url.startsWith('/') ? `${base}${url}` : `${base}/${url}`
-            }
-        }
-
-        // Decide if we should send multimodal content (OpenAI vision-capable)
-        const providerModelId = toProviderModelId(desiredModel)
-        const isOpenAIVision = providerModelId.includes('gpt-4o') || providerModelId.includes('gpt-4-turbo')
-
-        // Build the final user content
-        async function buildImagePart(att: { url: string; meta?: Prisma.InputJsonValue }) {
-            // If absolute and not localhost, use as-is
-            try {
-                const u = new URL(att.url)
-                const host = u.hostname
-                const isLocalhost = host === 'localhost' || host === '127.0.0.1' || host.endsWith('.local')
-                if (!isLocalhost) {
-                    return { type: 'image_url', image_url: { url: att.url } }
-                }
-            } catch {}
-
-            // Relative or localhost: try to embed as data URL
-            const mime = getMetaString(att.meta as any, 'mimeType')
-            const filePath = att.url.startsWith('/')
-                ? path.join(process.cwd(), 'public', att.url)
-                : path.join(process.cwd(), 'public', att.url)
-            try {
-                const data = await fs.readFile(filePath)
-                const base64 = data.toString('base64')
-                const inferredMime = mime || inferMimeFromPath(filePath) || 'image/png'
-                const dataUrl = `data:${inferredMime};base64,${base64}`
-                return { type: 'image_url', image_url: { url: dataUrl } }
-            } catch {
-                // Fallback to absolute URL attempt
-                return { type: 'image_url', image_url: { url: toAbsoluteUrl(att.url) } }
-            }
-        }
-
-        function inferMimeFromPath(p: string): string | null {
-            const ext = path.extname(p).toLowerCase()
-            if (ext === '.jpg' || ext === '.jpeg') return 'image/jpeg'
-            if (ext === '.png') return 'image/png'
-            if (ext === '.gif') return 'image/gif'
-            if (ext === '.webp') return 'image/webp'
-            return null
-        }
-
-        const imageAttachments = attachments.filter(a => a.kind === 'image')
-        const finalUserMessage = (isOpenAIVision && imageAttachments.length > 0)
-            ? {
-                role: 'user' as const,
-                content: [
-                    ...(rawContent ? [{ type: 'text', text: rawContent }] : []),
-                    ...(await Promise.all(imageAttachments.map(a => buildImagePart(a))))
-                ]
-              }
-            : { role: 'user' as const, content: textOnlyCombined }
-
-        const allMessages = [...sys, ...preparedHistory, finalUserMessage]
-
-        
-        const controller = new AbortController()
-        const startedAt = Date.now()
-
-        
-        let candidates: { enum: ModelId; id: string }[]
-        if (isFreeTier) {
-            
-            candidates = [{ enum: desiredModel, id: toProviderModelId(desiredModel) }]
-        } else {
-            
-            candidates = [
-                { enum: desiredModel, id: toProviderModelId(desiredModel) },
-                ...cheaperAlternatives(desiredModel).map(m => ({ enum: m, id: toProviderModelId(m) }))
-            ]
-        }
-
-        const gen = (async function* () {
-            let picked: { enum: ModelId; id: string } | null = null
-            let fullText = ''
-            const promptTokens = estimateIn
-            let lastErrorMessage = ''
-
-            // Add metadata
-            yield {
-                meta: {
-                    conversationId: convo.id,
-                    model: desiredModel,
-                    systemPrompt: effectiveSystemPrompt,
-                    planTier: currentPlan // THÊM MỚI: Include plan tier
-                }
-            }
-
-            for (const c of candidates) {
-                try {
-                    picked = c
-                    for await (const chunk of streamChat({
-                        model: c.id,
-                        system: effectiveSystemPrompt,
-                        messages: allMessages,
-                        signal: controller.signal
-                    })) {
-                        const delta = chunk.delta ?? ''
-                        if (delta) {
-                            fullText += delta
-                            yield { delta }
+                        role: true,
+                        content: true,
+                        attachments: {
+                            select: {
+                                kind: true,
+                                url: true,
+                                meta: true
+                            }
                         }
-                        if (DEBUG && delta) {
-                            console.log('[chat/send] Streaming delta:', delta.substring(0, 50))
-                        }
-                    }
-                    break // Success
-                } catch (err: unknown) {
-                    const msg = err instanceof Error ? err.message : String(err)
-                    lastErrorMessage = msg
-                    const low = msg.toLowerCase()
-                    const isHard = low.includes('input too large') || low.includes('content too long') || low.includes('invalid api key')
-                    if (isHard) break
-                    continue
-                }
-            }
-
-            if (!picked || (fullText.length === 0 && lastErrorMessage)) {
-                throw new Error(lastErrorMessage || 'Model unavailable')
-            }
-
-            const latencyMs = Date.now() - startedAt
-            const completionTokens = estimateTokensFromText(fullText)
-
-            
-            let assistantMsgId: string | null = null
-            try {
-                const assistantMsg = await prisma.message.create({
-                    data: {
-                        conversationId: convo.id,
-                        role: Role.ASSISTANT,
-                        content: fullText,
-                        model: picked.id,
-                        promptTokens,
-                        completionTokens,
-                        latencyMs,
-                        idempotencyKey: body?.requestId ?? null
                     },
+                    take: HISTORY_LIMIT
+                })
+                const preparedHistory = recent
+                    .reverse()
+                    .map(m => ({
+                        role: m.role.toLowerCase() as 'user' | 'assistant' | 'system',
+                        content: combineContentWithAttachments(m.content, normalizeAttachments(m.attachments))
+                    }))
+
+                const estimateIn = estimateTokensFromMessages(preparedHistory) + estimateTokensFromText(textOnlyCombined)
+                const estimateOut = OUTPUT_RESERVE
+                const estimateTotal = estimateIn + estimateOut
+
+                const preCheck = await canSpend(userId, estimateTotal)
+                if (!preCheck.ok) {
+                    if (preCheck.reason === 'PER_REQUEST_TOO_LARGE') {
+                        return json(400, { code: 'PER_REQUEST_TOO_LARGE', message: 'Thông điệp quá dài, hãy rút gọn hoặc chia nhỏ.' })
+                    }
+                    const q = await getUsageSummary(userId)
+                    return json(402, {
+                        code: 'QUOTA_EXCEEDED',
+                        message: 'Bạn đã vượt hạn mức.',
+                        showUpgrade: isFreeTier,
+                        quota: q
+                    })
+                }
+
+                if (isFreeTier) {
+                    const today = new Date()
+                    today.setHours(0, 0, 0, 0)
+
+                    await prisma.dailyUsageRecord.upsert({
+                        where: {
+                            userId_date: {
+                                userId: userId,
+                                date: today
+                            }
+                        },
+                        update: {
+                            messageCount: { increment: 1 },
+                            modelUsed: desiredModel.toString(),
+                            updatedAt: new Date()
+                        },
+                        create: {
+                            userId: userId,
+                            date: today,
+                            messageCount: 1,
+                            modelUsed: desiredModel.toString()
+                        }
+                    })
+                }
+
+                const userDbMessage = await prisma.message.create({
+                    data: { conversationId: convo.id, role: Role.USER, content: rawContent },
                     select: { id: true }
                 })
-                assistantMsgId = assistantMsg.id
-            } catch (e: unknown) {
-                const msg = e instanceof Error ? e.message : String(e)
-                if (msg.toLowerCase().includes('unique') && body?.requestId) {
-                    const assistantMsg = await prisma.message.create({
-                        data: {
+
+                if (attachments.length > 0) {
+                    await prisma.attachment.createMany({
+                        data: attachments.map(att => ({
                             conversationId: convo.id,
-                            role: Role.ASSISTANT,
-                            content: fullText,
-                            model: picked.id,
-                            promptTokens,
-                            completionTokens,
-                            latencyMs,
-                            idempotencyKey: `${body.requestId}:${Date.now()}`
-                        },
-                        select: { id: true }
+                            messageId: userDbMessage.id,
+                            kind: att.kind,
+                            url: att.url,
+                            meta: att.meta === undefined ? undefined : att.meta
+                        }))
                     })
-                    assistantMsgId = assistantMsg.id
+                }
+
+                const effectiveSystemPrompt = botSystemPrompt || convo.systemPrompt || 'You are a helpful AI assistant.'
+
+                const sys = [{ role: 'system' as const, content: effectiveSystemPrompt }]
+
+                // Helper: absolute URL for public uploads
+                const toAbsoluteUrl = (url: string): string => {
+                    try {
+                        // If already absolute
+                        new URL(url)
+                        return url
+                    } catch {
+                        const origin = (typeof process !== 'undefined' && process.env.NEXT_PUBLIC_APP_URL)
+                            || req.headers.get('origin')
+                            || ''
+                        if (!origin) return url
+                        const base = origin.endsWith('/') ? origin.slice(0, -1) : origin
+                        return url.startsWith('/') ? `${base}${url}` : `${base}/${url}`
+                    }
+                }
+
+                // Decide if we should send multimodal content (OpenAI vision-capable)
+                const providerModelId = toProviderModelId(desiredModel)
+                const isOpenAIVision = providerModelId.includes('gpt-4o') || providerModelId.includes('gpt-4-turbo')
+
+                // Build the final user content
+                async function buildImagePart(att: { url: string; meta?: Prisma.InputJsonValue }) {
+                    // If absolute and not localhost, use as-is
+                    try {
+                        const u = new URL(att.url)
+                        const host = u.hostname
+                        const isLocalhost = host === 'localhost' || host === '127.0.0.1' || host.endsWith('.local')
+                        if (!isLocalhost) {
+                            return { type: 'image_url', image_url: { url: att.url } }
+                        }
+                    } catch {}
+
+                    // Relative or localhost: try to embed as data URL
+                    const mime = getMetaString(att.meta as any, 'mimeType')
+                    const filePath = att.url.startsWith('/')
+                        ? path.join(process.cwd(), 'public', att.url)
+                        : path.join(process.cwd(), 'public', att.url)
+                    try {
+                        const data = await fs.readFile(filePath)
+                        const base64 = data.toString('base64')
+                        const inferredMime = mime || inferMimeFromPath(filePath) || 'image/png'
+                        const dataUrl = `data:${inferredMime};base64,${base64}`
+                        return { type: 'image_url', image_url: { url: dataUrl } }
+                    } catch {
+                        // Fallback to absolute URL attempt
+                        return { type: 'image_url', image_url: { url: toAbsoluteUrl(att.url) } }
+                    }
+                }
+
+                function inferMimeFromPath(p: string): string | null {
+                    const ext = path.extname(p).toLowerCase()
+                    if (ext === '.jpg' || ext === '.jpeg') return 'image/jpeg'
+                    if (ext === '.png') return 'image/png'
+                    if (ext === '.gif') return 'image/gif'
+                    if (ext === '.webp') return 'image/webp'
+                    return null
+                }
+
+                const imageAttachments = attachments.filter(a => a.kind === 'image')
+                const finalUserMessage = (isOpenAIVision && imageAttachments.length > 0)
+                    ? {
+                        role: 'user' as const,
+                        content: [
+                            ...(rawContent ? [{ type: 'text', text: rawContent }] : []),
+                            ...(await Promise.all(imageAttachments.map(a => buildImagePart(a))))
+                        ]
+                      }
+                    : { role: 'user' as const, content: textOnlyCombined }
+
+                const allMessages = [...sys, ...preparedHistory, finalUserMessage]
+
+                const controller = new AbortController()
+                const startedAt = Date.now()
+
+                let candidates: { enum: ModelId; id: string }[]
+                if (isFreeTier) {
+                    candidates = [{ enum: desiredModel, id: toProviderModelId(desiredModel) }]
                 } else {
-                    throw e
+                    candidates = [
+                        { enum: desiredModel, id: toProviderModelId(desiredModel) },
+                        ...cheaperAlternatives(desiredModel).map(m => ({ enum: m, id: toProviderModelId(m) }))
+                    ]
                 }
+
+                const gen = (async function* () {
+                    let picked: { enum: ModelId; id: string } | null = null
+                    let fullText = ''
+                    const promptTokens = estimateIn
+                    let lastErrorMessage = ''
+
+                    // Add metadata
+                    yield {
+                        meta: {
+                            conversationId: convo.id,
+                            model: desiredModel,
+                            systemPrompt: effectiveSystemPrompt,
+                            planTier: currentPlan
+                        }
+                    }
+
+                    for (const c of candidates) {
+                        try {
+                            picked = c
+                            for await (const chunk of streamChat({
+                                model: c.id,
+                                system: effectiveSystemPrompt,
+                                messages: allMessages,
+                                signal: controller.signal
+                            })) {
+                                const delta = chunk.delta ?? ''
+                                if (delta) {
+                                    fullText += delta
+                                    yield { delta }
+                                }
+                                if (DEBUG && delta) {
+                                    console.log('[chat/send] Streaming delta:', delta.substring(0, 50))
+                                }
+                            }
+                            break // Success
+                        } catch (err: unknown) {
+                            const msg = err instanceof Error ? err.message : String(err)
+                            lastErrorMessage = msg
+                            const low = msg.toLowerCase()
+                            const isHard = low.includes('input too large') || low.includes('content too long') || low.includes('invalid api key')
+                            if (isHard) break
+                            continue
+                        }
+                    }
+
+                    if (!picked || (fullText.length === 0 && lastErrorMessage)) {
+                        throw new Error(lastErrorMessage || 'Model unavailable')
+                    }
+
+                    const latencyMs = Date.now() - startedAt
+                    const completionTokens = estimateTokensFromText(fullText)
+
+                    let assistantMsgId: string | null = null
+                    try {
+                        const assistantMsg = await prisma.message.create({
+                            data: {
+                                conversationId: convo.id,
+                                role: Role.ASSISTANT,
+                                content: fullText,
+                                model: picked.id,
+                                promptTokens,
+                                completionTokens,
+                                latencyMs,
+                                idempotencyKey: body?.requestId ?? null
+                            },
+                            select: { id: true }
+                        })
+                        assistantMsgId = assistantMsg.id
+                    } catch (e: unknown) {
+                        const msg = e instanceof Error ? e.message : String(e)
+                        if (msg.toLowerCase().includes('unique') && body?.requestId) {
+                            const assistantMsg = await prisma.message.create({
+                                data: {
+                                    conversationId: convo.id,
+                                    role: Role.ASSISTANT,
+                                    content: fullText,
+                                    model: picked.id,
+                                    promptTokens,
+                                    completionTokens,
+                                    latencyMs,
+                                    idempotencyKey: `${body.requestId}:${Date.now()}`
+                                },
+                                select: { id: true }
+                            })
+                            assistantMsgId = assistantMsg.id
+                        } else {
+                            throw e
+                        }
+                    }
+
+                    await prisma.conversation.update({
+                        where: { id: convo.id },
+                        data: { updatedAt: new Date() }
+                    })
+
+                    await recordUsage({
+                        userId,
+                        model: picked.enum,
+                        tokensIn: promptTokens,
+                        tokensOut: completionTokens,
+                        meta: {
+                            requestId: body?.requestId,
+                            conversationId: convo.id,
+                            messageId: assistantMsgId!,
+                            latencyMs,
+                            planTier: currentPlan 
+                        }
+                    })
+
+                    yield { done: true }
+                })()
+
+                return streamSSEFromGenerator(gen, {
+                    onClose: () => controller.abort()
+                })
+            }, userId, req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || 'unknown')
+        }, { checkBefore: true, optimizeAfter: true })
+    } catch (error) {
+        console.error('[Chat Send] Error:', error)
+        
+        // Handle different types of errors
+        if (error instanceof Error) {
+            const errorMessage = error.message.toLowerCase()
+            
+            // Database errors
+            if (errorMessage.includes('connection') || errorMessage.includes('timeout')) {
+                return json(503, { 
+                    code: 'DATABASE_ERROR', 
+                    message: 'Database connection issue' 
+                })
             }
-
             
-            await prisma.conversation.update({
-                where: { id: convo.id },
-                data: { updatedAt: new Date() }
-            })
-
+            // Authentication errors
+            if (errorMessage.includes('unauthorized') || errorMessage.includes('token')) {
+                return json(401, { 
+                    code: 'AUTH_ERROR', 
+                    message: 'Authentication required' 
+                })
+            }
             
-            await recordUsage({
-                userId,
-                model: picked.enum,
-                tokensIn: promptTokens,
-                tokensOut: completionTokens,
-                meta: {
-                    requestId: body?.requestId,
-                    conversationId: convo.id,
-                    messageId: assistantMsgId!,
-                    latencyMs,
-                    planTier: currentPlan 
-                }
-            })
-
+            // AI Provider errors
+            if (errorMessage.includes('openai') || errorMessage.includes('anthropic') || errorMessage.includes('gemini')) {
+                return json(502, { 
+                    code: 'AI_PROVIDER_ERROR', 
+                    message: 'AI service temporarily unavailable' 
+                })
+            }
             
-            yield { done: true }
-        })()
-
-        return streamSSEFromGenerator(gen, {
-            onClose: () => controller.abort()
+            // Memory errors
+            if (errorMessage.includes('memory') || errorMessage.includes('heap')) {
+                return json(507, { 
+                    code: 'MEMORY_ERROR', 
+                    message: 'System resource limit reached' 
+                })
+            }
+        }
+        
+        // Default error response
+        return json(500, { 
+            code: 'INTERNAL_ERROR', 
+            message: 'An unexpected error occurred' 
         })
-    } catch (err: unknown) {
-        const message = err instanceof Error ? err.message : String(err)
-        console.error('[chat/send]', message)
-        return json(500, { code: 'INTERNAL', message })
     }
-}, { scope: 'chat-send', limit: 20, windowMs: 60_000, burst: 20 })
-
+}, { 
+    scope: 'chat-send', 
+    limit: 60, // Increased from 20 to 60 requests per minute for better UX
+    windowMs: 60_000, 
+    burst: 30 // Allow burst of 30 requests
+})
 
 function normalizeAttachments(input: unknown): NormalizedAttachment[] {
     if (!Array.isArray(input)) return []

@@ -26,6 +26,12 @@ model User {
   payments           Payment[]
   usageRecords       DailyUsageRecord[]
   invoices           Invoice[]
+
+  // Performance indexes
+  @@index([planTier])
+  @@index([monthlyTokenUsed])
+  @@index([createdAt])
+  @@index([planTier, monthlyTokenUsed])
 }
 
 model EmailVerificationToken {
@@ -67,7 +73,11 @@ model Conversation {
   user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   messages     Message[]
 
+  // Performance indexes
   @@index([userId, updatedAt(sort: Desc)])
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([model])
+  @@index([botId])
 }
 
 model Message {
@@ -86,6 +96,10 @@ model Message {
 
   @@unique([conversationId, idempotencyKey])
   @@index([conversationId, createdAt])
+  @@index([conversationId, createdAt(sort: Desc)])
+  @@index([role, conversationId])
+  @@index([model])
+  @@index([createdAt])
 }
 
 model Attachment {
@@ -209,7 +223,12 @@ model TokenUsage {
   model     ModelId
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  // Performance indexes
   @@index([userId, createdAt])
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([userId, model])
+  @@index([model, createdAt])
+  @@index([createdAt(sort: Desc)])
 }
 
 model UserSetting {

@@ -21,6 +21,7 @@ function formatFileSize(size?: number) {
 }
 
 export const AttachmentList: React.FC<AttachmentListProps> = ({ attachments = [], role }) => {
+    console.log('[AttachmentList] Rendering:', { attachments, role })
     if (!attachments.length) return null
     const isUser = role === 'USER'
 
@@ -34,6 +35,7 @@ export const AttachmentList: React.FC<AttachmentListProps> = ({ attachments = []
                 const isImage = att.kind === 'image' || (mime ? mime.startsWith('image/') : false)
 
                 if (isImage) {
+                    console.log('[AttachmentList] Rendering image:', { id: att.id, url: att.url, name, meta })
                     return (
                         <a
                             key={att.id}
@@ -46,8 +48,26 @@ export const AttachmentList: React.FC<AttachmentListProps> = ({ attachments = []
                                     : 'border-gray-200 bg-white text-gray-900 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-100'
                             } max-w-sm shadow-sm hover:shadow-md transition`}
                         >
-                            <div className="w-full h-48 bg-gray-200 dark:bg-gray-700 overflow-hidden">
-                                <img src={att.url} alt={name} className="w-full h-full object-cover" />
+                            <div className="w-full h-48 bg-gray-200 dark:bg-gray-700 overflow-hidden relative">
+                                <img 
+                                    src={att.url} 
+                                    alt={name} 
+                                    className="w-full h-full object-cover"
+                                    onError={(e) => {
+                                        console.error('Failed to load image:', att.url, e)
+                                        e.currentTarget.style.display = 'none'
+                                        e.currentTarget.nextElementSibling?.classList.remove('hidden')
+                                    }}
+                                    onLoad={() => {
+                                        console.log('Image loaded successfully:', att.url)
+                                    }}
+                                />
+                                <div className="hidden absolute inset-0 flex items-center justify-center bg-gray-100 dark:bg-gray-700">
+                                    <div className="text-center text-gray-500 dark:text-gray-400">
+                                        <div className="text-sm">Failed to load image</div>
+                                        <div className="text-xs mt-1">Click to view original</div>
+                                    </div>
+                                </div>
                             </div>
                             {/* Hide caption under assistant-generated images for cleaner UI */}
                             {!isUser && false && (

@@ -36,7 +36,12 @@ export function useMessages(conversationId: string | null) {
     }
 
     function addMessage(message: Message) {
-        setMessages(prev => [...prev, message])
+        console.log('[useMessages] Adding message:', message)
+        setMessages(prev => {
+            const newMessages = [...prev, message]
+            console.log('[useMessages] Updated messages count:', newMessages.length)
+            return newMessages
+        })
     }
 
     function updateLastMessage(update: Partial<Message>) {

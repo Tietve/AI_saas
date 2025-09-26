@@ -19,6 +19,14 @@ export function Message({ message, selectedBot, showAvatar = true }: MessageProp
     const attachments = message.attachments || []
     const hasText = Boolean(message.content && message.content.trim().length > 0)
     const artifactMatch = hasText ? message.content.match(/```(\w+)?[\r\n]+([\s\S]*?)```/) : null
+    
+    console.log('[Message] Rendering:', { 
+        messageId: message.id, 
+        role: message.role, 
+        hasText, 
+        attachments: attachments.length,
+        content: message.content 
+    })
 
     return (
         <div className={`message-wrapper flex ${isUser ? 'justify-end' : 'justify-start'} 
@@ -110,6 +118,13 @@ export function Message({ message, selectedBot, showAvatar = true }: MessageProp
                                         {message.isStreaming && (
                                             <span className="inline-block w-1 h-4 ml-0.5 bg-gray-400 animate-pulse" />
                                         )}
+                                    </div>
+                                </div>
+                            ) : attachments.length > 0 && !hasText ? (
+                                // Show a minimal container for image-only messages
+                                <div className="bg-white dark:bg-gray-800 rounded-2xl px-4 py-2.5 shadow-sm border border-gray-100 dark:border-gray-700 hover:shadow-md transition-shadow">
+                                    <div className="text-sm text-gray-500 dark:text-gray-400 italic">
+                                        Generated image
                                     </div>
                                 </div>
                             ) : null}

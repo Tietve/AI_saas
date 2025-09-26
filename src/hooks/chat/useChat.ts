@@ -105,22 +105,34 @@ export function useChat() {
                     if (genRes.ok) {
                         const data = await genRes.json()
                         const genAtt = Array.isArray(data.attachments) ? data.attachments : []
+                        console.log('[Image Generate] Success:', { prompt, attachments: genAtt })
                         // Update assistant message to show generated image and stop streaming
                         updateLastMessage({ content: `Đã tạo ảnh cho: "${prompt}"`, isStreaming: false })
                         // Immediately insert a new assistant message with the image attachment
-                        addMessage({
+                        const imageMessage = {
                             id: `assistant_img_${Date.now()}`,
-                            role: 'ASSISTANT',
+                            role: 'ASSISTANT' as const,
                             content: '',
                             createdAt: new Date().toISOString(),
                             attachments: genAtt,
                             model: selectedModel
-                        })
+                        }
+                        console.log('[Image Generate] Adding image message:', imageMessage)
+                        addMessage(imageMessage)
                         setIsLoading(false)
                         if (abortControllerRef.current) {
                             abortControllerRef.current = null
                         }
                         return true
+                    } else {
+                        const errorData = await genRes.json()
+                        console.error('[Image Generate] API Error:', errorData)
+                        updateLastMessage({ 
+                            content: `Lỗi tạo ảnh: ${errorData.message || errorData.error || 'Unknown error'}`, 
+                            isStreaming: false 
+                        })
+                        setIsLoading(false)
+                        return false
                     }
                 } catch (e) {
                     console.error('[Image Generate] Error:', e)
@@ -150,20 +162,32 @@ export function useChat() {
                             if (genRes.ok) {
                                 const data = await genRes.json()
                                 const genAtt = Array.isArray(data.attachments) ? data.attachments : []
+                                console.log('[Intent Image Generate] Success:', { prompt, attachments: genAtt })
                                 updateLastMessage({ content: `Đã tạo ảnh cho: "${prompt}"`, isStreaming: false })
-                                addMessage({
+                                const imageMessage = {
                                     id: `assistant_img_${Date.now()}`,
-                                    role: 'ASSISTANT',
+                                    role: 'ASSISTANT' as const,
                                     content: '',
                                     createdAt: new Date().toISOString(),
                                     attachments: genAtt,
                                     model: selectedModel
-                                })
+                                }
+                                console.log('[Intent Image Generate] Adding image message:', imageMessage)
+                                addMessage(imageMessage)
                                 setIsLoading(false)
                                 if (abortControllerRef.current) {
                                     abortControllerRef.current = null
                                 }
                                 return true
+                            } else {
+                                const errorData = await genRes.json()
+                                console.error('[Intent Image Generate] API Error:', errorData)
+                                updateLastMessage({ 
+                                    content: `Lỗi tạo ảnh: ${errorData.message || errorData.error || 'Unknown error'}`, 
+                                    isStreaming: false 
+                                })
+                                setIsLoading(false)
+                                return false
                             }
                         }
                     }

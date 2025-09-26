@@ -1,0 +1,562 @@
+
+
+
+:root {
+    --z-base: 1;
+    --z-sidebar: 30;
+    --z-sidebar-overlay: 20;
+    --z-header: 40;
+    --z-dropdown: 100;
+    --z-modal: 200;
+    --z-tooltip: 300;
+    --z-notification: 400;
+    --z-max: 9999;
+}
+
+
+.dropdown-menu,
+.model-selector-dropdown,
+.bot-selector-dropdown {
+    z-index: var(--z-dropdown) !important;
+    position: relative;
+}
+
+
+.messages-area {
+    position: relative;
+    z-index: var(--z-base);
+}
+
+
+.chat-header {
+    position: relative;
+    z-index: var(--z-header);
+}
+
+
+.sidebar {
+    z-index: var(--z-sidebar);
+}
+
+
+.sidebar-overlay {
+    z-index: var(--z-sidebar-overlay);
+}
+
+
+:root {
+    
+    --color-primary: #3B82F6;
+    --color-primary-hover: #2563EB;
+    --color-secondary: #8B5CF6;
+    --color-success: #10B981;
+    --color-warning: #F59E0B;
+    --color-error: #EF4444;
+
+    
+    --color-gray-50: #F9FAFB;
+    --color-gray-100: #F3F4F6;
+    --color-gray-200: #E5E7EB;
+    --color-gray-300: #D1D5DB;
+    --color-gray-400: #9CA3AF;
+    --color-gray-500: #6B7280;
+    --color-gray-600: #4B5563;
+    --color-gray-700: #374151;
+    --color-gray-800: #1F2937;
+    --color-gray-900: #111827;
+    --color-gray-950: #030712;
+
+    
+    --color-background: #FFFFFF;
+    --color-surface: #F9FAFB;
+    --color-surface-hover: #F3F4F6;
+    --color-border: #E5E7EB;
+    --color-text: #111827;
+    --color-text-secondary: #6B7280;
+
+    
+    --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+    --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+    --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1);
+    --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1);
+
+    
+    --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-base: 200ms cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-slow: 300ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+
+.dark {
+    --color-primary: #60A5FA;
+    --color-primary-hover: #3B82F6;
+    --color-secondary: #A78BFA;
+    --color-success: #34D399;
+    --color-warning: #FBBF24;
+    --color-error: #F87171;
+
+    --color-background: #030712;
+    --color-surface: #111827;
+    --color-surface-hover: #1F2937;
+    --color-border: #374151;
+    --color-text: #F9FAFB;
+    --color-text-secondary: #9CA3AF;
+
+    --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.2);
+    --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.3);
+    --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.4);
+    --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.5);
+}
+
+
+.glass {
+    background: rgba(255, 255, 255, 0.7);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.dark .glass {
+    background: rgba(17, 24, 39, 0.7);
+    border: 1px solid rgba(55, 65, 81, 0.3);
+}
+
+.glass-card {
+    background: linear-gradient(135deg,
+    rgba(255, 255, 255, 0.1) 0%,
+    rgba(255, 255, 255, 0.05) 100%);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+}
+
+
+@keyframes messageSlideIn {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes messageFadeIn {
+    from {
+        opacity: 0;
+        transform: scale(0.95);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+.message-enter {
+    animation: messageSlideIn 0.3s ease-out;
+}
+
+.message-user-enter {
+    animation: messageFadeIn 0.2s ease-out;
+}
+
+.message-assistant-enter {
+    animation: messageSlideIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+
+@keyframes typing-wave {
+    0%, 60%, 100% {
+        transform: translateY(0);
+        opacity: 0.5;
+    }
+    30% {
+        transform: translateY(-10px);
+        opacity: 1;
+    }
+}
+
+.typing-dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: currentColor;
+    animation: typing-wave 1.4s infinite;
+}
+
+.typing-dot:nth-child(1) { animation-delay: 0s; }
+.typing-dot:nth-child(2) { animation-delay: 0.2s; }
+.typing-dot:nth-child(3) { animation-delay: 0.4s; }
+
+
+.typing-luna {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    background: linear-gradient(135deg, #FEE2E2 0%, #FECACA 100%);
+    border-radius: 16px;
+}
+
+.dark .typing-luna {
+    background: linear-gradient(135deg, rgba(254, 226, 226, 0.1) 0%, rgba(254, 202, 202, 0.1) 100%);
+}
+
+.paw-typing {
+    display: inline-block;
+    animation: paw-bounce 0.6s infinite alternate;
+}
+
+@keyframes paw-bounce {
+    from { transform: translateY(0) rotate(-10deg); }
+    to { transform: translateY(-8px) rotate(10deg); }
+}
+
+.typing-pixel {
+    width: 24px;
+    height: 24px;
+    background:
+            linear-gradient(90deg, #0EA5E9 25%, transparent 25%, transparent 75%, #0EA5E9 75%),
+            linear-gradient(90deg, #0EA5E9 25%, transparent 25%, transparent 75%, #0EA5E9 75%);
+    background-size: 8px 8px;
+    background-position: 0 0, 4px 4px;
+    animation: pixel-scroll 0.5s linear infinite;
+}
+
+@keyframes pixel-scroll {
+    from { background-position: 0 0, 4px 4px; }
+    to { background-position: 8px 0, 12px 4px; }
+}
+
+.typing-zen {
+    width: 24px;
+    height: 24px;
+    border: 2px solid #10B981;
+    border-radius: 50%;
+    position: relative;
+    animation: zen-pulse 2s ease-in-out infinite;
+}
+
+@keyframes zen-pulse {
+    0%, 100% {
+        transform: scale(0.8);
+        opacity: 0.5;
+    }
+    50% {
+        transform: scale(1.2);
+        opacity: 1;
+    }
+}
+
+
+@keyframes avatar-float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-4px); }
+}
+
+@keyframes avatar-bounce {
+    0%, 100% { transform: translateY(0) scale(1); }
+    25% { transform: translateY(-2px) scale(1.05); }
+    75% { transform: translateY(2px) scale(0.95); }
+}
+
+@keyframes avatar-spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+@keyframes avatar-pulse {
+    0%, 100% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.1); opacity: 0.8; }
+}
+
+.avatar-float { animation: avatar-float 3s ease-in-out infinite; }
+.avatar-bounce { animation: avatar-bounce 2s ease-in-out infinite; }
+.avatar-spin { animation: avatar-spin 4s linear infinite; }
+.avatar-pulse { animation: avatar-pulse 2s ease-in-out infinite; }
+
+
+.btn-primary {
+    background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-hover) 100%);
+    color: white;
+    position: relative;
+    overflow: hidden;
+    transition: all var(--transition-base);
+}
+
+.btn-primary::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 0;
+    height: 0;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.3);
+    transform: translate(-50%, -50%);
+    transition: width 0.6s, height 0.6s;
+}
+
+.btn-primary:hover::before {
+    width: 300px;
+    height: 300px;
+}
+
+.btn-primary:active {
+    transform: scale(0.98);
+}
+
+/* Ripple Effect */
+@keyframes ripple {
+    to {
+        transform: scale(4);
+        opacity: 0;
+    }
+}
+
+.ripple::after {
+    content: '';
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    top: 0;
+    left: 0;
+    pointer-events: none;
+    background-image: radial-gradient(circle, rgba(255, 255, 255, 0.5) 10%, transparent 10.01%);
+    background-repeat: no-repeat;
+    background-position: 50%;
+    transform: scale(0);
+    opacity: 0;
+}
+
+.ripple:active::after {
+    transform: scale(0);
+    opacity: 1;
+    transition: 0s;
+    animation: ripple 0.6s ease-out;
+}
+
+/* ============================================
+   HOVER EFFECTS
+   ============================================ */
+.hover-lift {
+    transition: all var(--transition-base);
+}
+
+.hover-lift:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-lg);
+}
+
+.hover-glow {
+    transition: all var(--transition-base);
+}
+
+.hover-glow:hover {
+    box-shadow: 0 0 20px rgba(59, 130, 246, 0.3);
+}
+
+/* ============================================
+   SIDEBAR ANIMATIONS
+   ============================================ */
+.sidebar {
+    transition: width var(--transition-slow), transform var(--transition-slow);
+}
+
+.conversation-item {
+    position: relative;
+    transition: all var(--transition-base);
+}
+
+.conversation-item::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 3px;
+    height: 0;
+    background: var(--color-primary);
+    transition: height var(--transition-base);
+}
+
+.conversation-item:hover::before,
+.conversation-item.active::before {
+    height: 70%;
+}
+
+/* ============================================
+   INPUT EFFECTS
+   ============================================ */
+.input-container {
+    position: relative;
+    transition: all var(--transition-base);
+}
+
+.input-container:focus-within {
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-md);
+}
+
+/* Animated placeholder */
+@keyframes placeholder-shift {
+    0%, 100% { opacity: 0.5; }
+    50% { opacity: 1; }
+}
+
+.input-container:focus-within::placeholder {
+    animation: placeholder-shift 2s ease-in-out infinite;
+}
+
+/* ============================================
+   LOADING STATES
+   ============================================ */
+@keyframes skeleton-pulse {
+    0%, 100% { opacity: 0.1; }
+    50% { opacity: 0.2; }
+}
+
+.skeleton {
+    background: linear-gradient(
+            90deg,
+            var(--color-gray-200) 25%,
+            var(--color-gray-300) 50%,
+            var(--color-gray-200) 75%
+    );
+    background-size: 200% 100%;
+    animation: skeleton-pulse 2s ease-in-out infinite;
+}
+
+/* ============================================
+   THEME TRANSITIONS
+   ============================================ */
+.theme-transition * {
+    transition: background-color 500ms ease-in-out,
+    border-color 500ms ease-in-out,
+    color 500ms ease-in-out !important;
+}
+
+/* ============================================
+   MOBILE OPTIMIZATIONS
+   ============================================ */
+@media (max-width: 768px) {
+    .message-enter {
+        animation-duration: 0.2s;
+    }
+
+    .hover-lift:hover {
+        transform: none;
+    }
+
+    .btn-primary:active {
+        transform: scale(0.95);
+    }
+}
+
+/* ============================================
+   PERFORMANCE OPTIMIZATIONS
+   ============================================ */
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+}
+
+/* ============================================
+   UTILITY CLASSES
+   ============================================ */
+.no-scrollbar::-webkit-scrollbar {
+    display: none;
+}
+
+.no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+}
+
+.text-gradient {
+    background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-secondary) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.border-gradient {
+    border: 2px solid;
+    border-image: linear-gradient(135deg, var(--color-primary), var(--color-secondary)) 1;
+    border-radius: var(--border-radius);
+}
+/* ADD THIS TO YOUR GLOBAL CSS OR animations.css */
+
+/* CORRECT Z-INDEX HIERARCHY
+   ============================================
+   Layer order từ thấp đến cao:
+   1. Messages area (z-index: 1)
+   2. Dropdowns (z-index: 50)
+   3. Header/Navbar (z-index: 100)
+   ============================================ */
+
+/* 1. Messages Area - LOWEST LAYER */
+.messages-area,
+.flex-1.overflow-y-auto.px-4.lg\:px-6.py-6 {
+    position: relative;
+    z-index: 1 !important;
+}
+
+/* 2. All message elements stay low */
+.message-enter,
+.message-user-enter,
+.message-assistant-enter,
+div[class*="message"] {
+    position: relative;
+    z-index: 1 !important;
+}
+
+/* 3. Dropdowns - MIDDLE LAYER (above messages, below header) */
+.bot-selector-dropdown {
+    position: absolute !important;
+    z-index: 50 !important;
+}
+
+.bot-preview {
+    z-index: 51 !important;
+}
+
+/* Model selector dropdown */
+div[class*="absolute"][class*="w-96"] {
+    z-index: 50 !important;
+}
+
+/* 4. Header/Navbar - HIGHEST LAYER */
+.chat-header,
+div.h-\[var\(--header-height\)\] {
+    position: relative !important;
+    z-index: 100 !important;
+}
+
+/* 5. Make sure parent containers don't clip dropdowns */
+.flex.items-center.gap-3,
+.flex.items-center.gap-4 {
+    position: static !important; 
+    overflow: visible !important;
+}
+
+
+button:has(+ .bot-selector-dropdown),
+button:has(+ div[class*="dropdown"]) {
+    transform: none !important;
+}
+
+
+div:has(> .bot-selector-dropdown),
+div:has(> button + div[class*="absolute"]) {
+    overflow: visible !important;
+    position: relative !important;
+    z-index: 60 !important; 
+}

@@ -328,3 +328,5 @@ export const getResponsiveImageUrls = (url: string): Record<string, string> => {
     xl: getOptimizedImageUrl(url, 1280),
   }
 }
+
+

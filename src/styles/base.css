@@ -1,0 +1,263 @@
+/* ===================================
+   BASE STYLES & RESET
+   =================================== */
+
+/* Modern CSS Reset */
+*, *::before, *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+html {
+    font-size: 16px;
+    -webkit-text-size-adjust: 100%;
+    -moz-tab-size: 4;
+    tab-size: 4;
+    scroll-behavior: smooth;
+    height: 100%;
+}
+
+body {
+    font-family: var(--font-sans);
+    font-size: var(--text-base);
+    line-height: var(--leading-normal);
+    color: var(--color-text-primary);
+    background: var(--color-bg-primary);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    min-height: 100%;
+    position: relative;
+}
+
+/* Headings */
+h1, h2, h3, h4, h5, h6 {
+    font-weight: var(--font-semibold);
+    line-height: var(--leading-tight);
+    color: var(--color-text-primary);
+}
+
+h1 { font-size: var(--text-3xl); }
+h2 { font-size: var(--text-2xl); }
+h3 { font-size: var(--text-xl); }
+h4 { font-size: var(--text-lg); }
+h5 { font-size: var(--text-base); }
+h6 { font-size: var(--text-sm); }
+
+/* Links */
+a {
+    color: var(--color-brand-primary);
+    text-decoration: none;
+    transition: color var(--transition-200) var(--ease-in-out);
+}
+
+a:hover {
+    color: var(--color-brand-secondary);
+}
+
+a:focus-visible {
+    outline: 2px solid var(--color-brand-primary);
+    outline-offset: 2px;
+    border-radius: var(--radius-sm);
+}
+
+/* Forms */
+input,
+textarea,
+select,
+button {
+    font-family: inherit;
+    font-size: inherit;
+    line-height: inherit;
+    color: inherit;
+}
+
+input:focus,
+textarea:focus,
+select:focus {
+    outline: 2px solid var(--color-brand-primary);
+    outline-offset: -2px;
+}
+
+button {
+    cursor: pointer;
+    background: transparent;
+    border: none;
+    padding: 0;
+    font: inherit;
+    color: inherit;
+    line-height: normal;
+    -webkit-appearance: button;
+}
+
+button:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+}
+
+/* Images */
+img,
+video,
+canvas,
+svg {
+    display: block;
+    max-width: 100%;
+    height: auto;
+}
+
+img {
+    border-style: none;
+}
+
+/* Tables */
+table {
+    border-collapse: collapse;
+    border-spacing: 0;
+}
+
+/* Lists */
+ul,
+ol {
+    list-style: none;
+}
+
+/* Code */
+code,
+kbd,
+samp,
+pre {
+    font-family: var(--font-mono);
+    font-size: 0.875em;
+}
+
+pre {
+    overflow: auto;
+}
+
+/* Scrollbar Styling */
+::-webkit-scrollbar {
+    width: 12px;
+    height: 12px;
+}
+
+::-webkit-scrollbar-track {
+    background: var(--color-bg-secondary);
+    border-radius: var(--radius-full);
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--color-border-medium);
+    border-radius: var(--radius-full);
+    border: 3px solid var(--color-bg-secondary);
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--color-border-dark);
+}
+
+/* Firefox scrollbar */
+* {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-border-medium) var(--color-bg-secondary);
+}
+
+/* Selection */
+::selection {
+    background-color: var(--color-brand-primary);
+    color: var(--color-text-inverse);
+    background-color: rgba(212, 165, 116, 0.3);
+}
+
+/* Focus visible for accessibility */
+:focus-visible {
+    outline: 2px solid var(--color-brand-primary);
+    outline-offset: 2px;
+}
+
+/* Remove focus for mouse users */
+:focus:not(:focus-visible) {
+    outline: none;
+}
+
+/* Prevent text selection */
+.no-select {
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+}
+
+/* Smooth animations preference */
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+    }
+}
+
+/* Print styles */
+@media print {
+    body {
+        color: #000;
+        background: #fff;
+    }
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+    :root {
+        --color-border-light: #000;
+        --color-border-medium: #000;
+        --color-border-dark: #000;
+    }
+}
+
+/* Loading skeleton animation */
+@keyframes skeleton-loading {
+    0% {
+        background-position: -200px 0;
+    }
+    100% {
+        background-position: calc(200px + 100%) 0;
+    }
+}
+
+.skeleton {
+    background: linear-gradient(
+            90deg,
+            var(--color-bg-secondary) 0%,
+            var(--color-bg-tertiary) 50%,
+            var(--color-bg-secondary) 100%
+    );
+    background-size: 200px 100%;
+    animation: skeleton-loading 1.5s ease-in-out infinite;
+}
+
+/* Accessibility helpers */
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border-width: 0;
+}
+
+.not-sr-only {
+    position: static;
+    width: auto;
+    height: auto;
+    padding: 0;
+    margin: 0;
+    overflow: visible;
+    clip: auto;
+    white-space: normal;
+}

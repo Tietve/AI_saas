@@ -1,5 +1,18 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
 
+/* Core Design System - Thứ tự quan trọng! */
+@import '../styles/design-system.css';
+@import '../styles/base.css';
+@import '../styles/utilities.css';
+
+/* Component Styles */
+@import '../styles/components/index.css';
+
+/* Tạm thời giữ animations.css nếu cần */
 @import '../styles/animations.css';
+
+/* KHÔNG import theme-override.css vì sẽ conflict với design system mới */
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;

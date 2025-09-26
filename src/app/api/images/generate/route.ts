@@ -42,13 +42,27 @@ export async function POST(req: NextRequest) {
         const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
 
         async function tryGenerate(model: string) {
-            return await client.images.generate({
-                model,
-                prompt,
-                n,
-                size,
-                response_format: 'b64_json'
-            })
+            console.log(`[images/generate] Trying model: ${model}`)
+            // DALL-E 3 doesn't support response_format, only DALL-E 2 does
+            if (model === 'dall-e-3') {
+                console.log('[images/generate] Using DALL-E 3 (URL response)')
+                return await client.images.generate({
+                    model,
+                    prompt,
+                    n,
+                    size,
+                    quality: 'standard'
+                })
+            } else {
+                console.log('[images/generate] Using DALL-E 2 (base64 response)')
+                return await client.images.generate({
+                    model,
+                    prompt,
+                    n,
+                    size,
+                    response_format: 'b64_json'
+                })
+            }
         }
 
         let result
@@ -57,9 +71,35 @@ export async function POST(req: NextRequest) {
             result = await tryGenerate(requestedModel)
         } catch (err) {
             console.error('[images/generate] primary model failed:', err)
-            // Fallback to dall-e-3 for broader compatibility
-            usedModel = 'dall-e-3'
-            result = await tryGenerate(usedModel)
+            
+            // Check if it's a content policy violation
+            if (err instanceof Error && err.message.includes('safety system')) {
+                return json(400, { 
+                    error: 'CONTENT_POLICY_VIOLATION',
+                    message: 'Your prompt contains content that violates OpenAI\'s safety guidelines. Please try a different prompt.'
+                })
+            }
+            
+            // Check if it's a response_format error
+            if (err instanceof Error && err.message.includes('response_format')) {
+                console.log('[images/generate] response_format error, trying DALL-E 3 fallback')
+                usedModel = 'dall-e-3'
+                try {
+                    result = await tryGenerate(usedModel)
+                } catch (fallbackErr) {
+                    console.error('[images/generate] fallback also failed:', fallbackErr)
+                    return json(500, { error: 'All image generation models failed' })
+                }
+            } else {
+                // Other errors - try DALL-E 3 fallback
+                usedModel = 'dall-e-3'
+                try {
+                    result = await tryGenerate(usedModel)
+                } catch (fallbackErr) {
+                    console.error('[images/generate] fallback also failed:', fallbackErr)
+                    return json(500, { error: 'All image generation models failed' })
+                }
+            }
         }
 
         const uploadDir = path.join(process.cwd(), 'public', 'uploads')
@@ -69,28 +109,72 @@ export async function POST(req: NextRequest) {
 
         for (let i = 0; i < (result.data?.length || 0); i++) {
             const img = result.data[i]
-            const b64 = (img as any).b64_json as string | undefined
-            if (!b64) continue
             const id = randomUUID()
             const fileName = `${id}.png`
             const filePath = path.join(uploadDir, fileName)
-            const buffer = Buffer.from(b64, 'base64')
-            await fs.writeFile(filePath, buffer)
-            attachments.push({
-                id,
-                kind: 'image',
-                url: `/uploads/${fileName}`,
-                meta: {
-                    name: `${id}.png`,
-                    size: buffer.length,
-                    mimeType: 'image/png',
-                    prompt,
-                    model: usedModel,
-                    sizeOption: size
+            
+            // Handle both DALL-E 2 (base64) and DALL-E 3 (URL) responses
+            if ((img as any).b64_json) {
+                // DALL-E 2: base64 response
+                const b64 = (img as any).b64_json as string
+                const buffer = Buffer.from(b64, 'base64')
+                await fs.writeFile(filePath, buffer)
+                attachments.push({
+                    id,
+                    kind: 'image',
+                    url: `/uploads/${fileName}`,
+                    meta: {
+                        name: `${id}.png`,
+                        size: buffer.length,
+                        mimeType: 'image/png',
+                        prompt,
+                        model: usedModel,
+                        sizeOption: size
+                    }
+                })
+            } else if ((img as any).url) {
+                // DALL-E 3: URL response - download and save locally
+                const imageUrl = (img as any).url as string
+                try {
+                    const response = await fetch(imageUrl)
+                    const buffer = Buffer.from(await response.arrayBuffer())
+                    await fs.writeFile(filePath, buffer)
+                    attachments.push({
+                        id,
+                        kind: 'image',
+                        url: `/uploads/${fileName}`,
+                        meta: {
+                            name: `${id}.png`,
+                            size: buffer.length,
+                            mimeType: 'image/png',
+                            prompt,
+                            model: usedModel,
+                            sizeOption: size,
+                            originalUrl: imageUrl
+                        }
+                    })
+                } catch (downloadError) {
+                    console.error(`Failed to download image ${i}:`, downloadError)
+                    // Fallback: use the original URL directly
+                    attachments.push({
+                        id,
+                        kind: 'image',
+                        url: imageUrl,
+                        meta: {
+                            name: `${id}.png`,
+                            size: 0,
+                            mimeType: 'image/png',
+                            prompt,
+                            model: usedModel,
+                            sizeOption: size,
+                            isExternal: true
+                        }
+                    })
                 }
-            })
+            }
         }
 
+        console.log(`[images/generate] Generated ${attachments.length} images for prompt: "${prompt}"`)
         return json(200, { attachments })
     } catch (e: unknown) {
         console.error('[images/generate] fatal error:', e)

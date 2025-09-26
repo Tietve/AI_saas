@@ -1,0 +1,53 @@
+/* ===================================
+   TYPING INDICATOR STYLES
+   =================================== */
+
+.typingWrapper {
+    margin-bottom: var(--space-4);
+    animation: fadeIn var(--transition-300) var(--ease-out);
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.typingBubble {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-1);
+    padding: var(--space-3) var(--space-4);
+    background: var(--color-bg-secondary);
+    border: 1px solid var(--color-border-light);
+    border-radius: var(--radius-2xl);
+    border-top-left-radius: var(--radius-md);
+}
+
+.dot {
+    width: 8px;
+    height: 8px;
+    background: var(--color-text-tertiary);
+    border-radius: var(--radius-full);
+    animation: typingDot 1.4s infinite;
+}
+
+.dot:nth-child(1) { animation-delay: 0s; }
+.dot:nth-child(2) { animation-delay: 0.2s; }
+.dot:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes typingDot {
+    0%, 60%, 100% {
+        transform: translateY(0);
+        opacity: 0.4;
+    }
+    30% {
+        transform: translateY(-10px);
+        opacity: 1;
+    }
+}

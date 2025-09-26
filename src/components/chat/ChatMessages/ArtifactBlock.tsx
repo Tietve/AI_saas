@@ -24,7 +24,10 @@ export function ArtifactBlock({ title, language, content }: ArtifactBlockProps) 
         a.download = `${title || language || 'artifact'}.txt`
         document.body.appendChild(a)
         a.click()
-        document.body.removeChild(a)
+        // Safely remove the element if it still exists in the DOM
+        if (a.parentNode) {
+            document.body.removeChild(a)
+        }
         URL.revokeObjectURL(url)
     }
 

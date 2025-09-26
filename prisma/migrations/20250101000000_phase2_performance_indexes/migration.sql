@@ -57,3 +57,5 @@ WHERE "createdAt" > NOW() - INTERVAL '1 month';
 
 CREATE INDEX CONCURRENTLY IF NOT EXISTS "idx_daily_usage_recent" ON "DailyUsageRecord"("userId", "date" DESC) 
 WHERE "date" > CURRENT_DATE - INTERVAL '7 days';
+
+

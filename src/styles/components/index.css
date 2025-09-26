@@ -1,0 +1,14 @@
+/* ===================================
+   COMPONENT STYLES INDEX
+   =================================== */
+
+/* Import all component styles here */
+@import './button.module.css';
+
+/* TODO: Thêm các component styles khác khi cần:
+@import './card.module.css';
+@import './modal.module.css';
+@import './chat/sidebar.module.css';
+@import './chat/message.module.css';
+@import './chat/input.module.css';
+*/

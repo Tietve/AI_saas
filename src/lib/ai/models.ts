@@ -8,6 +8,7 @@ export const MODEL_PROVIDER_MAP: Record<ModelId, string> = {
     gpt_4o: 'gpt-4o',
     gpt_4o_mini: 'gpt-4o-mini',
     gpt_3_5_turbo: 'gpt-3.5-turbo',
+    "gpt_5_nano": 'gpt-5-nano',
 
 
     
@@ -76,7 +77,13 @@ export const MODELS_DISPLAY: ModelDisplay[] = [
         capabilities: { text: true, images: true, audio: false, tools: true, search: false }
     },
 
-    
+    {
+        id: ModelId.gpt_5_nano,
+        label: 'GPT-5 Nano (Ultra Fast & Cheap)',
+        provider: 'openai',
+        costTier: 'cheap',
+        capabilities: { text: true, images: true, audio: false, tools: true, search: false }
+    },
     {
         id: ModelId.claude_3_5_haiku,
         label: 'Claude 3.5 Haiku (Fast)',

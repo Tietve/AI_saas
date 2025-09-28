@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react'
-import { Menu, Settings, Share, MoreVertical, Bot, Sparkles, ChevronDown, Code, X, Paintbrush } from 'lucide-react'
+import { Menu, Settings, Share, MoreVertical, Bot, Sparkles, ChevronDown, Code, X, Paintbrush, Crown } from 'lucide-react'
+import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { getBotsList } from '@/lib/bots/personality-templates'
 import { THEMES, ThemeManager } from '@/lib/theme/theme-manager'
@@ -19,6 +20,12 @@ interface ChatHeaderProps {
     currentConversation?: {
         id: string
         title: string
+    }
+    // Upgrade related props
+    userPlanTier?: string
+    dailyUsage?: {
+        messages: number
+        limit: number
     }
 }
 
@@ -61,6 +68,7 @@ const AI_MODELS = [
 ]
 
 export function ChatHeader(props: ChatHeaderProps) {
+    const router = useRouter()
     const [showBotMenu, setShowBotMenu] = useState(false)
     const [showModelMenu, setShowModelMenu] = useState(false)
     const [showThemeMenu, setShowThemeMenu] = useState(false)
@@ -231,6 +239,17 @@ export function ChatHeader(props: ChatHeaderProps) {
                 </div>
 
                 <div className={styles.headerRight}>
+                    {/* Upgrade Button for FREE users */}
+                    {props.userPlanTier === 'FREE' && (
+                        <Button
+                            variant="ghost"
+                            icon={<Crown size={18} />}
+                            onClick={() => router.push('/pricing')}
+                            className={styles.upgradeButton}
+                            title="Nâng cấp lên Plus"
+                        />
+                    )}
+
                     {/* Theme Selector Button */}
                     <div className={styles.themeSelector} ref={themeMenuRef}>
                         <Button 

@@ -7,12 +7,14 @@ export class OpenAIProvider implements AIProvider {
 
     private models = {
         weak: 'gpt-3.5-turbo',
+        nano: 'gpt-5-nano',
         medium: 'gpt-4o-mini',
         strong: 'gpt-4o'
     };
 
     private costs = {
         'gpt-3.5-turbo': { input: 0.5, output: 1.5 }, 
+        'gpt-5-nano': { input: 0.05, output: 0.2 },
         'gpt-4o-mini': { input: 0.15, output: 0.6 },
         'gpt-4o': { input: 2.5, output: 10 }
     };
@@ -95,6 +97,7 @@ export class OpenAIProvider implements AIProvider {
     }
 
     getModelForComplexity(complexity: number): string {
+        if (complexity < 0.2) return this.models.nano;
         if (complexity < 0.3) return this.models.weak;
         if (complexity < 0.7) return this.models.medium;
         return this.models.strong;

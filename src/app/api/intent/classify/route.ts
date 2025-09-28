@@ -26,8 +26,8 @@ export async function POST(req: NextRequest) {
 
         const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
 
-        // Use gpt-4o-mini for intent classification (cheap and reliable)
-        const model = process.env.INTENT_MODEL || 'gpt-4o-mini'
+        // Use gpt-5-nano for intent classification (ultra fast and cheap)
+        const model = process.env.INTENT_MODEL || 'gpt-5-nano'
         const completion = await client.chat.completions.create({
             model,
             temperature: 0,

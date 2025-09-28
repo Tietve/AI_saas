@@ -95,8 +95,8 @@ model Message {
   conversation     Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
 
   @@unique([conversationId, idempotencyKey])
-  @@index([conversationId, createdAt])
-  @@index([conversationId, createdAt(sort: Desc)])
+  @@index([conversationId, createdAt], map: "Message_conversationId_createdAt_asc_idx")
+  @@index([conversationId, createdAt(sort: Desc)], map: "Message_conversationId_createdAt_desc_idx")
   @@index([role, conversationId])
   @@index([model])
   @@index([createdAt])
@@ -224,8 +224,8 @@ model TokenUsage {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   // Performance indexes
-  @@index([userId, createdAt])
-  @@index([userId, createdAt(sort: Desc)])
+  @@index([userId, createdAt], map: "TokenUsage_userId_createdAt_asc_idx")
+  @@index([userId, createdAt(sort: Desc)], map: "TokenUsage_userId_createdAt_desc_idx")
   @@index([userId, model])
   @@index([model, createdAt])
   @@index([createdAt(sort: Desc)])
@@ -290,14 +290,15 @@ enum ModelId {
   gpt_4_turbo
   gpt_4o
   gpt_4o_mini
+  gpt_4_1_nano      // ADD THIS - GPT-4.1-nano ($0.10/1M input)
   gpt_3_5_turbo
+  gpt_5              // ADD THIS - GPT-5 ($1.25/1M input)
+  gpt_5_mini         // ADD THIS - GPT-5-mini ($0.25/1M input)
+  gpt_5_nano         // ADD THIS - GPT-5-nano ($0.05/1M input) - CHEAPEST!
   claude_3_opus
   claude_3_5_sonnet
   claude_3_5_haiku
   gemini_1_5_pro
   gemini_1_5_flash
   gemini_2_0_flash
-  gpt5_thinking
-  gpt5_mini
-  gpt4o_mini
 }

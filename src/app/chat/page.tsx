@@ -66,7 +66,14 @@ export default function ChatPage() {
         isLoading,
         error,
         setError
-    } = useChat()
+    } = useChat({
+        userPlanTier,
+        dailyUsage: {
+            messages: userUsage.dailyMessages,
+            limit: userUsage.dailyLimit
+        },
+        onUpgrade: () => setShowUpgradeModal(true)
+    })
 
     // Theme initialization - GIỮ NGUYÊN
     useEffect(() => {
@@ -157,6 +164,7 @@ export default function ChatPage() {
     }
 
     async function sendMessage() {
+        // Chỉ hiển thị modal khi đạt chính xác giới hạn (20 tin nhắn)
         if (userPlanTier === 'FREE' && userUsage.dailyMessages >= userUsage.dailyLimit) {
             setShowUpgradeModal(true)
             return
@@ -262,8 +270,14 @@ export default function ChatPage() {
                     currentTheme={currentTheme}
                     onThemeChange={(themeId) => {
                         setCurrentTheme(themeId)
-                        // Có thể lưu vào database nếu cần
                     }}
+                    // Upgrade props
+                    userPlanTier={userPlanTier}
+                    dailyUsage={{
+                        messages: userUsage.dailyMessages,
+                        limit: userUsage.dailyLimit
+                    }}
+                    // Không cần onUpgrade vì nút Crown link trực tiếp đến /pricing
                 />
 
                 {/* Messages or Welcome Screen */}

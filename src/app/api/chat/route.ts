@@ -21,6 +21,7 @@ function getModelId(provider: string, model: string): ModelId {
     const mapping: Record<string, ModelId> = {
         'openai/gpt-4o': ModelId.gpt_4o,
         'openai/gpt-4o-mini': ModelId.gpt_4o_mini,
+        'openai/gpt-5-nano': ModelId.gpt_5_nano,
         'openai/gpt-3.5-turbo': ModelId.gpt_3_5_turbo,
         'claude/claude-3-5-sonnet-20241022': ModelId.claude_3_5_sonnet,
         'claude/claude-3-haiku-20240307': ModelId.claude_3_5_haiku,

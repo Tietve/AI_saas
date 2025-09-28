@@ -49,6 +49,16 @@ export function useConversations() {
         botId?: string
     }) {
         try {
+            // Check if current conversation is empty (no messages)
+            if (currentConversationId) {
+                const currentConv = conversations.find(conv => conv.id === currentConversationId)
+                if (currentConv && currentConv.messageCount === 0) {
+                    // Current conversation is empty, just reset it instead of creating new one
+                    console.log('[Create] Current conversation is empty, reusing it')
+                    return currentConversationId
+                }
+            }
+
             const res = await fetch('/api/conversations', {
                 method: 'POST',
                 credentials: 'include',
@@ -90,6 +100,17 @@ export function useConversations() {
         }
     }
 
+    // Function to update conversation title in local state without server reload
+    function updateConversationTitle(conversationId: string, newTitle: string) {
+        setConversations(prevConversations => 
+            prevConversations.map(conv => 
+                conv.id === conversationId 
+                    ? { ...conv, title: newTitle }
+                    : conv
+            )
+        )
+    }
+
     useEffect(() => {
         loadConversations()
     }, [])
@@ -105,6 +126,7 @@ export function useConversations() {
         error,
         createNewConversation,
         deleteConversation,
-        loadConversations
+        loadConversations,
+        updateConversationTitle
     }
 }

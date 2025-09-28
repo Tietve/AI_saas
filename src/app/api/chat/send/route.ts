@@ -491,6 +491,7 @@ async function* createStreamingGenerator(params: {
         }
     }
 
+
     // Update conversation timestamp
     await prisma.conversation.update({
         where: { id: convo.id },
@@ -594,6 +595,7 @@ function coerceModelId(input?: string | null): ModelId | null {
     const modelMapping: Record<string, ModelId> = {
         'gpt-4o-mini': ModelId.gpt_4o_mini,
         'gpt-4o': ModelId.gpt_4o,
+        'gpt-5-nano': ModelId.gpt_5_nano,
         'gpt-4-turbo': ModelId.gpt_4_turbo,
         'gpt-3.5-turbo': ModelId.gpt_3_5_turbo,
         'claude-3-opus': ModelId.claude_3_opus,
@@ -628,6 +630,7 @@ function getDesiredModel(requestedModel: ModelId | null, convo: any, isFreeTier:
         const modelMapping: Record<string, ModelId> = {
             'gpt-4o-mini': ModelId.gpt_4o_mini,
             'gpt-4o': ModelId.gpt_4o,
+            'gpt-5-nano': ModelId.gpt_5_nano,
             'gpt-4-turbo': ModelId.gpt_4_turbo,
             'gpt-3.5-turbo': ModelId.gpt_3_5_turbo,
             'claude-3-opus': ModelId.claude_3_opus,

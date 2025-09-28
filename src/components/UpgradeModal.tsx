@@ -66,12 +66,12 @@ export default function UpgradeModal({
         <>
             {}
             <div
-                className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50"
+                className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999]"
                 onClick={onClose}
             />
 
             {}
-            <div className="fixed inset-0 flex items-center justify-center p-4 z-50">
+            <div className="fixed inset-0 flex items-center justify-center p-4 z-[9999]">
                 <div className="bg-white dark:bg-gray-900 rounded-2xl max-w-md w-full shadow-2xl transform transition-all">
                     {}
                     <div className="relative p-6 pb-4 border-b border-gray-200 dark:border-gray-700">

@@ -4,7 +4,44 @@ import { useConversations } from './useConversations'
 import { useMessages } from './useMessages'
 import { BotPersonality, Message, Attachment } from '../../components/chat/shared/types'
 
-export function useChat() {
+// Helper function to generate title from message content
+async function updateConversationTitle(conversationId: string, messageText: string, updateStateFn?: (id: string, title: string) => void) {
+    try {
+        // Generate a short title from the first message (max 50 characters)
+        const title = messageText.length > 50 ? messageText.substring(0, 47) + '...' : messageText
+        
+        // Update local state immediately for real-time UI update
+        if (updateStateFn) {
+            updateStateFn(conversationId, title)
+        }
+        
+        // Update server in background
+        const res = await fetch(`/api/conversations/${conversationId}`, {
+            method: 'PATCH',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ title })
+        })
+        
+        if (res.ok) {
+            console.log('[Update Title] Success:', title)
+        } else {
+            console.warn('[Update Title] Failed:', await res.text())
+            // If server update failed, reload conversations to sync
+            if (updateStateFn) {
+                // Could implement a retry mechanism here
+            }
+        }
+    } catch (error) {
+        console.warn('[Update Title] Error:', error)
+    }
+}
+
+export function useChat(props?: {
+    userPlanTier?: string
+    dailyUsage?: { messages: number; limit: number }
+    onUpgrade?: () => void
+}) {
     const router = useRouter()
     const [inputMessage, setInputMessage] = useState('')
     const [selectedModel, setSelectedModel] = useState('gpt_4o_mini')
@@ -25,7 +62,8 @@ export function useChat() {
         setSearchQuery,
         createNewConversation,
         deleteConversation,
-        loadConversations
+        loadConversations,
+        updateConversationTitle: updateConversationTitleInState
     } = useConversations()
 
     const {
@@ -39,6 +77,14 @@ export function useChat() {
     const sendMessage = useCallback(async () => {
         const text = inputMessage.trim()
         if ((text.length === 0 && pendingAttachments.length === 0) || isLoading || isUploading) return false
+
+        // Check daily limit for FREE users - chỉ hiển thị modal khi đạt chính xác giới hạn
+        if (props?.userPlanTier === 'FREE' && props?.dailyUsage && props?.onUpgrade) {
+            if (props.dailyUsage.messages >= props.dailyUsage.limit) {
+                props.onUpgrade()
+                return false
+            }
+        }
 
         const messageText = text
         const isImageCommand = /^\s*(?:\/imagine|\/image)\b/i.test(messageText)
@@ -119,6 +165,12 @@ export function useChat() {
                         }
                         console.log('[Image Generate] Adding image message:', imageMessage)
                         addMessage(imageMessage)
+                        
+                        // Auto-update conversation title for image generation
+                        if (conversationId && messages.length <= 1) {
+                            await updateConversationTitle(conversationId, `Tạo ảnh: ${prompt}`, updateConversationTitleInState)
+                        }
+                        
                         setIsLoading(false)
                         if (abortControllerRef.current) {
                             abortControllerRef.current = null
@@ -174,6 +226,12 @@ export function useChat() {
                                 }
                                 console.log('[Intent Image Generate] Adding image message:', imageMessage)
                                 addMessage(imageMessage)
+                                
+                                // Auto-update conversation title for image generation
+                                if (conversationId && messages.length <= 1) {
+                                    await updateConversationTitle(conversationId, `Tạo ảnh: ${messageText}`, updateConversationTitleInState)
+                                }
+                                
                                 setIsLoading(false)
                                 if (abortControllerRef.current) {
                                     abortControllerRef.current = null
@@ -275,6 +333,13 @@ export function useChat() {
 
             await loadConversations()
 
+            // Auto-update conversation title if this is the first message
+            const conversationIdToUpdate = newConversationId || currentConversationId
+            if (conversationIdToUpdate && messageText && messages.length <= 1) {
+                // This is likely the first message, generate a title
+                await updateConversationTitle(conversationIdToUpdate, messageText, updateConversationTitleInState)
+            }
+
             sent = true
 
         } catch (error: any) {
@@ -299,7 +364,7 @@ export function useChat() {
         }
 
         return sent
-    }, [inputMessage, pendingAttachments, isLoading, isUploading, currentConversationId, selectedModel, selectedBot, systemPrompt, router])
+    }, [inputMessage, pendingAttachments, isLoading, isUploading, currentConversationId, selectedModel, selectedBot, systemPrompt, router, updateConversationTitleInState, messages.length, props?.userPlanTier, props?.dailyUsage, props?.onUpgrade])
 
     const uploadAttachments = useCallback(
         async (files: FileList | File[]) => {

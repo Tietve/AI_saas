@@ -1,15 +1,6 @@
-import React from 'react'
-import { MessageBubble } from './MessageBubble'
-import { TypingIndicator } from './TypingIndicator'
-import { Message } from '@/components/chat/shared/types'
-import styles from '@/styles/components/chat/messages.module.css'
-
-interface ChatMessagesProps {
-    messages: Message[]
-    isLoading: boolean
-    messagesEndRef: React.RefObject<HTMLDivElement>
-    selectedBot?: any
-}
+import styles from "@/styles/components/chat/messages.module.css";
+import {MessageBubble} from "@/components/chat-v2/MessageBubble";
+import {TypingIndicator} from "@/components/chat-v2/TypingIndicator";
 
 export function ChatMessages({
                                  messages,
@@ -17,14 +8,23 @@ export function ChatMessages({
                                  messagesEndRef,
                                  selectedBot
                              }: ChatMessagesProps) {
+    // Filter out empty assistant messages that are just placeholders
+    const displayMessages = messages.filter(msg => {
+        // Skip empty assistant messages that are streaming
+        if (msg.role === 'ASSISTANT' && msg.content === '' && msg.isStreaming) {
+            return false
+        }
+        return true
+    })
+
     return (
         <div className={styles.messagesContainer}>
             <div className={styles.messagesInner}>
-                {messages.map((message, index) => (
+                {displayMessages.map((message, index) => (
                     <MessageBubble
                         key={message.id}
                         message={message}
-                        isLast={index === messages.length - 1}
+                        isLast={index === displayMessages.length - 1}
                     />
                 ))}
 

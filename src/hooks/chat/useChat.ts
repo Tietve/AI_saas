@@ -106,6 +106,16 @@ export function useChat(props?: {
             return messageText
         }
         const attachmentsToSend = pendingAttachments.map(att => ({ ...att }))
+
+        // Debug: Log attachments being sent
+        if (attachmentsToSend.length > 0) {
+            console.log('[useChat] Sending attachments:', attachmentsToSend.map(a => ({
+                id: a.id,
+                name: a.meta?.name,
+                hasExtractedText: 'extractedText' in (a.meta || {})
+            })))
+        }
+
         const conversationId = currentConversationId || 'new'
         const requestId = `req_${Date.now()}_${Math.random().toString(36).slice(2)}`
 
@@ -329,6 +339,8 @@ export function useChat(props?: {
 
             if (newConversationId && !currentConversationId) {
                 setCurrentConversationId(newConversationId)
+                // Save new conversation to localStorage for persistence on reload
+                localStorage.setItem('lastConversationId', newConversationId)
             }
 
             await loadConversations()
@@ -372,16 +384,9 @@ export function useChat(props?: {
             if (!list.length) return
 
             const MAX_FILES = 5
-            const MAX_SIZE_BYTES = 10 * 1024 * 1024 // 10MB
 
             if (pendingAttachments.length + list.length > MAX_FILES) {
                 setError(`Bạn chỉ có thể đính kèm tối đa ${MAX_FILES} tệp mỗi tin nhắn.`)
-                return
-            }
-
-            const oversize = list.find(file => file.size > MAX_SIZE_BYTES)
-            if (oversize) {
-                setError('Mỗi tệp chỉ được tối đa 10MB.')
                 return
             }
 
@@ -398,11 +403,19 @@ export function useChat(props?: {
                     body: formData
                 })
 
+                const data = await res.json()
+
                 if (!res.ok) {
-                    throw new Error(`HTTP ${res.status}`)
+                    // Handle validation errors from API
+                    if (data.errors && Array.isArray(data.errors)) {
+                        const errorMessages = data.errors.map((e: any) => `${e.filename}: ${e.error}`).join('\n')
+                        setError(errorMessages)
+                    } else {
+                        setError(data.message || 'Không thể tải tệp lên. Vui lòng thử lại.')
+                    }
+                    return
                 }
 
-                const data = await res.json()
                 const uploaded: Attachment[] = Array.isArray(data.attachments)
                     ? data.attachments.map((att: Attachment) => ({
                           ...att,
@@ -410,7 +423,23 @@ export function useChat(props?: {
                       }))
                     : []
 
+                // Debug: Check if uploaded files have extractedText
+                uploaded.forEach(att => {
+                    console.log('[Upload] File received:', {
+                        name: att.meta?.name,
+                        hasExtractedText: 'extractedText' in (att.meta || {}),
+                        extractedTextLength: (att.meta as any)?.extractedText?.length || 0
+                    })
+                })
+
                 setPendingAttachments(prev => [...prev, ...uploaded])
+
+                // Show warning if some files failed
+                if (data.errors && Array.isArray(data.errors) && data.errors.length > 0) {
+                    const warnings = data.errors.map((e: any) => `${e.filename}: ${e.error}`).join('\n')
+                    console.warn('[Upload] Some files failed:', warnings)
+                    setError(`Một số file không upload được:\n${warnings}`)
+                }
             } catch (err) {
                 console.error('[Upload] Error:', err)
                 setError('Không thể tải tệp lên. Vui lòng thử lại.')
@@ -432,6 +461,46 @@ export function useChat(props?: {
         }
     }
 
+    const regenerateLastMessage = useCallback(async () => {
+        if (isLoading || messages.length < 2) return false
+
+        // Find the last user message and assistant message
+        const lastAssistantIndex = messages.length - 1
+        const lastAssistant = messages[lastAssistantIndex]
+        
+        if (lastAssistant.role !== 'ASSISTANT') return false
+
+        // Find the user message before the assistant message
+        let lastUserMessage = null
+        for (let i = lastAssistantIndex - 1; i >= 0; i--) {
+            if (messages[i].role === 'USER') {
+                lastUserMessage = messages[i]
+                break
+            }
+        }
+
+        if (!lastUserMessage) return false
+
+        // Remove the last assistant message
+        const messagesWithoutLast = messages.slice(0, -1)
+        clearMessages()
+        messagesWithoutLast.forEach(msg => addMessage(msg))
+
+        // Resend using the user message content
+        const userMessageText = lastUserMessage.content
+        const userAttachments = lastUserMessage.attachments || []
+
+        setInputMessage(userMessageText)
+        setPendingAttachments(userAttachments)
+
+        // Trigger sendMessage after a brief delay
+        setTimeout(() => {
+            sendMessage()
+        }, 100)
+
+        return true
+    }, [messages, isLoading, clearMessages, addMessage, sendMessage])
+
     return {
         
         conversations,
@@ -452,6 +521,7 @@ export function useChat(props?: {
         setInputMessage,
         sendMessage,
         stopStreaming,
+        regenerateLastMessage,
         pendingAttachments,
         uploadAttachments,
         removeAttachment,

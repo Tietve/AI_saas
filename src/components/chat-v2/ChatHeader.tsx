@@ -4,6 +4,8 @@ import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { getBotsList } from '@/lib/bots/personality-templates'
 import { THEMES, ThemeManager } from '@/lib/theme/theme-manager'
+import { ExportMenu } from './ExportMenu'
+import type { Message } from '@/components/chat/shared/types'
 import styles from '@/styles/components/chat/header.module.css'
 
 interface ChatHeaderProps {
@@ -27,6 +29,8 @@ interface ChatHeaderProps {
         messages: number
         limit: number
     }
+    // Export related props
+    messages?: Message[]
 }
 
 const AI_MODELS = [
@@ -298,6 +302,14 @@ export function ChatHeader(props: ChatHeaderProps) {
                         )}
                     </div>
                     
+                    {/* Export Button */}
+                    {props.messages && props.messages.length > 0 && (
+                        <ExportMenu
+                            messages={props.messages}
+                            conversationTitle={props.currentConversation?.title || 'Conversation'}
+                        />
+                    )}
+
                     {props.onToggleSystemPrompt && (
                         <Button
                             variant="ghost"

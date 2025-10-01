@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState } from 'react'
-import { Send, Paperclip, Mic, StopCircle, X, FileText, Image as ImageIcon } from 'lucide-react'
+import { Send, Paperclip, Mic, StopCircle, X, FileText, Image as ImageIcon, FileSpreadsheet, File } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { VoiceRecorder } from './VoiceRecorder'
 import { PromptsLibrary } from './PromptsLibrary'
@@ -90,6 +90,30 @@ export function ChatInput({
         }
     }
 
+    // Helper function to get file icon based on type
+    const getFileIcon = (type: string | undefined, size: number = 14) => {
+        if (!type) return <File size={size} />
+
+        if (type.startsWith('image/')) {
+            return <ImageIcon size={size} />
+        } else if (type === 'application/pdf') {
+            return <FileText size={size} style={{ color: '#e74c3c' }} />
+        } else if (type.includes('sheet') || type.includes('excel')) {
+            return <FileSpreadsheet size={size} style={{ color: '#27ae60' }} />
+        } else if (type.includes('word') || type.includes('document')) {
+            return <FileText size={size} style={{ color: '#3498db' }} />
+        } else {
+            return <File size={size} />
+        }
+    }
+
+    // Helper function to format file size
+    const formatFileSize = (bytes: number): string => {
+        if (bytes < 1024) return bytes + ' B'
+        if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB'
+        return (bytes / 1024 / 1024).toFixed(1) + ' MB'
+    }
+
     return (
         <div className={styles.inputWrapper}>
             {/* Attachments Preview */}
@@ -97,11 +121,13 @@ export function ChatInput({
                 <div className={styles.attachmentsPreview}>
                     {attachments.map(attachment => (
                         <div key={attachment.id} className={styles.attachmentChip}>
-                            {attachment.type.startsWith('image/') ?
-                                <ImageIcon size={14} /> :
-                                <FileText size={14} />
-                            }
-                            <span className={styles.attachmentName}>{attachment.name}</span>
+                            {getFileIcon(attachment.type)}
+                            <div className={styles.attachmentInfo}>
+                                <span className={styles.attachmentName}>{attachment.name}</span>
+                                <span className={styles.attachmentSize}>
+                                    {formatFileSize(attachment.size)}
+                                </span>
+                            </div>
                             {onRemoveAttachment && (
                                 <button
                                     onClick={() => onRemoveAttachment(attachment.id)}
@@ -126,10 +152,10 @@ export function ChatInput({
                                 ref={fileInputRef}
                                 type="file"
                                 multiple
-                                accept="image/*,.pdf,.txt,.doc,.docx"
+                                accept="image/*,.pdf,.txt,.doc,.docx,.xls,.xlsx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                                 onChange={handleFileSelect}
                                 className={styles.hiddenInput}
-                                title="Upload files"
+                                title="Upload: Images, PDF, Word, Excel (max 50MB)"
                             />
 
                             <Button

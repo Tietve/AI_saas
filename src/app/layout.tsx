@@ -58,14 +58,13 @@ export default function RootLayout({
     return (
         <html lang="vi" className="smooth-scroll">
         <head>
+            <meta charSet="UTF-8" />
             {/*<link rel="manifest" href="/manifest.json" />*/}
             <meta name="apple-mobile-web-app-capable" content="yes" />
             <meta name="apple-mobile-web-app-status-bar-style" content="default" />
         </head>
         <body className={`${inter.className} safe-area-padding`}>
-        <a href="#main" className="skip-to-content">
-            Skip to main content
-        </a>
+
         <main id="main">
             {children}
         </main>

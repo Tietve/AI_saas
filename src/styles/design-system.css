@@ -38,9 +38,9 @@
     --color-info-light: #DBEAFE;
 
     /* 2. TYPOGRAPHY SYSTEM */
-    /* Font Families */
-    --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    --font-mono: 'JetBrains Mono', 'SF Mono', Monaco, 'Cascadia Code', monospace;
+    /* Font Families - Vietnamese support */
+    --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Noto Sans', sans-serif;
+    --font-mono: 'JetBrains Mono', 'SF Mono', Monaco, 'Cascadia Code', 'Courier New', monospace;
 
     /* Font Sizes - using rem for accessibility */
     --text-xs: 0.75rem;     /* 12px */

@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useChat } from '@/hooks/chat/useChat'
 
 // Import components mới
@@ -22,6 +22,7 @@ import styles from '@/styles/pages/chat.module.css'
 
 export default function ChatPage() {
     const router = useRouter()
+    const searchParams = useSearchParams()
 
     // States từ code cũ - GIỮ NGUYÊN
     const [loading, setLoading] = useState(true)
@@ -53,6 +54,7 @@ export default function ChatPage() {
         setInputMessage,
         sendMessage: originalSendMessage,
         stopStreaming,
+        regenerateLastMessage,
         pendingAttachments,
         uploadAttachments,
         removeAttachment,
@@ -106,6 +108,40 @@ export default function ChatPage() {
             return () => clearInterval(interval)
         }
     }, [authenticated])
+
+    // Load conversation from URL params
+    useEffect(() => {
+        const conversationId = searchParams.get('conversationId')
+        
+        console.log('[ChatPage] URL conversationId:', conversationId)
+        
+        if (conversationId && conversationId !== 'new') {
+            // Has conversationId in URL -> load that conversation
+            console.log('[ChatPage] Loading conversation:', conversationId)
+            setCurrentConversationId(conversationId)
+            // Save to localStorage for persistence
+            localStorage.setItem('lastConversationId', conversationId)
+        } else if (conversationId === 'new') {
+            // Explicitly new chat
+            console.log('[ChatPage] New chat requested')
+            setCurrentConversationId(null)
+            localStorage.removeItem('lastConversationId')
+        } else if (conversationId === null) {
+            // No conversationId in URL at all - check localStorage as fallback
+            const savedId = localStorage.getItem('lastConversationId')
+            console.log('[ChatPage] No URL conversationId, saved ID:', savedId)
+            if (savedId) {
+                // Restore from localStorage
+                console.log('[ChatPage] Restoring conversation from localStorage:', savedId)
+                router.replace(`/chat?conversationId=${savedId}`)
+            } else {
+                // New chat
+                console.log('[ChatPage] No saved conversation, starting new chat')
+                setCurrentConversationId(null)
+            }
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [searchParams])
 
     // Responsive sidebar - GIỮ NGUYÊN
     useEffect(() => {
@@ -227,13 +263,19 @@ export default function ChatPage() {
                 currentConversationId={currentConversationId}
                 searchQuery={searchQuery}
                 onSearchChange={setSearchQuery}
-                onSelectConversation={setCurrentConversationId}
+                onSelectConversation={(conversationId) => {
+                    if (conversationId) {
+                        router.push(`/chat?conversationId=${conversationId}`)
+                    } else {
+                        router.push('/chat')
+                    }
+                }}
                 onCreateNew={async () => {
                     setSelectedBot(undefined)
-                    const newId = await createNewConversation()
-                    if (newId) {
-                        setCurrentConversationId(newId)
-                    }
+                    setCurrentConversationId(null)
+                    localStorage.removeItem('lastConversationId')
+                    // Navigate to new chat (no conversationId)
+                    router.push('/chat?conversationId=new')
                 }}
                 onDeleteConversation={deleteConversation}
                 onSignOut={handleSignOut}
@@ -267,16 +309,18 @@ export default function ChatPage() {
                     systemPrompt={systemPrompt}
                     onSystemPromptChange={setSystemPrompt}
                     disabled={isLoading}
-                    currentTheme={currentTheme}
-                    onThemeChange={(themeId) => {
-                        setCurrentTheme(themeId)
-                    }}
                     // Upgrade props
                     userPlanTier={userPlanTier}
                     dailyUsage={{
                         messages: userUsage.dailyMessages,
                         limit: userUsage.dailyLimit
                     }}
+                    // Export props
+                    messages={messages}
+                    currentConversation={currentConversationId ? {
+                        id: currentConversationId,
+                        title: filteredConversations.find(c => c.id === currentConversationId)?.title || 'Conversation'
+                    } : undefined}
                     // Không cần onUpgrade vì nút Crown link trực tiếp đến /pricing
                 />
 
@@ -294,6 +338,7 @@ export default function ChatPage() {
                             isLoading={isLoading}
                             messagesEndRef={messagesEndRef}
                             selectedBot={selectedBot}
+                            onRegenerate={regenerateLastMessage}
                         />
                     )}
                 </div>
@@ -316,6 +361,7 @@ export default function ChatPage() {
                             <button
                                 onClick={() => setShowUpgradeModal(true)}
                                 className={styles.upgradeButton}
+                                title="Nâng cấp Plus"
                             >
                                 Nâng cấp Plus ✨
                             </button>

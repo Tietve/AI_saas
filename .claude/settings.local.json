@@ -1,0 +1,28 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(start test-vietnamese.html)",
+      "Bash(npm install:*)",
+      "Bash(npm run build:*)",
+      "Bash(npx tsc:*)",
+      "Bash(npm run dev:*)",
+      "Bash(timeout:*)",
+      "Bash(curl:*)",
+      "Bash(taskkill:*)",
+      "Bash(test:*)",
+      "Bash(Get-Process -Name node -ErrorAction SilentlyContinue)",
+      "Bash(Select-Object -ExpandProperty Id)",
+      "Bash(netstat:*)",
+      "Bash(findstr:*)",
+      "Bash(dir:*)",
+      "Bash(awk:*)",
+      "Bash(xargs:*)",
+      "Bash(npx next:*)",
+      "Bash(python:*)",
+      "Bash(node:*)",
+      "Bash(npm uninstall:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

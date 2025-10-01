@@ -20,7 +20,7 @@ type AttachmentPayload = {
 }
 
 type NormalizedAttachment = {
-    kind: 'image' | 'file'
+    kind: 'image' | 'file' | 'pdf' | 'document'
     url: string
     meta?: Prisma.InputJsonValue
 }
@@ -85,6 +85,13 @@ export async function POST(req: Request) {
         const body = (await req.json()) as SendReq
 
         const attachments = normalizeAttachments(body?.attachments)
+
+        // Debug logging
+        if (body?.attachments && body.attachments.length > 0) {
+            console.log('[chat/send] Received attachments:', JSON.stringify(body.attachments, null, 2))
+            console.log('[chat/send] Normalized attachments:', JSON.stringify(attachments, null, 2))
+        }
+
         const rawContent = String(body?.content ?? '').trim()
 
         if (rawContent.length > MAX_INPUT_CHARS) {
@@ -552,15 +559,35 @@ function getMetaString(meta: Prisma.InputJsonValue | undefined, key: string): st
 function buildAttachmentSummary(attachments: NormalizedAttachment[]): string {
     if (!attachments.length) return ''
 
-    const lines = attachments.map((att, index) => {
+    const sections: string[] = []
+
+    attachments.forEach((att, index) => {
         const name = getMetaString(att.meta, 'name') ?? att.url.split('/').pop() ?? att.url
         const mime = getMetaString(att.meta, 'mimeType')
+        const extractedText = getMetaString(att.meta, 'extractedText')
+
+        console.log('[buildAttachmentSummary] Processing attachment:', {
+            index,
+            name,
+            mime,
+            hasExtractedText: !!extractedText,
+            extractedTextLength: extractedText?.length || 0
+        })
+
+        // Build header for this attachment
         const parts = [name]
         if (mime) parts.push(mime)
-        return `${index + 1}. ${parts.filter(Boolean).join(' · ')}`.trim()
+        const header = `${index + 1}. ${parts.filter(Boolean).join(' · ')}`.trim()
+
+        // If there's extracted text, include it
+        if (extractedText && extractedText.length > 0) {
+            sections.push(`${header}\n\nNội dung tài liệu:\n---\n${extractedText}\n---`)
+        } else {
+            sections.push(header)
+        }
     })
 
-    return lines.join('\n')
+    return sections.join('\n\n')
 }
 
 function combineContentWithAttachments(content: string, attachments: NormalizedAttachment[]): string {

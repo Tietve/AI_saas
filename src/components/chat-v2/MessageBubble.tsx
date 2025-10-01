@@ -1,5 +1,5 @@
-import React, { useState } from 'react'
-import { Copy, RefreshCw, ThumbsUp, ThumbsDown, Check, Sparkles } from 'lucide-react'
+import React, { useState, useEffect } from 'react'
+import { Copy, RefreshCw, ThumbsUp, ThumbsDown, Check, Sparkles, FileText, FileSpreadsheet, File, Download } from 'lucide-react'
 import Markdown from '@/components/Markdown'
 import { Button } from '@/components/ui/button'
 import { Message } from '@/components/chat/shared/types'
@@ -18,6 +18,22 @@ export function MessageBubble({ message, isLast, onRegenerate, onFeedback }: Mes
     const [feedback, setFeedback] = useState<'like' | 'dislike' | null>(null)
     const isUser = message.role === 'USER'
 
+    // Load existing feedback when component mounts
+    useEffect(() => {
+        if (!isUser) {
+            fetch(`/api/messages/feedback?messageId=${message.id}`)
+                .then(res => res.json())
+                .then(data => {
+                    if (data.feedback) {
+                        setFeedback(data.feedback)
+                    }
+                })
+                .catch(error => {
+                    console.error('Failed to load feedback:', error)
+                })
+        }
+    }, [message.id, isUser])
+
     const handleCopy = async () => {
         await copy(message.content)
     }
@@ -31,18 +47,26 @@ export function MessageBubble({ message, isLast, onRegenerate, onFeedback }: Mes
         // Gọi API để lưu feedback
         if (newFeedback) {
             try {
-                await fetch('/api/messages/feedback', {
+                const response = await fetch('/api/messages/feedback', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         messageId: message.id,
-                        feedback: newFeedback,
-                        conversationId: message.conversationId
+                        feedback: newFeedback
                     })
                 })
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`)
+                }
+                
+                const result = await response.json()
+                console.log('Feedback saved:', result)
                 onFeedback?.(newFeedback)
             } catch (error) {
                 console.error('Failed to save feedback:', error)
+                // Revert feedback state on error
+                setFeedback(feedback)
             }
         }
     }
@@ -70,29 +94,64 @@ export function MessageBubble({ message, isLast, onRegenerate, onFeedback }: Mes
                 {/* Render attachments */}
                 {message.attachments && message.attachments.length > 0 && (
                     <div className={styles.attachments}>
-                        {message.attachments.map((attachment) => (
-                            <div key={attachment.id} className={styles.attachment}>
-                                {attachment.kind === 'image' ? (
-                                    <img
-                                        src={attachment.url}
-                                        alt={attachment.meta?.name || 'Generated image'}
-                                        className={styles.attachmentImage}
-                                        loading="lazy"
-                                    />
-                                ) : (
-                                    <div className={styles.attachmentFile}>
+                        {message.attachments.map((attachment) => {
+                            const getFileIcon = () => {
+                                if (attachment.kind === 'pdf') {
+                                    return <FileText size={20} style={{ color: '#e74c3c' }} />
+                                } else if (attachment.kind === 'document') {
+                                    const mimeType = attachment.meta?.mimeType || ''
+                                    if (mimeType.includes('sheet') || mimeType.includes('excel')) {
+                                        return <FileSpreadsheet size={20} style={{ color: '#27ae60' }} />
+                                    }
+                                    return <FileText size={20} style={{ color: '#3498db' }} />
+                                }
+                                return <File size={20} />
+                            }
+
+                            const formatSize = (bytes: number) => {
+                                if (bytes < 1024) return bytes + ' B'
+                                if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB'
+                                return (bytes / 1024 / 1024).toFixed(1) + ' MB'
+                            }
+
+                            return (
+                                <div key={attachment.id} className={styles.attachment}>
+                                    {attachment.kind === 'image' ? (
+                                        <img
+                                            src={attachment.url}
+                                            alt={attachment.meta?.name || 'Generated image'}
+                                            className={styles.attachmentImage}
+                                            loading="lazy"
+                                        />
+                                    ) : (
                                         <a
                                             href={attachment.url}
                                             target="_blank"
                                             rel="noopener noreferrer"
-                                            className={styles.attachmentLink}
+                                            className={styles.attachmentFileCard}
+                                            download={attachment.meta?.name}
                                         >
-                                            {attachment.meta?.name || 'File'}
+                                            <div className={styles.fileIcon}>
+                                                {getFileIcon()}
+                                            </div>
+                                            <div className={styles.fileInfo}>
+                                                <div className={styles.fileName}>
+                                                    {attachment.meta?.name || 'File'}
+                                                </div>
+                                                {attachment.meta?.size && (
+                                                    <div className={styles.fileSize}>
+                                                        {formatSize(attachment.meta.size)}
+                                                    </div>
+                                                )}
+                                            </div>
+                                            <div className={styles.downloadIcon}>
+                                                <Download size={16} />
+                                            </div>
                                         </a>
-                                    </div>
-                                )}
-                            </div>
-                        ))}
+                                    )}
+                                </div>
+                            )
+                        })}
                     </div>
                 )}
             </div>

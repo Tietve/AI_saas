@@ -22,9 +22,29 @@ export function MessageBubble({ message, isLast, onRegenerate, onFeedback }: Mes
         await copy(message.content)
     }
 
-    const handleFeedback = (type: 'like' | 'dislike') => {
-        setFeedback(type)
-        onFeedback?.(type)
+    // Trong MessageBubble.tsx, sửa lại phần feedback handling:
+    const handleFeedback = async (type: 'like' | 'dislike') => {
+        // Toggle feedback nếu click lại cùng loại
+        const newFeedback = feedback === type ? null : type
+        setFeedback(newFeedback)
+
+        // Gọi API để lưu feedback
+        if (newFeedback) {
+            try {
+                await fetch('/api/messages/feedback', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        messageId: message.id,
+                        feedback: newFeedback,
+                        conversationId: message.conversationId
+                    })
+                })
+                onFeedback?.(newFeedback)
+            } catch (error) {
+                console.error('Failed to save feedback:', error)
+            }
+        }
     }
 
     return (

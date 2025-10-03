@@ -23,8 +23,9 @@ export async function GET(req: NextRequest) {
         const page = Math.max(1, parseInt(searchParams.get('page') || '1'))
         const pageSize = Math.min(100, Math.max(1, parseInt(searchParams.get('pageSize') || '20')))
         const query = searchParams.get('q')?.trim()
+        const projectId = searchParams.get('projectId')?.trim()
 
-        
+
         const where: any = { userId }
         if (query) {
             where.OR = [
@@ -32,13 +33,19 @@ export async function GET(req: NextRequest) {
                 { systemPrompt: { contains: query, mode: 'insensitive' } }
             ]
         }
+        if (projectId) {
+            where.projectId = projectId
+        }
 
         
         const [total, conversations] = await Promise.all([
             prisma.conversation.count({ where }),
             prisma.conversation.findMany({
                 where,
-                orderBy: { updatedAt: 'desc' },
+                orderBy: [
+                    { pinned: 'desc' },
+                    { updatedAt: 'desc' }
+                ],
                 skip: (page - 1) * pageSize,
                 take: pageSize,
                 select: {
@@ -46,7 +53,9 @@ export async function GET(req: NextRequest) {
                     title: true,
                     model: true,
                     systemPrompt: true,
-                    botId: true,  
+                    botId: true,
+                    projectId: true,
+                    pinned: true,
                     createdAt: true,
                     updatedAt: true,
                     _count: {
@@ -67,7 +76,9 @@ export async function GET(req: NextRequest) {
             title: conv.title || 'Untitled',
             model: conv.model,
             systemPrompt: conv.systemPrompt,
-            botId: conv.botId,  
+            botId: conv.botId,
+            projectId: conv.projectId,
+            pinned: conv.pinned,
             createdAt: conv.createdAt.toISOString(),
             updatedAt: conv.updatedAt.toISOString(),
             messageCount: conv._count.messages,

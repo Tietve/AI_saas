@@ -102,13 +102,40 @@ export function useConversations() {
 
     // Function to update conversation title in local state without server reload
     function updateConversationTitle(conversationId: string, newTitle: string) {
-        setConversations(prevConversations => 
-            prevConversations.map(conv => 
-                conv.id === conversationId 
+        setConversations(prevConversations =>
+            prevConversations.map(conv =>
+                conv.id === conversationId
                     ? { ...conv, title: newTitle }
                     : conv
             )
         )
+    }
+
+    async function togglePin(id: string) {
+        try {
+            const res = await fetch(`/api/conversations/${id}/pin`, {
+                method: 'POST',
+                credentials: 'include'
+            })
+            if (!res.ok) throw new Error('Failed to toggle pin')
+
+            // Update local state immediately for better UX
+            setConversations(prevConversations => {
+                const updated = prevConversations.map(conv =>
+                    conv.id === id ? { ...conv, pinned: !conv.pinned } : conv
+                )
+                // Sort: pinned items first, then by updatedAt
+                return updated.sort((a, b) => {
+                    if (a.pinned === b.pinned) {
+                        return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+                    }
+                    return a.pinned ? -1 : 1
+                })
+            })
+        } catch (error) {
+            console.error('[Toggle Pin] Error:', error)
+            setError('Không thể ghim hội thoại')
+        }
     }
 
     useEffect(() => {
@@ -127,6 +154,7 @@ export function useConversations() {
         createNewConversation,
         deleteConversation,
         loadConversations,
-        updateConversationTitle
+        updateConversationTitle,
+        togglePin
     }
 }

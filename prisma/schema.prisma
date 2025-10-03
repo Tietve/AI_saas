@@ -18,6 +18,7 @@ model User {
   monthlyTokenUsed   Int                      @default(0)
   planTier           PlanTier                 @default(FREE)
   conversations      Conversation[]
+  projects           Project[]
   verificationTokens EmailVerificationToken[]
   resetTokens        PasswordResetToken[]
   subscriptions      Subscription[]
@@ -60,24 +61,44 @@ model PasswordResetToken {
   @@index([expiresAt])
 }
 
+model Project {
+  id            String         @id @default(cuid())
+  userId        String
+  name          String         @db.VarChar(100)
+  description   String?        @db.VarChar(500)
+  color         String?        @db.VarChar(20)
+  icon          String?        @db.VarChar(50)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  conversations Conversation[]
+
+  @@index([userId, updatedAt(sort: Desc)])
+}
+
 model Conversation {
   id           String            @id @default(cuid())
   userId       String
+  projectId    String?
   title        String?           @db.VarChar(200)
   systemPrompt String?
   meta         Json?
   botId        String?
+  pinned       Boolean           @default(false)
   createdAt    DateTime          @default(now())
   updatedAt    DateTime          @updatedAt
   model        String            @default("gpt-4o-mini")
   attachments  Attachment[]
   user         User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  project      Project?          @relation(fields: [projectId], references: [id], onDelete: SetNull)
   messages     Message[]
   feedbacks    MessageFeedback[]
 
   // Performance indexes
   @@index([userId, updatedAt(sort: Desc)])
   @@index([userId, createdAt(sort: Desc)])
+  @@index([userId, pinned, updatedAt(sort: Desc)])
+  @@index([projectId, updatedAt(sort: Desc)])
   @@index([model])
   @@index([botId])
 }

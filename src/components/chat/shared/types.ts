@@ -38,6 +38,8 @@ export interface Conversation {
     messageCount?: number
     model?: string
     botId?: string
+    pinned?: boolean
+    projectId?: string
 }
 
 

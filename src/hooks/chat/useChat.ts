@@ -63,7 +63,8 @@ export function useChat(props?: {
         createNewConversation,
         deleteConversation,
         loadConversations,
-        updateConversationTitle: updateConversationTitleInState
+        updateConversationTitle: updateConversationTitleInState,
+        togglePin
     } = useConversations()
 
     const {
@@ -502,7 +503,7 @@ export function useChat(props?: {
     }, [messages, isLoading, clearMessages, addMessage, sendMessage])
 
     return {
-        
+
         conversations,
         filteredConversations,
         currentConversationId,
@@ -511,8 +512,10 @@ export function useChat(props?: {
         setSearchQuery,
         createNewConversation,
         deleteConversation,
+        updateConversationTitle: updateConversationTitleInState,
+        togglePin,
 
-        
+
         messages,
         messagesEndRef,
 
@@ -535,7 +538,7 @@ export function useChat(props?: {
         systemPrompt,
         setSystemPrompt,
 
-        
+
         isLoading,
         error,
         setError

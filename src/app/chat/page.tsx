@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useChat } from '@/hooks/chat/useChat'
+import { useProjects } from '@/hooks/chat/useProjects'
 
 // Import components mới
 import { ChatSidebar } from '@/components/chat-v2/ChatSidebar'
@@ -10,6 +11,7 @@ import { ChatHeader } from '@/components/chat-v2/ChatHeader'
 import { ChatMessages } from '@/components/chat-v2/ChatMessages'
 import { ChatInput } from '@/components/chat-v2/ChatInput'
 import { WelcomeScreen } from '@/components/chat-v2/WelcomeScreen'
+import { CreateProjectModal } from '@/components/chat-v2/CreateProjectModal'
 
 // Giữ lại các imports cần thiết từ code cũ
 import UpgradeModal from '@/components/UpgradeModal'
@@ -38,6 +40,7 @@ export default function ChatPage() {
     const [userId, setUserId] = useState<string | undefined>()
     const [userPlanTier, setUserPlanTier] = useState<string>('FREE')
     const [currentTheme, setCurrentTheme] = useState('claude')
+    const [showCreateProjectModal, setShowCreateProjectModal] = useState(false)
 
     // Hook useChat - GIỮ NGUYÊN
     const {
@@ -48,6 +51,8 @@ export default function ChatPage() {
         setSearchQuery,
         createNewConversation,
         deleteConversation,
+        updateConversationTitle,
+        togglePin,
         messages,
         messagesEndRef,
         inputMessage,
@@ -76,6 +81,9 @@ export default function ChatPage() {
         },
         onUpgrade: () => setShowUpgradeModal(true)
     })
+
+    // Projects hook
+    const { projects, createProject } = useProjects()
 
     // Theme initialization - GIỮ NGUYÊN
     useEffect(() => {
@@ -241,6 +249,39 @@ export default function ChatPage() {
         }
     }
 
+    async function handleRenameConversation(id: string, newTitle: string) {
+        try {
+            const res = await fetch(`/api/conversations/${id}/rename`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({ title: newTitle })
+            })
+            if (!res.ok) throw new Error('Failed to rename')
+            updateConversationTitle(id, newTitle)
+        } catch (error) {
+            console.error('[Rename] Error:', error)
+            setError('Không thể đổi tên hội thoại')
+        }
+    }
+
+    async function handleAddToProject(conversationId: string, projectId: string | null) {
+        try {
+            const res = await fetch(`/api/conversations/${conversationId}/project`, {
+                method: 'POST',
+                credentials: 'include',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ projectId })
+            })
+            if (!res.ok) throw new Error('Failed to add to project')
+            // Reload conversations để cập nhật projectId
+            window.location.reload()
+        } catch (error) {
+            console.error('[Add to Project] Error:', error)
+            setError('Không thể thêm vào project')
+        }
+    }
+
     // Loading screen - STYLE MỚI
     if (loading) {
         return (
@@ -278,6 +319,11 @@ export default function ChatPage() {
                     router.push('/chat?conversationId=new')
                 }}
                 onDeleteConversation={deleteConversation}
+                onRenameConversation={handleRenameConversation}
+                onTogglePin={togglePin}
+                projects={projects}
+                onAddToProject={handleAddToProject}
+                onCreateProject={() => setShowCreateProjectModal(true)}
                 onSignOut={handleSignOut}
             />
 
@@ -408,6 +454,16 @@ export default function ChatPage() {
                 onClose={() => setShowUpgradeModal(false)}
                 currentUsage={userUsage}
                 userId={userId}
+            />
+
+            {/* Create Project Modal */}
+            <CreateProjectModal
+                isOpen={showCreateProjectModal}
+                onClose={() => setShowCreateProjectModal(false)}
+                onCreate={async (name, description, color) => {
+                    await createProject(name, description, color)
+                    setShowCreateProjectModal(false)
+                }}
             />
         </div>
     )

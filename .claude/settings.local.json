@@ -36,7 +36,8 @@
       "Bash(npm run env:verify:*)",
       "Bash(npm run conn:check:*)",
       "Bash(export NODE_ENV=production)",
-      "Bash(npm run env:verify:strict:*)"
+      "Bash(npm run env:verify:strict:*)",
+      "Bash(npx tsx:*)"
     ],
     "deny": [],
     "ask": []

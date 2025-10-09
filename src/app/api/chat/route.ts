@@ -5,6 +5,9 @@ import { requireUserId } from '@/lib/auth/session';
 import { prisma } from '@/lib/prisma';
 import { ModelId } from '@prisma/client';
 
+
+// Force Node.js runtime (required for Prisma)
+export const runtime = 'nodejs'
 const gateway = new MultiProviderGateway({
     openai: process.env.OPENAI_API_KEY!,
     claude: process.env.ANTHROPIC_API_KEY!,

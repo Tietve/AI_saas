@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireUserId } from '@/lib/auth/session'
 
+
+// Force Node.js runtime (required for Prisma)
+export const runtime = 'nodejs'
 function json(status: number, data: unknown) {
     return new NextResponse(JSON.stringify(data), {
         status,

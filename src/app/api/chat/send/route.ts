@@ -146,6 +146,9 @@ import { streamChat } from '@/lib/ai/adapter'
 import { streamSSEFromGenerator } from '@/lib/http/sse'
 import { getUserIdFromSession } from '@/lib/auth/session'
 
+
+// Force Node.js runtime (required for Prisma)
+export const runtime = 'nodejs'
 const DEBUG = process.env.NODE_ENV === 'development'
 
 type AttachmentPayload = {

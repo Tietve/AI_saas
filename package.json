@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "postinstall": "prisma generate",
     "clean-comments": "node scripts/removeComments.cjs",
     "clean-comments:inplace": "node scripts/removeComments.cjs --in-place",
     "dev": "next dev",

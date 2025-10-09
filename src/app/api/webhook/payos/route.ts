@@ -5,6 +5,9 @@ import { prisma } from '@/lib/prisma'
 import crypto from 'crypto'
 
 
+// Force Node.js runtime (required for Prisma)
+export const runtime = 'nodejs'
+
 const payos = new PayOS({
     clientId: process.env.PAYOS_CLIENT_ID!,
     apiKey: process.env.PAYOS_API_KEY!,

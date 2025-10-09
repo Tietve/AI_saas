@@ -5,6 +5,9 @@ import argon2 from 'argon2'
 import { verifySession } from '@/lib/auth/session'
 import { prisma } from '@/lib/prisma'
 
+
+// Force Node.js runtime (required for Prisma)
+export const runtime = 'nodejs'
 // Validation schemas
 const profileUpdateSchema = z.object({
     type: z.literal('profile'),

@@ -84,6 +84,9 @@ import { prisma } from '@/lib/prisma'
 import * as bcrypt from 'bcryptjs'
 import { createSessionCookie } from '@/lib/auth/session'
 
+
+// Force Node.js runtime (required for Prisma)
+export const runtime = 'nodejs'
 export async function POST(req: Request) {
     try {
         const body = await req.json()

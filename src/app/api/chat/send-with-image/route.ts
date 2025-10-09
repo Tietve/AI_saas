@@ -3,6 +3,9 @@ import { prisma } from '@/lib/prisma'
 import { Role } from '@prisma/client'
 import { getUserIdFromSession } from '@/lib/auth/session'
 
+
+// Force Node.js runtime (required for Prisma)
+export const runtime = 'nodejs'
 export async function POST(req: Request) {
     try {
         const userId = await getUserIdFromSession()

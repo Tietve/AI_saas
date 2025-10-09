@@ -107,6 +107,9 @@ import { prisma } from '@/lib/prisma'
 import { requireUserId } from '@/lib/auth/session'
 import { isAllowedModel } from '@/lib/ai/models'
 
+
+// Force Node.js runtime (required for Prisma)
+export const runtime = 'nodejs'
 function json(status: number, data: unknown) {
     return new NextResponse(JSON.stringify(data), {
         status,

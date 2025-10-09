@@ -51,6 +51,9 @@ import { prisma } from "@/lib/prisma"
 import { sendVerificationEmail } from "@/lib/email"
 import crypto from "crypto"
 
+
+// Force Node.js runtime (required for Prisma)
+export const runtime = 'nodejs'
 export async function POST(req: Request) {
     try {
         const body = await req.json()

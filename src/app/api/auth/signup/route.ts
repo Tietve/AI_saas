@@ -86,6 +86,9 @@ import crypto from 'crypto'
 import { sendVerificationEmail } from '@/lib/email'
 import { createSessionCookie } from '@/lib/auth/session'
 
+
+// Force Node.js runtime (required for Prisma)
+export const runtime = 'nodejs'
 export async function POST(req: Request) {
     try {
         const body = await req.json()

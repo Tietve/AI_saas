@@ -68,6 +68,9 @@ import { prisma } from "@/lib/prisma";
 import { hashPassword } from "@/lib/crypto";
 
 
+// Force Node.js runtime (required for Prisma)
+export const runtime = 'nodejs'
+
 const schema = z.object({
     token: z.string().min(10),
     password: z.string().min(8),

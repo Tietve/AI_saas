@@ -14,6 +14,9 @@ import { validateRequest, withErrorHandler } from '@/lib/validation/middleware'
 import { logger } from '@/lib/logger'
 import { prisma } from '@/lib/prisma'
 
+
+// Force Node.js runtime (required for Prisma)
+export const runtime = 'nodejs'
 const refundSchema = z.object({
   paymentId: z.string().min(1, 'Payment ID is required'),
   amount: z.number().int().positive().optional(),

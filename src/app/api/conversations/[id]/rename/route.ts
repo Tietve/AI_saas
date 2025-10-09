@@ -2,6 +2,9 @@ import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireUserId } from '@/lib/auth/session';
 
+
+// Force Node.js runtime (required for Prisma)
+export const runtime = 'nodejs'
 export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
     const { id } = await ctx.params;
     const userId = await requireUserId();

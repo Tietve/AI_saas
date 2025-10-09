@@ -100,6 +100,9 @@ import { prisma } from '@/lib/prisma'
 import { requireUserId } from '@/lib/auth/session'
 
 
+// Force Node.js runtime (required for Prisma)
+export const runtime = 'nodejs'
+
 function jsonResponse(status: number, data: any) {
     return new NextResponse(JSON.stringify(data), {
         status,

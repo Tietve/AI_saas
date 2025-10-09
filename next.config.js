@@ -9,8 +9,9 @@ const nextConfig = {
         ignoreBuildErrors: true,
     },
 
-    // Docker support - standalone output
-    output: 'standalone',
+    // VERCEL: Disabled standalone output (only for Docker)
+    // Vercel has its own build system and doesn't need standalone mode
+    // output: 'standalone',
 
     // Image optimization
     images: {

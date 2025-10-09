@@ -64,6 +64,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { redis } from '@/lib/cache/redis-client'
 
+// Force Node.js runtime (required for Prisma)
+export const runtime = 'nodejs'
+
 export interface HealthStatus {
   status: 'healthy' | 'unhealthy' | 'degraded'
   timestamp: Date

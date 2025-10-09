@@ -31,14 +31,52 @@ export interface SecurityHeadersConfig {
 const defaultConfig: Required<SecurityHeadersConfig> = {
   contentSecurityPolicy: [
     "default-src 'self'",
-    "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://unpkg.com",
+    // Scripts: CDN for libraries, allow inline for Next.js
+    "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://unpkg.com https://challenges.cloudflare.com",
+    // Styles: Google Fonts, inline for styled-components
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+    // Fonts: Google Fonts, data URIs
     "font-src 'self' https://fonts.gstatic.com data:",
+    // Images: self, data URIs, all HTTPS (for user uploads, avatars, etc.)
     "img-src 'self' data: https: blob:",
-    "connect-src 'self' https://api.openai.com https://api.anthropic.com https://generativelanguage.googleapis.com",
+    // Connections: AI providers, monitoring, storage
+    "connect-src 'self' " +
+      // AI Providers
+      "https://api.openai.com " +
+      "https://api.anthropic.com " +
+      "https://generativelanguage.googleapis.com " +
+      "https://api.groq.com " +
+      "https://api.x.ai " +
+      // Monitoring & Error Tracking
+      "https://*.sentry.io " +
+      "https://*.ingest.sentry.io " +
+      // Storage (Cloudflare R2)
+      "https://*.r2.cloudflarestorage.com " +
+      "https://*.r2.dev " +
+      // Storage (Azure Blob)
+      "https://*.blob.core.windows.net " +
+      // Redis (Upstash)
+      "https://*.upstash.io " +
+      // Payment (PayOS)
+      "https://api.payos.vn " +
+      "https://payos.vn " +
+      // Cloudflare Services
+      "https://challenges.cloudflare.com " +
+      "wss://*.pusher.com", // WebSockets if needed
+    // Frames: block all
     "frame-ancestors 'none'",
+    // Base URI: only self
     "base-uri 'self'",
-    "form-action 'self'"
+    // Forms: only submit to self
+    "form-action 'self'",
+    // Object/Embed: block plugins
+    "object-src 'none'",
+    // Media: self and blob for local recordings
+    "media-src 'self' blob:",
+    // Workers: self
+    "worker-src 'self' blob:",
+    // Manifests: self
+    "manifest-src 'self'"
   ].join('; '),
   frameOptions: 'DENY',
   contentTypeOptions: true,

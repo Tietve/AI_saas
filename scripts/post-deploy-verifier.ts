@@ -73,6 +73,9 @@ class PostDeployVerifier {
       await this.testMetricsEndpoints()
       await this.testRateLimiting()
       await this.testSecurityHeaders()
+      await this.testCsrfProtection()
+      await this.testCorsPolicy()
+      await this.testFileUpload()
       await this.testPerformance()
 
     } catch (error) {
@@ -682,7 +685,209 @@ class PostDeployVerifier {
   }
 
   /**
-   * Test 7: Performance benchmarks
+   * Test 7: CSRF Protection
+   */
+  private async testCsrfProtection(): Promise<void> {
+    const testName = 'Security: CSRF Protection'
+    console.log(`\n${colors.cyan}Testing: ${testName}${colors.reset}`)
+
+    try {
+      const startTime = Date.now()
+
+      // Test POST request without CSRF header (should fail)
+      const response = await this.fetch('/api/auth/signup', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          // Intentionally omit CSRF token header
+        },
+        body: JSON.stringify({
+          email: `csrf-test-${Date.now()}@example.com`,
+          password: 'TestPassword123!',
+          name: 'CSRF Test User',
+        }),
+      })
+
+      const duration = Date.now() - startTime
+
+      // Check if request was rejected (403 or 400 status expected)
+      if (response.status === 403 || response.status === 400) {
+        this.results.push({
+          name: testName,
+          passed: true,
+          duration,
+          details: {
+            status: response.status,
+            message: 'CSRF protection working - request rejected without token'
+          },
+        })
+        console.log(`${colors.green}✓ PASS${colors.reset} - ${testName} (${duration}ms)`)
+      } else {
+        // If request succeeded, CSRF protection may not be enabled
+        this.results.push({
+          name: testName,
+          passed: false,
+          duration,
+          error: `Expected 403/400, got ${response.status}. CSRF protection may not be enabled.`,
+        })
+        console.log(`${colors.yellow}⚠ WARN${colors.reset} - ${testName}: CSRF protection may not be enabled (got ${response.status})`)
+      }
+    } catch (error: any) {
+      this.results.push({
+        name: testName,
+        passed: false,
+        duration: 0,
+        error: error.message,
+      })
+      console.log(`${colors.red}✗ FAIL${colors.reset} - ${testName}: ${error.message}`)
+    }
+  }
+
+  /**
+   * Test 8: CORS Policy
+   */
+  private async testCorsPolicy(): Promise<void> {
+    const testName = 'Security: CORS Policy'
+    console.log(`\n${colors.cyan}Testing: ${testName}${colors.reset}`)
+
+    try {
+      const startTime = Date.now()
+
+      // Test request from invalid origin
+      const response = await this.fetch('/api/health', {
+        headers: {
+          'Origin': 'https://malicious-site.com',
+        },
+      })
+
+      const duration = Date.now() - startTime
+
+      // Check CORS headers
+      const corsHeader = response.headers.get('access-control-allow-origin')
+
+      if (!corsHeader || corsHeader === 'https://malicious-site.com') {
+        this.results.push({
+          name: testName,
+          passed: false,
+          duration,
+          error: 'CORS not configured or allows all origins (security risk)',
+        })
+        console.log(`${colors.red}✗ FAIL${colors.reset} - ${testName}: CORS misconfigured`)
+      } else {
+        this.results.push({
+          name: testName,
+          passed: true,
+          duration,
+          details: {
+            allowedOrigin: corsHeader,
+            message: 'CORS properly configured'
+          },
+        })
+        console.log(`${colors.green}✓ PASS${colors.reset} - ${testName} (${duration}ms)`)
+      }
+
+      if (this.verbose) {
+        console.log('CORS Headers:', {
+          'Access-Control-Allow-Origin': corsHeader,
+          'Access-Control-Allow-Credentials': response.headers.get('access-control-allow-credentials'),
+        })
+      }
+    } catch (error: any) {
+      this.results.push({
+        name: testName,
+        passed: false,
+        duration: 0,
+        error: error.message,
+      })
+      console.log(`${colors.red}✗ FAIL${colors.reset} - ${testName}: ${error.message}`)
+    }
+  }
+
+  /**
+   * Test 9: File Upload
+   */
+  private async testFileUpload(): Promise<void> {
+    const testName = 'Feature: File Upload'
+    console.log(`\n${colors.cyan}Testing: ${testName}${colors.reset}`)
+
+    if (!this.sessionCookie) {
+      console.log(`${colors.yellow}⊘ SKIP${colors.reset} - ${testName} (no session)`)
+      return
+    }
+
+    try {
+      const startTime = Date.now()
+
+      // Create a simple text file for testing
+      const testFileContent = 'This is a test file for upload verification'
+      const blob = new Blob([testFileContent], { type: 'text/plain' })
+
+      // Create FormData
+      const formData = new FormData()
+      formData.append('file', blob, 'test-file.txt')
+
+      // Upload file
+      const response = await this.fetch('/api/upload', {
+        method: 'POST',
+        headers: {
+          'Cookie': `session=${this.sessionCookie}`,
+          // Note: Don't set Content-Type for FormData, let browser set it with boundary
+        },
+        body: formData,
+      })
+
+      const duration = Date.now() - startTime
+
+      if (response.status === 200 || response.status === 201) {
+        const body = await response.json()
+
+        // Check if response contains upload URL
+        if (body.url || body.fileUrl || body.location) {
+          const uploadUrl = body.url || body.fileUrl || body.location
+
+          this.results.push({
+            name: testName,
+            passed: true,
+            duration,
+            details: {
+              uploadUrl,
+              message: 'File uploaded successfully'
+            },
+          })
+          console.log(`${colors.green}✓ PASS${colors.reset} - ${testName} (${duration}ms)`)
+
+          if (this.verbose) {
+            console.log('Upload response:', body)
+          }
+        } else {
+          throw new Error('Upload succeeded but no URL in response')
+        }
+      } else if (response.status === 404) {
+        // Upload endpoint may not exist
+        this.results.push({
+          name: testName,
+          passed: false,
+          duration,
+          error: 'Upload endpoint not found (404). File upload may not be implemented.',
+        })
+        console.log(`${colors.yellow}⊘ SKIP${colors.reset} - ${testName}: Upload endpoint not found`)
+      } else {
+        throw new Error(`Expected 200/201, got ${response.status}`)
+      }
+    } catch (error: any) {
+      // File upload is optional, so we treat errors as warnings
+      this.results.push({
+        name: testName,
+        passed: false,
+        duration: 0,
+        error: error.message,
+      })
+      console.log(`${colors.yellow}⊘ SKIP${colors.reset} - ${testName}: ${error.message}`)
+    }
+  }
+
+  /**
+   * Test 10: Performance benchmarks
    */
   private async testPerformance(): Promise<void> {
     const testName = 'Performance: Response Times'

@@ -1,676 +1,784 @@
 # Environment Variables Documentation
 
-Complete reference for all environment variables used in the AI SaaS platform.
+Complete guide to environment variables for multi-cloud deployment of the AI SaaS Chat application.
 
 ## Table of Contents
 
-1. [Required Variables](#required-variables)
-2. [Database Configuration](#database-configuration)
-3. [Authentication & Security](#authentication--security)
-4. [AI Provider Keys](#ai-provider-keys)
-5. [Email Configuration](#email-configuration)
-6. [Payment Integration](#payment-integration)
-7. [Caching & Rate Limiting](#caching--rate-limiting)
-8. [Monitoring & Analytics](#monitoring--analytics)
-9. [CDN & Storage](#cdn--storage)
-10. [Feature Flags](#feature-flags)
-11. [Performance Tuning](#performance-tuning)
-12. [Development Flags](#development-flags)
+- [Overview](#overview)
+- [Multi-Cloud Deployment Mapping](#multi-cloud-deployment-mapping)
+- [Variable Reference](#variable-reference)
+  - [Core Configuration](#core-configuration)
+  - [Database](#database)
+  - [Authentication & Security](#authentication--security)
+  - [AI Providers](#ai-providers)
+  - [Email Configuration](#email-configuration)
+  - [Payment Gateway](#payment-gateway)
+  - [Storage](#storage)
+  - [Caching & Rate Limiting](#caching--rate-limiting)
+  - [Monitoring & Analytics](#monitoring--analytics)
+  - [Cloudflare](#cloudflare)
+  - [Azure-Specific](#azure-specific)
+  - [Feature Flags](#feature-flags)
+  - [Client-Side Variables](#client-side-variables)
+- [Validation](#validation)
+- [Security Best Practices](#security-best-practices)
+- [Quick Reference](#quick-reference)
 
 ---
 
-## Required Variables
+## Overview
 
-These variables **MUST** be set for the application to function properly.
+This application uses a **split architecture** for multi-cloud deployment:
 
-### `DATABASE_URL`
-- **Type**: String (PostgreSQL connection string)
-- **Required**: ✅ Yes
-- **Scope**: Server-only
-- **Example**: `postgresql://user:password@localhost:5432/ai_saas?schema=public&connection_limit=10`
-- **Where to get**:
-  - Local: PostgreSQL installation
-  - Production: Managed database provider (Supabase, Neon, Railway, etc.)
-- **Production settings**:
-  ```
-  postgresql://USER:PASSWORD@HOST:PORT/DATABASE?
-    schema=public&
-    connection_limit=10&
-    pool_timeout=20&
-    connect_timeout=10
-  ```
+- **Vercel**: Hosts the Next.js frontend and API routes (serverless functions)
+- **Azure App Service**: Optional dedicated backend for heavy workloads
+- **Shared Services**: Database (Neon), Redis (Upstash), Storage (R2/Azure Blob)
 
-### `AUTH_SECRET`
-- **Type**: String (minimum 32 characters)
-- **Required**: ✅ Yes
-- **Scope**: Server-only
-- **Example**: `a1b2c3d4e5f6...` (32+ random characters)
-- **Where to get**: Generate with:
-  ```bash
-  openssl rand -base64 32
-  # OR
-  node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
-  ```
-- **Security**: NEVER commit to version control. Rotate every 90 days in production.
-
-### `NEXT_PUBLIC_APP_URL`
-- **Type**: String (URL)
-- **Required**: ✅ Yes
-- **Scope**: Client + Server
-- **Example**: `https://your-domain.com`
-- **Where to get**: Your production domain
-- **Note**: Must match your actual domain for CORS, redirects, and webhooks
+Environment variables are categorized into:
+- **Client-side** (`NEXT_PUBLIC_*`): Exposed to the browser, deployed to Vercel
+- **Server-side**: Secret values, deployed to both Vercel and Azure
+- **Shared**: Used by both platforms (database, Redis, etc.)
 
 ---
 
-## Database Configuration
-
-### `DATABASE_URL`
-See [Required Variables](#required-variables)
-
-### `ENABLE_DATABASE_POOLING`
-- **Type**: Boolean
-- **Required**: ❌ No
-- **Default**: `true`
-- **Scope**: Server-only
-- **Example**: `true`
-- **Description**: Enable Prisma connection pooling for better performance
-
----
-
-## Authentication & Security
-
-### `AUTH_SECRET`
-See [Required Variables](#required-variables)
-
-### `AUTH_COOKIE_NAME`
-- **Type**: String
-- **Required**: ❌ No
-- **Default**: `session`
-- **Scope**: Server-only
-- **Example**: `session`
-- **Description**: Name of the httpOnly session cookie
-
-### `CSRF_SECRET`
-- **Type**: String (32+ characters)
-- **Required**: ❌ No (falls back to AUTH_SECRET)
-- **Scope**: Server-only
-- **Example**: `<32+ random characters>`
-- **Where to get**: Same as AUTH_SECRET generation
-- **Description**: Secret for CSRF token signing
-
-### `REQUIRE_EMAIL_VERIFICATION`
-- **Type**: Boolean
-- **Required**: ❌ No
-- **Default**: `false`
-- **Scope**: Server-only
-- **Example**: `true`
-- **Description**: Require users to verify email before accessing chat
-
----
-
-## AI Provider Keys
-
-At least **ONE** AI provider key is required for the platform to function.
-
-### `OPENAI_API_KEY`
-- **Type**: String
-- **Required**: ⚠️ At least one provider required
-- **Scope**: Server-only
-- **Example**: `sk-proj-...`
-- **Where to get**:
-  1. Visit [OpenAI Platform](https://platform.openai.com/)
-  2. Go to Settings → API Keys
-  3. Click "Create new secret key"
-- **Models enabled**: GPT-4o, GPT-4o-mini, GPT-4-turbo, GPT-3.5-turbo
-- **Cost**: Pay-per-token (see [OpenAI Pricing](https://openai.com/pricing))
-
-### `ANTHROPIC_API_KEY`
-- **Type**: String
-- **Required**: ⚠️ At least one provider required
-- **Scope**: Server-only
-- **Example**: `sk-ant-api03-...`
-- **Where to get**:
-  1. Visit [Anthropic Console](https://console.anthropic.com/)
-  2. Go to Account → API Keys
-  3. Create new key
-- **Models enabled**: Claude 3 Opus, Claude 3.5 Sonnet, Claude 3 Haiku
-- **Cost**: Pay-per-token (see [Anthropic Pricing](https://anthropic.com/pricing))
-
-### `GOOGLE_API_KEY` (alias: `GEMINI_API_KEY`)
-- **Type**: String
-- **Required**: ⚠️ At least one provider required
-- **Scope**: Server-only
-- **Example**: `AIza...`
-- **Where to get**:
-  1. Visit [Google AI Studio](https://makersuite.google.com/)
-  2. Click "Get API Key"
-  3. Create key in new or existing project
-- **Models enabled**: Gemini 1.5 Pro, Gemini 1.5 Flash
-- **Cost**: Free tier available, then pay-per-token
-
-### `GROQ_API_KEY`
-- **Type**: String
-- **Required**: ❌ No
-- **Scope**: Server-only
-- **Example**: `gsk_...`
-- **Where to get**: [Groq Console](https://console.groq.com/keys)
-- **Models enabled**: Llama 3, Mixtral, Gemma
-- **Cost**: Free tier with rate limits
-
-### `XAI_API_KEY`
-- **Type**: String
-- **Required**: ❌ No
-- **Scope**: Server-only
-- **Example**: `xai-...`
-- **Where to get**: [X.AI API](https://x.ai/api)
-- **Models enabled**: Grok
-- **Cost**: Varies
-
----
-
-## Email Configuration
-
-Required for user verification, password reset, and notifications.
-
-### `SMTP_HOST`
-- **Type**: String
-- **Required**: ✅ Yes (if `REQUIRE_EMAIL_VERIFICATION=true`)
-- **Scope**: Server-only
-- **Example**: `smtp.gmail.com`
-- **Where to get**: Your email provider's SMTP settings
-- **Common providers**:
-  - Gmail: `smtp.gmail.com`
-  - SendGrid: `smtp.sendgrid.net`
-  - Mailgun: `smtp.mailgun.org`
-  - AWS SES: `email-smtp.us-east-1.amazonaws.com`
-
-### `SMTP_PORT`
-- **Type**: Number
-- **Required**: ✅ Yes (if SMTP enabled)
-- **Scope**: Server-only
-- **Example**: `587` (TLS) or `465` (SSL)
-- **Common values**:
-  - `587` - TLS (recommended)
-  - `465` - SSL
-  - `25` - Unencrypted (not recommended)
-
-### `SMTP_SECURE`
-- **Type**: Boolean
-- **Required**: ❌ No
-- **Default**: `false`
-- **Scope**: Server-only
-- **Example**: `true`
-- **Description**: Use SSL/TLS encryption. Set `true` for port 465, `false` for 587
-
-### `SMTP_USER`
-- **Type**: String
-- **Required**: ✅ Yes (if SMTP enabled)
-- **Scope**: Server-only
-- **Example**: `your-email@gmail.com`
-- **Where to get**: Your email address
-
-### `SMTP_PASS`
-- **Type**: String
-- **Required**: ✅ Yes (if SMTP enabled)
-- **Scope**: Server-only
-- **Example**: `your-app-password`
-- **Where to get**:
-  - Gmail: [App Passwords](https://myaccount.google.com/apppasswords)
-  - SendGrid/Mailgun: API key from dashboard
-- **Security**: Use app-specific passwords, not your main email password
-
-### `SMTP_FROM`
-- **Type**: String (email format)
-- **Required**: ✅ Yes (if SMTP enabled)
-- **Scope**: Server-only
-- **Example**: `AI SaaS <no-reply@yourdomain.com>`
-- **Description**: "From" address for all outgoing emails
-
----
-
-## Payment Integration
-
-Required for subscription features (PayOS Vietnam payment gateway).
-
-### `PAYOS_CLIENT_ID`
-- **Type**: String
-- **Required**: ✅ Yes (if payment enabled)
-- **Scope**: Server-only
-- **Example**: `your-client-id`
-- **Where to get**: [PayOS Dashboard](https://my.payos.vn/)
-
-### `PAYOS_API_KEY`
-- **Type**: String
-- **Required**: ✅ Yes (if payment enabled)
-- **Scope**: Server-only
-- **Example**: `your-api-key`
-- **Where to get**: [PayOS Dashboard](https://my.payos.vn/)
-
-### `PAYOS_CHECKSUM_KEY`
-- **Type**: String
-- **Required**: ✅ Yes (if payment enabled)
-- **Scope**: Server-only
-- **Example**: `your-checksum-key`
-- **Where to get**: [PayOS Dashboard](https://my.payos.vn/)
-- **Description**: Used to verify webhook signatures
-
----
-
-## Caching & Rate Limiting
-
-### `UPSTASH_REDIS_REST_URL` (alias: `REDIS_URL`)
-- **Type**: String (URL)
-- **Required**: ❌ No (recommended for production)
-- **Scope**: Server-only
-- **Example**: `https://your-redis.upstash.io`
-- **Where to get**:
-  1. Visit [Upstash Console](https://console.upstash.com/)
-  2. Create Redis database
-  3. Copy REST URL
-- **Fallback**: In-memory cache (not shared across instances)
-
-### `UPSTASH_REDIS_REST_TOKEN` (alias: `REDIS_TOKEN`)
-- **Type**: String
-- **Required**: ❌ No (required if REDIS_URL is set)
-- **Scope**: Server-only
-- **Example**: `AXm1AAI...`
-- **Where to get**: Upstash Console (same page as URL)
-
-### `RATE_LIMIT_BACKEND`
-- **Type**: Enum (`memory` | `redis`)
-- **Required**: ❌ No
-- **Default**: `memory`
-- **Scope**: Server-only
-- **Example**: `redis`
-- **Description**:
-  - `memory` - Local rate limiting (resets on restart)
-  - `redis` - Distributed rate limiting (requires REDIS_URL)
-
-### `SEMANTIC_CACHE_THRESHOLD`
-- **Type**: Number (0.0 - 1.0)
-- **Required**: ❌ No
-- **Default**: `0.95`
-- **Scope**: Server-only
-- **Example**: `0.95`
-- **Description**: Similarity threshold for cache hits (higher = stricter)
-
-### `SEMANTIC_CACHE_TTL`
-- **Type**: Number (seconds)
-- **Required**: ❌ No
-- **Default**: `3600` (1 hour)
-- **Scope**: Server-only
-- **Example**: `7200`
-- **Description**: Cache entry time-to-live
-
-### `SEMANTIC_CACHE_MAX_RESULTS`
-- **Type**: Number
-- **Required**: ❌ No
-- **Default**: `10`
-- **Scope**: Server-only
-- **Example**: `20`
-- **Description**: Max entries to scan for similarity
-
----
-
-## Monitoring & Analytics
-
-### `SENTRY_DSN`
-- **Type**: String (URL)
-- **Required**: ❌ No (recommended for production)
-- **Scope**: Server-only
-- **Example**: `https://abc123@o123456.ingest.sentry.io/7654321`
-- **Where to get**:
-  1. Visit [Sentry Dashboard](https://sentry.io/)
-  2. Create project
-  3. Go to Settings → Client Keys (DSN)
-- **Description**: Error tracking and performance monitoring
-
-### `NEXT_PUBLIC_SENTRY_DSN`
-- **Type**: String (URL)
-- **Required**: ❌ No
-- **Scope**: Client + Server
-- **Example**: Same as `SENTRY_DSN`
-- **Description**: Client-side error tracking (can be same as server DSN)
-
-### `ENABLE_PERFORMANCE_MONITORING`
-- **Type**: Boolean
-- **Required**: ❌ No
-- **Default**: `false`
-- **Scope**: Server-only
-- **Example**: `true`
-- **Description**: Enable detailed performance metrics collection
-
----
-
-## CDN & Storage
-
-### `CDN_PROVIDER`
-- **Type**: Enum (`cloudinary` | `uploadcare` | `s3`)
-- **Required**: ❌ No (if file uploads disabled)
-- **Scope**: Server-only
-- **Example**: `cloudinary`
-- **Description**: CDN provider for file uploads
-
-### `CLOUDINARY_CLOUD_NAME`
-- **Type**: String
-- **Required**: ❌ No (if Cloudinary not used)
-- **Scope**: Server-only
-- **Example**: `your-cloud-name`
-- **Where to get**: [Cloudinary Dashboard](https://cloudinary.com/console)
-
-### `CLOUDINARY_API_KEY`
-- **Type**: String
-- **Required**: ❌ No
-- **Scope**: Server-only
-- **Where to get**: Cloudinary Dashboard
-
-### `CLOUDINARY_API_SECRET`
-- **Type**: String
-- **Required**: ❌ No
-- **Scope**: Server-only
-- **Where to get**: Cloudinary Dashboard
-
-### `CLOUDINARY_UPLOAD_PRESET`
-- **Type**: String
-- **Required**: ❌ No
-- **Scope**: Server-only
-- **Example**: `ml_default`
-- **Where to get**: Cloudinary Settings → Upload → Upload presets
-
-### `OCR_SPACE_API_KEY`
-- **Type**: String
-- **Required**: ❌ No (if OCR disabled)
-- **Scope**: Server-only
-- **Example**: `K88...`
-- **Where to get**: [OCR.space](https://ocr.space/ocrapi)
-- **Description**: For PDF text extraction
-
----
-
-## Feature Flags
-
-### `ENABLE_IMAGE_GENERATION`
-- **Type**: Boolean
-- **Required**: ❌ No
-- **Default**: `true`
-- **Scope**: Server-only
-- **Example**: `false`
-- **Description**: Enable/disable DALL-E image generation
-
-### `ENABLE_AUDIO_PROCESSING`
-- **Type**: Boolean
-- **Required**: ❌ No
-- **Default**: `true`
-- **Scope**: Server-only
-- **Description**: Enable/disable audio transcription features
-
-### `ENABLE_WEB_SEARCH`
-- **Type**: Boolean
-- **Required**: ❌ No
-- **Default**: `false`
-- **Scope**: Server-only
-- **Description**: Enable web search capabilities (requires additional API)
-
-### `ENABLE_MODEL_COMPARISON`
-- **Type**: Boolean
-- **Required**: ❌ No
-- **Default**: `true`
-- **Scope**: Server-only
-- **Description**: Allow users to compare models side-by-side
-
-### `ENABLE_QUERY_CACHING`
-- **Type**: Boolean
-- **Required**: ❌ No
-- **Default**: `true`
-- **Scope**: Server-only
-- **Description**: Enable semantic query caching
-
----
-
-## Performance Tuning
-
-### `AI_TIMEOUT_MS`
-- **Type**: Number (milliseconds)
-- **Required**: ❌ No
-- **Default**: `45000` (45 seconds)
-- **Scope**: Server-only
-- **Example**: `60000`
-- **Description**: Max time to wait for AI provider response
-
-### `MAX_TOKENS_PER_REQUEST`
-- **Type**: Number
-- **Required**: ❌ No
-- **Default**: `8000`
-- **Scope**: Server-only
-- **Example**: `4096`
-- **Description**: Maximum tokens allowed in a single request
-
-### `MAX_HISTORY`
-- **Type**: Number
-- **Required**: ❌ No
-- **Default**: `20`
-- **Scope**: Server-only
-- **Example**: `50`
-- **Description**: Max conversation messages to include in context
-
-### `AUTO_SCALING_ENABLED`
-- **Type**: Boolean
-- **Required**: ❌ No
-- **Default**: `false`
-- **Scope**: Server-only
-- **Description**: Enable auto-scaling features (K8s/cloud only)
-
-### `MIN_INSTANCES`
-- **Type**: Number
-- **Required**: ❌ No (if auto-scaling disabled)
-- **Default**: `1`
-- **Scope**: Server-only
-
-### `MAX_INSTANCES`
-- **Type**: Number
-- **Required**: ❌ No (if auto-scaling disabled)
-- **Default**: `10`
-- **Scope**: Server-only
-
----
-
-## Development Flags
-
-**⚠️ WARNING**: These should NEVER be enabled in production!
-
-### `NODE_ENV`
-- **Type**: Enum (`development` | `production` | `test`)
-- **Required**: ✅ Yes
-- **Scope**: Server + Client
-- **Example**: `production`
-- **Description**: Node environment mode
-
-### `MOCK_AI` / `USE_FAKE_AI`
-- **Type**: Boolean
-- **Required**: ❌ No
-- **Default**: `false`
-- **Scope**: Server-only
-- **Example**: `true`
-- **⚠️ WARNING**: For development only! Returns fake AI responses without API calls
-
-### `DEV_BYPASS_LIMIT`
-- **Type**: Boolean
-- **Required**: ❌ No
-- **Default**: `false`
-- **Scope**: Server-only
-- **⚠️ WARNING**: For development only! Disables rate limiting and quotas
-
-### `DEV_BYPASS_PAY`
-- **Type**: Boolean
-- **Required**: ❌ No
-- **Default**: `false`
-- **Scope**: Server-only
-- **⚠️ WARNING**: For development only! Grants Pro tier without payment
-
-### `DEBUG_OPENAI`
-- **Type**: Boolean
-- **Required**: ❌ No
-- **Default**: `false`
-- **Scope**: Server-only
-- **Description**: Log full OpenAI API responses
-
-### `DEBUG_AUTH`
-- **Type**: Boolean
-- **Required**: ❌ No
-- **Default**: `false`
-- **Scope**: Server-only
-- **Description**: Log detailed authentication flow
-
-### `LOG_LEVEL`
-- **Type**: Enum (`debug` | `info` | `warn` | `error`)
-- **Required**: ❌ No
-- **Default**: `info`
-- **Scope**: Server-only
-- **Example**: `debug`
-- **Description**: Pino logger level
-
----
-
-## Quick Setup Checklists
-
-### Minimum Required for Development
-
+## Multi-Cloud Deployment Mapping
+
+| Variable Category | Vercel (Frontend) | Azure (Backend) | Notes |
+|-------------------|-------------------|-----------------|-------|
+| **Client Variables** (`NEXT_PUBLIC_*`) | ✅ Required | ❌ Not needed | Bundled in client code |
+| **Database** | ✅ Required | ✅ Required | Shared PostgreSQL (Neon) |
+| **Authentication** | ✅ Required | ✅ Required | Shared secret keys |
+| **AI Providers** | ✅ Required | ✅ Required | API keys for AI services |
+| **Email (SMTP/Resend)** | ✅ Required | ⚠️ Optional | Only if Azure handles email |
+| **Payment (PayOS)** | ✅ Required | ⚠️ Optional | Only if Azure handles webhooks |
+| **Redis/Upstash** | ✅ Required | ✅ Required | Shared cache & rate limiting |
+| **Storage (R2)** | ✅ Required | ✅ Required | Shared file storage |
+| **Storage (Azure Blob)** | ⚠️ Optional | ✅ If used | Azure-specific storage |
+| **Monitoring (Sentry)** | ✅ Recommended | ✅ Recommended | Error tracking & analytics |
+| **CORS** | ❌ Not applicable | ✅ Required | Only for API backend |
+| **Azure Insights** | ❌ Not applicable | ✅ Recommended | Azure monitoring |
+| **Cloudflare** | ✅ Optional | ✅ Optional | CDN, R2, Turnstile |
+
+### Deployment Priority
+
+**Minimum Required for Vercel:**
 ```bash
-# Required
-DATABASE_URL="postgresql://..."
-AUTH_SECRET="<32+ random characters>"
-NEXT_PUBLIC_APP_URL="http://localhost:3000"
+# Core
+NODE_ENV=production
+NEXT_PUBLIC_APP_URL=https://your-app.vercel.app
+APP_URL=https://your-app.vercel.app
 
-# At least ONE AI provider
-OPENAI_API_KEY="sk-..."
-# OR
-ANTHROPIC_API_KEY="sk-ant-..."
-# OR
-GOOGLE_API_KEY="AIza..."
+# Database
+DATABASE_URL=postgresql://...
+
+# Auth
+AUTH_SECRET=your-32-char-secret
+
+# Redis
+UPSTASH_REDIS_REST_URL=https://...
+UPSTASH_REDIS_REST_TOKEN=...
+
+# AI (at least one)
+OPENAI_API_KEY=sk-...
 ```
 
-### Recommended for Production
+**Additional for Azure Backend:**
+```bash
+# CORS
+CORS_ALLOWED_ORIGINS=https://your-app.vercel.app,https://your-domain.com
+
+# Azure Monitoring
+AZURE_APP_INSIGHTS_KEY=...
+```
+
+---
+
+## Variable Reference
+
+### Core Configuration
+
+#### `NODE_ENV`
+- **Type**: `development` | `production` | `test`
+- **Required**: Yes
+- **Default**: `development`
+- **Vercel**: ✅ | **Azure**: ✅
+- **Description**: Runtime environment mode
+
+#### `APP_URL`
+- **Type**: URL string
+- **Required**: Yes
+- **Vercel**: ✅ | **Azure**: ✅
+- **Example**: `https://your-app.vercel.app`
+- **Description**: Backend API URL (server-side)
+
+#### `NEXTAUTH_URL`
+- **Type**: URL string
+- **Required**: No (deprecated, use `APP_URL`)
+- **Vercel**: ⚠️ | **Azure**: ⚠️
+- **Description**: Legacy auth URL configuration
+
+#### `LOG_LEVEL`
+- **Type**: `debug` | `info` | `warn` | `error`
+- **Required**: No
+- **Default**: `info`
+- **Vercel**: ✅ | **Azure**: ✅
+- **Description**: Logging verbosity level
+
+---
+
+### Database
+
+#### `DATABASE_URL`
+- **Type**: PostgreSQL connection string
+- **Required**: Yes
+- **Vercel**: ✅ | **Azure**: ✅
+- **Example**:
+  ```
+  postgresql://user:pass@host.neon.tech:5432/dbname?sslmode=require&connection_limit=10&pool_timeout=20
+  ```
+- **Description**: PostgreSQL connection string with pooling parameters
+- **Production Tips**:
+  - Use connection pooling: `connection_limit=10`
+  - Set timeouts: `pool_timeout=20`, `connect_timeout=10`
+  - Enable SSL: `sslmode=require`
+
+---
+
+### Authentication & Security
+
+#### `AUTH_SECRET`
+- **Type**: String (min 32 characters)
+- **Required**: Yes
+- **Vercel**: ✅ | **Azure**: ✅
+- **Generate**: `openssl rand -base64 32`
+- **Description**: Secret key for JWT signing
+- **Security**: MUST be cryptographically random, never commit to git
+
+#### `AUTH_COOKIE_NAME`
+- **Type**: String
+- **Required**: No
+- **Default**: `session`
+- **Vercel**: ✅ | **Azure**: ✅
+- **Description**: Name of the session cookie
+
+#### `CORS_ALLOWED_ORIGINS`
+- **Type**: Comma-separated URLs
+- **Required**: No (defaults to `APP_URL`)
+- **Vercel**: ❌ | **Azure**: ✅
+- **Example**: `https://app.com,https://www.app.com`
+- **Description**: Allowed CORS origins for API requests (Azure only)
+
+---
+
+### AI Providers
+
+At least **one** AI provider key is required.
+
+#### `OPENAI_API_KEY`
+- **Type**: String (starts with `sk-`)
+- **Required**: Recommended
+- **Vercel**: ✅ | **Azure**: ✅
+- **Get from**: https://platform.openai.com/api-keys
+- **Example**: `sk-proj-abc123...`
+
+#### `ANTHROPIC_API_KEY`
+- **Type**: String (starts with `sk-ant-`)
+- **Required**: No
+- **Vercel**: ✅ | **Azure**: ✅
+- **Get from**: https://console.anthropic.com/account/keys
+- **Example**: `sk-ant-api03-...`
+
+#### `GOOGLE_API_KEY`
+- **Type**: String (starts with `AIza`)
+- **Required**: No
+- **Vercel**: ✅ | **Azure**: ✅
+- **Get from**: https://makersuite.google.com/app/apikey
+- **Example**: `AIzaSy...`
+
+#### `GROQ_API_KEY`
+- **Type**: String (starts with `gsk_`)
+- **Required**: No
+- **Vercel**: ✅ | **Azure**: ✅
+- **Get from**: https://console.groq.com/keys
+- **Example**: `gsk_...`
+
+#### `XAI_API_KEY`
+- **Type**: String (starts with `xai-`)
+- **Required**: No
+- **Vercel**: ✅ | **Azure**: ✅
+- **Get from**: https://x.ai/api
+- **Example**: `xai-...`
+
+#### `AI_PROVIDER`
+- **Type**: `openai` | `anthropic` | `google` | `groq` | `xai`
+- **Required**: No
+- **Default**: `openai`
+- **Vercel**: ✅ | **Azure**: ✅
+- **Description**: Default AI provider to use
+
+#### `AI_MODEL`
+- **Type**: String
+- **Required**: No
+- **Default**: `gpt-4o-mini`
+- **Vercel**: ✅ | **Azure**: ✅
+- **Description**: Default AI model to use
+
+#### `AI_TIMEOUT_MS`
+- **Type**: Number (milliseconds)
+- **Required**: No
+- **Default**: `45000`
+- **Vercel**: ✅ | **Azure**: ✅
+- **Description**: AI request timeout
+
+#### `INTENT_MODEL`
+- **Type**: String
+- **Required**: No
+- **Vercel**: ✅ | **Azure**: ✅
+- **Description**: Model for intent classification
+
+---
+
+### Email Configuration
+
+Choose **either** SMTP or Resend.
+
+#### SMTP Configuration
+
+#### `SMTP_HOST`
+- **Type**: String
+- **Required**: If email verification enabled
+- **Vercel**: ✅ | **Azure**: ⚠️
+- **Example**: `smtp.gmail.com`
+
+#### `SMTP_PORT`
+- **Type**: Number
+- **Required**: If email verification enabled
+- **Vercel**: ✅ | **Azure**: ⚠️
+- **Example**: `587`
+
+#### `SMTP_SECURE`
+- **Type**: `true` | `false`
+- **Required**: If email verification enabled
+- **Vercel**: ✅ | **Azure**: ⚠️
+- **Example**: `true`
+
+#### `SMTP_USER`
+- **Type**: Email address
+- **Required**: If email verification enabled
+- **Vercel**: ✅ | **Azure**: ⚠️
+- **Example**: `noreply@yourdomain.com`
+
+#### `SMTP_PASS`
+- **Type**: String (app password)
+- **Required**: If email verification enabled
+- **Vercel**: ✅ | **Azure**: ⚠️
+- **Description**: SMTP password or app-specific password
+
+#### `SMTP_FROM`
+- **Type**: Email address or "Name <email>"
+- **Required**: If email verification enabled
+- **Vercel**: ✅ | **Azure**: ⚠️
+- **Example**: `"AI SaaS" <noreply@yourdomain.com>`
+
+#### `REQUIRE_EMAIL_VERIFICATION`
+- **Type**: `true` | `false`
+- **Required**: No
+- **Default**: `false`
+- **Vercel**: ✅ | **Azure**: ✅
+- **Description**: Enable email verification on signup
+
+#### Resend Alternative
+
+#### `RESEND_API_KEY`
+- **Type**: String (starts with `re_`)
+- **Required**: If using Resend instead of SMTP
+- **Vercel**: ✅ | **Azure**: ⚠️
+- **Get from**: https://resend.com/api-keys
+- **Example**: `re_123abc...`
+- **Description**: Modern email API alternative to SMTP
+
+---
+
+### Payment Gateway
+
+#### `PAYOS_CLIENT_ID`
+- **Type**: String
+- **Required**: If payment enabled
+- **Vercel**: ✅ | **Azure**: ⚠️
+- **Get from**: PayOS Dashboard
+- **Description**: PayOS client identifier
+
+#### `PAYOS_API_KEY`
+- **Type**: String
+- **Required**: If payment enabled
+- **Vercel**: ✅ | **Azure**: ⚠️
+- **Description**: PayOS API key
+
+#### `PAYOS_CHECKSUM_KEY`
+- **Type**: String
+- **Required**: If payment enabled
+- **Vercel**: ✅ | **Azure**: ⚠️
+- **Description**: PayOS checksum key for webhook verification
+
+#### `PAYOS_WEBHOOK_SECRET`
+- **Type**: String
+- **Required**: No
+- **Vercel**: ✅ | **Azure**: ⚠️
+- **Description**: Additional webhook secret
+
+---
+
+### Storage
+
+Choose **either** Cloudflare R2 or Azure Blob Storage.
+
+#### Cloudflare R2 (Recommended for Vercel)
+
+#### `R2_ACCOUNT_ID`
+- **Type**: String
+- **Required**: If using R2
+- **Vercel**: ✅ | **Azure**: ✅
+- **Get from**: Cloudflare Dashboard
+- **Description**: Cloudflare account ID
+
+#### `R2_ACCESS_KEY_ID`
+- **Type**: String
+- **Required**: If using R2
+- **Vercel**: ✅ | **Azure**: ✅
+- **Description**: R2 access key ID (S3-compatible)
+
+#### `R2_SECRET_ACCESS_KEY`
+- **Type**: String
+- **Required**: If using R2
+- **Vercel**: ✅ | **Azure**: ✅
+- **Description**: R2 secret access key
+
+#### `R2_BUCKET_NAME`
+- **Type**: String
+- **Required**: If using R2
+- **Vercel**: ✅ | **Azure**: ✅
+- **Example**: `my-saas-uploads`
+- **Description**: R2 bucket name
+
+#### `R2_PUBLIC_URL`
+- **Type**: URL
+- **Required**: No
+- **Vercel**: ✅ | **Azure**: ✅
+- **Example**: `https://uploads.yourdomain.com`
+- **Description**: Public URL for R2 bucket (if using custom domain)
+
+#### Azure Blob Storage (Recommended for Azure)
+
+#### `AZURE_STORAGE_ACCOUNT_NAME`
+- **Type**: String
+- **Required**: If using Azure Blob
+- **Vercel**: ⚠️ | **Azure**: ✅
+- **Description**: Azure Storage account name
+
+#### `AZURE_STORAGE_ACCOUNT_KEY`
+- **Type**: String
+- **Required**: If using Azure Blob
+- **Vercel**: ⚠️ | **Azure**: ✅
+- **Description**: Azure Storage account key
+
+#### `AZURE_STORAGE_CONNECTION_STRING`
+- **Type**: String
+- **Required**: Alternative to account name/key
+- **Vercel**: ⚠️ | **Azure**: ✅
+- **Example**: `DefaultEndpointsProtocol=https;AccountName=...;AccountKey=...`
+- **Description**: Complete Azure Storage connection string
+
+#### `AZURE_BLOB_CONTAINER_NAME`
+- **Type**: String
+- **Required**: No
+- **Default**: `uploads`
+- **Vercel**: ⚠️ | **Azure**: ✅
+- **Description**: Azure Blob container name
+
+---
+
+### Caching & Rate Limiting
+
+#### `UPSTASH_REDIS_REST_URL`
+- **Type**: URL
+- **Required**: Yes (highly recommended)
+- **Vercel**: ✅ | **Azure**: ✅
+- **Get from**: https://console.upstash.com
+- **Example**: `https://your-redis.upstash.io`
+- **Description**: Upstash Redis REST URL
+
+#### `UPSTASH_REDIS_REST_TOKEN`
+- **Type**: String
+- **Required**: Yes (highly recommended)
+- **Vercel**: ✅ | **Azure**: ✅
+- **Description**: Upstash Redis REST token
+
+#### `RATE_PM`
+- **Type**: Number
+- **Required**: No
+- **Vercel**: ✅ | **Azure**: ✅
+- **Description**: Rate limit per minute
+
+#### `MAX_HISTORY`
+- **Type**: Number
+- **Required**: No
+- **Default**: `20`
+- **Vercel**: ✅ | **Azure**: ✅
+- **Description**: Max conversation history messages
+
+---
+
+### Monitoring & Analytics
+
+#### `SENTRY_DSN`
+- **Type**: URL
+- **Required**: No (recommended for production)
+- **Vercel**: ✅ | **Azure**: ✅
+- **Get from**: https://sentry.io
+- **Description**: Sentry DSN for error tracking (server-side)
+
+#### `SENTRY_AUTH_TOKEN`
+- **Type**: String
+- **Required**: No
+- **Vercel**: ✅ | **Azure**: ✅
+- **Description**: Sentry auth token for source maps upload
+
+---
+
+### Cloudflare
+
+#### `CLOUDFLARE_API_TOKEN`
+- **Type**: String
+- **Required**: No
+- **Vercel**: ✅ | **Azure**: ✅
+- **Description**: Cloudflare API token
+
+#### `CLOUDFLARE_ZONE_ID`
+- **Type**: String
+- **Required**: No
+- **Vercel**: ✅ | **Azure**: ✅
+- **Description**: Cloudflare zone ID
+
+#### `CLOUDFLARE_TURNSTILE_SECRET`
+- **Type**: String
+- **Required**: If using Turnstile
+- **Vercel**: ✅ | **Azure**: ✅
+- **Get from**: Cloudflare Turnstile dashboard
+- **Description**: Turnstile secret key (server-side)
+
+---
+
+### Azure-Specific
+
+#### `AZURE_APP_INSIGHTS_KEY`
+- **Type**: String
+- **Required**: No (recommended for Azure)
+- **Vercel**: ❌ | **Azure**: ✅
+- **Get from**: Azure Portal
+- **Description**: Azure Application Insights key
+
+#### `AZURE_KEY_VAULT_URL`
+- **Type**: URL
+- **Required**: No
+- **Vercel**: ❌ | **Azure**: ✅
+- **Example**: `https://your-vault.vault.azure.net`
+- **Description**: Azure Key Vault URL for secret management
+
+---
+
+### Feature Flags
+
+**WARNING**: These should be `0` or `false` in production!
+
+#### `MOCK_AI`
+- **Type**: `0` | `1`
+- **Required**: No
+- **Default**: `0`
+- **Vercel**: ⚠️ Dev only | **Azure**: ⚠️ Dev only
+- **Description**: Use mock AI responses (development only)
+
+#### `DEV_BYPASS_PAY`
+- **Type**: `0` | `1`
+- **Required**: No
+- **Default**: `0`
+- **Vercel**: ⚠️ Dev only | **Azure**: ⚠️ Dev only
+- **Description**: Bypass payment checks (development only)
+
+#### `DEV_BYPASS_LIMIT`
+- **Type**: `0` | `1`
+- **Required**: No
+- **Default**: `0`
+- **Vercel**: ⚠️ Dev only | **Azure**: ⚠️ Dev only
+- **Description**: Bypass rate limits (development only)
+
+#### `DEBUG_OPENAI`
+- **Type**: `0` | `1`
+- **Required**: No
+- **Default**: `0`
+- **Vercel**: ⚠️ Dev only | **Azure**: ⚠️ Dev only
+- **Description**: Log OpenAI API responses
+
+---
+
+### Client-Side Variables
+
+These variables are **bundled in the client code** and exposed to browsers.
+
+#### `NEXT_PUBLIC_APP_URL`
+- **Type**: URL
+- **Required**: Yes
+- **Vercel**: ✅ | **Azure**: ❌
+- **Example**: `https://your-app.vercel.app`
+- **Description**: Public-facing app URL
+
+#### `NEXT_PUBLIC_BASE_URL`
+- **Type**: URL
+- **Required**: No
+- **Vercel**: ✅ | **Azure**: ❌
+- **Description**: Alternative to `NEXT_PUBLIC_APP_URL`
+
+#### `NEXT_PUBLIC_API_URL`
+- **Type**: URL
+- **Required**: No (defaults to `NEXT_PUBLIC_APP_URL`)
+- **Vercel**: ✅ | **Azure**: ❌
+- **Example**: `https://api-backend.azurewebsites.net`
+- **Description**: Separate API backend URL
+
+#### `NEXT_PUBLIC_SENTRY_DSN`
+- **Type**: URL
+- **Required**: No
+- **Vercel**: ✅ | **Azure**: ❌
+- **Description**: Sentry DSN for client-side error tracking
+
+#### `NEXT_PUBLIC_GA_MEASUREMENT_ID`
+- **Type**: String
+- **Required**: No
+- **Vercel**: ✅ | **Azure**: ❌
+- **Example**: `G-XXXXXXXXXX`
+- **Description**: Google Analytics measurement ID
+
+#### `NEXT_PUBLIC_POSTHOG_KEY`
+- **Type**: String
+- **Required**: No
+- **Vercel**: ✅ | **Azure**: ❌
+- **Description**: PostHog API key
+
+#### `NEXT_PUBLIC_POSTHOG_HOST`
+- **Type**: URL
+- **Required**: No
+- **Vercel**: ✅ | **Azure**: ❌
+- **Default**: `https://app.posthog.com`
+- **Description**: PostHog host URL
+
+#### `NEXT_PUBLIC_CLOUDFLARE_TURNSTILE_SITE_KEY`
+- **Type**: String
+- **Required**: If using Turnstile
+- **Vercel**: ✅ | **Azure**: ❌
+- **Get from**: Cloudflare Turnstile dashboard
+- **Description**: Turnstile site key (client-side)
+
+#### `NEXT_PUBLIC_ENABLE_ANALYTICS`
+- **Type**: `true` | `false`
+- **Required**: No
+- **Vercel**: ✅ | **Azure**: ❌
+- **Description**: Enable/disable client-side analytics
+
+#### `NEXT_PUBLIC_ENABLE_CHAT_EXPORT`
+- **Type**: `true` | `false`
+- **Required**: No
+- **Vercel**: ✅ | **Azure**: ❌
+- **Description**: Enable chat export feature
+
+#### `NEXT_PUBLIC_MAX_FILE_SIZE_MB`
+- **Type**: Number
+- **Required**: No
+- **Default**: `10`
+- **Vercel**: ✅ | **Azure**: ❌
+- **Description**: Maximum file upload size in MB
+
+#### `NEXT_PUBLIC_CDN_URL`
+- **Type**: URL
+- **Required**: No
+- **Vercel**: ✅ | **Azure**: ❌
+- **Description**: CDN URL for static assets
+
+#### `NEXT_PUBLIC_R2_PUBLIC_URL`
+- **Type**: URL
+- **Required**: No
+- **Vercel**: ✅ | **Azure**: ❌
+- **Description**: Public R2 bucket URL
+
+---
+
+## Validation
+
+Use the built-in validation scripts:
+
+### Verify Environment Variables
+
+```bash
+# Check all environment variables
+npm run env:verify
+
+# Strict mode (warnings treated as errors)
+npm run env:verify -- --strict
+```
+
+### Post-Deployment Verification
+
+```bash
+# Test deployed application
+NEXT_PUBLIC_APP_URL=https://your-app.vercel.app npm run verify:production
+
+# Verbose output
+NEXT_PUBLIC_APP_URL=https://your-app.vercel.app npm run verify:production -- --verbose
+```
+
+---
+
+## Security Best Practices
+
+### 1. Secret Management
+
+**DO:**
+- Generate cryptographically random secrets
+- Use Azure Key Vault or Vercel Environment Variables
+- Rotate secrets regularly
+- Use different secrets for dev/staging/production
+
+**DON'T:**
+- Commit secrets to git
+- Use placeholder values in production
+- Share secrets in plain text
+- Reuse secrets across environments
+
+### 2. Secret Generation
+
+```bash
+# Generate AUTH_SECRET
+openssl rand -base64 32
+
+# Generate strong password
+openssl rand -base64 24
+```
+
+### 3. Environment-Specific Configs
+
+| Environment | File | Usage |
+|-------------|------|-------|
+| **Development** | `.env.local` | Local development (gitignored) |
+| **Production** | Vercel Dashboard / Azure App Settings | Deployed environments |
+| **Testing** | `.env.test` | CI/CD testing |
+
+### 4. Client-Side Security
+
+**NEVER** expose secrets in `NEXT_PUBLIC_*` variables:
+- ❌ API keys
+- ❌ Database credentials
+- ❌ Auth secrets
+- ❌ Payment secrets
+
+**SAFE** to expose:
+- ✅ App URLs
+- ✅ Public API endpoints
+- ✅ Analytics IDs
+- ✅ Turnstile site keys
+
+### 5. CORS Configuration
+
+For Azure backend with Vercel frontend:
+
+```bash
+CORS_ALLOWED_ORIGINS=https://your-app.vercel.app,https://www.your-domain.com
+```
+
+### 6. Production Checklist
+
+Before deploying to production:
+
+- [ ] All secrets are random and unique
+- [ ] No development flags enabled (`MOCK_AI`, `DEV_BYPASS_*`)
+- [ ] HTTPS enabled for all URLs
+- [ ] Database connection pooling configured
+- [ ] Redis/Upstash configured for rate limiting
+- [ ] Error tracking enabled (Sentry)
+- [ ] CORS configured correctly (Azure)
+- [ ] Storage provider configured (R2 or Azure Blob)
+- [ ] Email provider configured (SMTP or Resend)
+- [ ] Run `npm run env:verify -- --strict`
+
+---
+
+## Quick Reference
+
+### Minimal Production Setup (Vercel Only)
 
 ```bash
 # Core
-DATABASE_URL="postgresql://..."
-AUTH_SECRET="<32+ random characters from secure source>"
-NEXT_PUBLIC_APP_URL="https://yourdomain.com"
+NODE_ENV=production
+NEXT_PUBLIC_APP_URL=https://your-app.vercel.app
+APP_URL=https://your-app.vercel.app
 
-# AI Providers (at least 2 for failover)
-OPENAI_API_KEY="sk-..."
-ANTHROPIC_API_KEY="sk-ant-..."
+# Database
+DATABASE_URL=postgresql://user:pass@host.neon.tech/db?sslmode=require&connection_limit=10
 
-# Email (required if REQUIRE_EMAIL_VERIFICATION=true)
-SMTP_HOST="smtp.sendgrid.net"
-SMTP_PORT="587"
-SMTP_SECURE="true"
-SMTP_USER="apikey"
-SMTP_PASS="<SendGrid API key>"
-SMTP_FROM="YourApp <no-reply@yourdomain.com>"
+# Auth
+AUTH_SECRET=<generated-32-char-secret>
 
-# Payment (if monetizing)
-PAYOS_CLIENT_ID="..."
-PAYOS_API_KEY="..."
-PAYOS_CHECKSUM_KEY="..."
+# Redis
+UPSTASH_REDIS_REST_URL=https://your-redis.upstash.io
+UPSTASH_REDIS_REST_TOKEN=<your-token>
 
-# Caching & Rate Limiting
-REDIS_URL="https://..."
-REDIS_TOKEN="..."
-RATE_LIMIT_BACKEND="redis"
+# AI (choose at least one)
+OPENAI_API_KEY=sk-...
+```
+
+### Full Production Setup (Vercel + Azure)
+
+Add to Vercel + Azure:
+```bash
+# Storage (R2)
+R2_ACCOUNT_ID=<cloudflare-account-id>
+R2_ACCESS_KEY_ID=<access-key>
+R2_SECRET_ACCESS_KEY=<secret-key>
+R2_BUCKET_NAME=my-saas-uploads
+R2_PUBLIC_URL=https://uploads.yourdomain.com
+
+# Email (Resend)
+RESEND_API_KEY=re_...
+
+# Payment
+PAYOS_CLIENT_ID=<client-id>
+PAYOS_API_KEY=<api-key>
+PAYOS_CHECKSUM_KEY=<checksum-key>
 
 # Monitoring
-SENTRY_DSN="https://..."
-NEXT_PUBLIC_SENTRY_DSN="https://..."
+SENTRY_DSN=https://...@sentry.io/...
+NEXT_PUBLIC_SENTRY_DSN=https://...@sentry.io/...
 
-# Performance
-AI_TIMEOUT_MS="60000"
-ENABLE_QUERY_CACHING="true"
-SEMANTIC_CACHE_THRESHOLD="0.95"
+# Cloudflare
+CLOUDFLARE_TURNSTILE_SECRET=<secret-key>
+NEXT_PUBLIC_CLOUDFLARE_TURNSTILE_SITE_KEY=<site-key>
 ```
 
-### Production Security Checklist
-
-- [ ] `AUTH_SECRET` is 32+ cryptographically random characters
-- [ ] `AUTH_SECRET` is NOT committed to version control
-- [ ] All `*_API_KEY` variables are NOT committed to version control
-- [ ] `DEV_BYPASS_*` flags are set to `false` or removed
-- [ ] `MOCK_AI` is set to `false` or removed
-- [ ] `NODE_ENV` is set to `production`
-- [ ] `NEXT_PUBLIC_APP_URL` matches your actual domain
-- [ ] SMTP credentials are app-specific passwords (not main password)
-- [ ] Sentry DSN is project-specific (not shared across apps)
-- [ ] Database connection string uses connection pooling settings
-- [ ] Redis URL uses TLS in production (`rediss://` not `redis://`)
-
----
-
-## Environment Files
-
-### `.env.local` (Development)
-- Used during local development
-- Gitignored by default
-- Override with `.env.development` for specific dev settings
-
-### `.env.production` (Production)
-- **⚠️ NEVER commit this file**
-- Contains production secrets
-- Use secret management systems:
-  - GitHub Secrets (CI/CD)
-  - Kubernetes Secrets
-  - Docker Secrets
-  - Cloud provider secret managers (AWS Secrets Manager, GCP Secret Manager)
-
-### `.env.example`
-- Template for required variables
-- Safe to commit (no actual secrets)
-- Keep updated when adding new variables
-
----
-
-## Troubleshooting
-
-### "AUTH_SECRET must be at least 32 characters long"
-**Solution**: Generate a new secret:
+Add to Azure only:
 ```bash
-openssl rand -base64 32
+# CORS
+CORS_ALLOWED_ORIGINS=https://your-app.vercel.app
+
+# Azure Monitoring
+AZURE_APP_INSIGHTS_KEY=<insights-key>
 ```
-
-### "Prisma connection pool exhausted"
-**Solution**: Adjust DATABASE_URL parameters:
-```
-?connection_limit=10&pool_timeout=20
-```
-
-### "Redis credentials not configured"
-**Solution**: Either:
-1. Set `REDIS_URL` and `REDIS_TOKEN` for production, OR
-2. Set `RATE_LIMIT_BACKEND=memory` for development
-
-### "Sentry not capturing errors"
-**Solution**: Verify:
-1. `SENTRY_DSN` is set correctly
-2. `NODE_ENV=production` (Sentry disabled in development)
-3. Check Sentry dashboard for project status
-
-### "Email verification not working"
-**Solution**: Check:
-1. All SMTP_* variables are set
-2. `SMTP_USER` and `SMTP_PASS` are correct
-3. Gmail users: Use app-specific password, not main password
-4. Check SMTP server logs for connection errors
 
 ---
 
-## References
+## Related Documentation
 
-- [Next.js Environment Variables](https://nextjs.org/docs/app/building-your-application/configuring/environment-variables)
-- [Prisma Connection Management](https://www.prisma.io/docs/guides/performance-and-optimization/connection-management)
-- [Sentry Configuration](https://docs.sentry.io/platforms/javascript/guides/nextjs/)
-- [Upstash Redis](https://docs.upstash.com/redis)
+- [Vercel Deployment Guide](../scripts/deploy-vercel.md)
+- [Azure Deployment Guide](../scripts/deploy-azure.md)
+- [Production Environment Template](../.env.production.example)
 
 ---
 
-**Last Updated**: 2025-10-09
-**Version**: 1.0.0-beta
+**Last Updated**: October 2025
+**Version**: 1.1.0

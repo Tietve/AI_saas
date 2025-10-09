@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { PayOS } from '@payos/node'
 import { prisma } from '@/lib/prisma'
 import crypto from 'crypto'
-
+import { logger } from '@/lib/logger'
 
 // Force Node.js runtime (required for Prisma)
 export const runtime = 'nodejs'
@@ -32,9 +32,39 @@ function verifyWebhookData(data: any, signature: string): boolean {
     }
 }
 
-export async function POST(req: NextRequest) {
+/**
+ * Log webhook metrics to ProviderMetrics
+ */
+async function logWebhookMetrics(params: {
+    eventType: string
+    success: boolean
+    errorCode?: string
+    errorMessage?: string
+    latencyMs: number
+}) {
     try {
-        
+        await prisma.providerMetrics.create({
+            data: {
+                provider: 'OPENAI', // Use generic provider for webhooks
+                model: 'gpt_4o_mini', // Placeholder
+                latencyMs: params.latencyMs,
+                success: params.success,
+                errorCode: params.errorCode,
+                errorMessage: params.errorMessage,
+                tokensIn: null,
+                tokensOut: null,
+                requestId: `webhook_${params.eventType}`,
+            },
+        })
+    } catch (error) {
+        logger.error({ err: error }, 'Failed to log webhook metrics')
+    }
+}
+
+export async function POST(req: NextRequest) {
+    const startTime = Date.now()
+
+    try {
         const signature = req.headers.get('x-payos-signature') || ''
 
         // Parse body
@@ -46,16 +76,31 @@ export async function POST(req: NextRequest) {
             data: body.data
         })
 
-        // Verify signature (tạm comment nếu test)
-        // if (!verifyWebhookData(body.data, signature)) {
-        //   console.error('[Webhook] Invalid signature')
-        
-        
-        
-        
-        
+        // Verify signature (enable in production)
+        if (process.env.NODE_ENV === 'production' && signature) {
+            const isValid = verifyWebhookData(body.data, signature)
 
-        
+            if (!isValid) {
+                console.error('[Webhook] Invalid signature')
+
+                // Log failed verification to metrics
+                await logWebhookMetrics({
+                    eventType: body.desc || 'unknown',
+                    success: false,
+                    errorCode: 'INVALID_SIGNATURE',
+                    latencyMs: 0,
+                })
+
+                return NextResponse.json(
+                    {
+                        code: '99',
+                        desc: 'Invalid signature',
+                    },
+                    { status: 403 }
+                )
+            }
+        }
+
         const webhookId = body.data?.paymentLinkId || `webhook_${Date.now()}`
 
         const existingEvent = await prisma.webhookEvent.findUnique({
@@ -98,7 +143,16 @@ export async function POST(req: NextRequest) {
             await handlePaymentCancelled(body.data, webhookEvent.id)
         }
 
-        
+        // Log success metrics
+        const latencyMs = Date.now() - startTime
+        await logWebhookMetrics({
+            eventType: body.desc || 'unknown',
+            success: true,
+            latencyMs,
+        })
+
+        logger.info({ webhookId, latencyMs, eventType: body.desc }, 'Webhook processed successfully')
+
         return NextResponse.json({
             code: '00',
             desc: 'success'
@@ -106,6 +160,18 @@ export async function POST(req: NextRequest) {
 
     } catch (error: any) {
         console.error('[Webhook] Error processing:', error)
+
+        // Log error metrics
+        const latencyMs = Date.now() - startTime
+        await logWebhookMetrics({
+            eventType: 'error',
+            success: false,
+            errorCode: 'PROCESSING_ERROR',
+            errorMessage: error.message,
+            latencyMs,
+        })
+
+        logger.error({ err: error }, 'Webhook processing failed')
 
         return NextResponse.json(
             {

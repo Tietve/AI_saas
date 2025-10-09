@@ -58,6 +58,7 @@ class EnvValidator {
     this.validateDatabase()
     this.validateSecurity()
     this.validateEmail()
+    this.validateStorage()
     this.validatePayment()
     this.validateCaching()
     this.validateMonitoring()
@@ -230,9 +231,21 @@ class EnvValidator {
   }
 
   private validateEmail() {
-    // Only required if email verification is enabled
-    if (process.env.REQUIRE_EMAIL_VERIFICATION === 'true') {
-      this.info.push('Checking email configuration (REQUIRE_EMAIL_VERIFICATION=true)...')
+    // Check if any email service is configured
+    const hasResend = !!process.env.RESEND_API_KEY
+    const hasSmtp = !!(process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS)
+
+    if (hasResend) {
+      this.info.push('Checking email configuration (Resend)...')
+
+      // Validate Resend API key format
+      if (!process.env.RESEND_API_KEY?.startsWith('re_')) {
+        this.warnings.push('RESEND_API_KEY should start with "re_" - verify the key is correct')
+      }
+
+      this.info.push('✓ Resend email provider configured')
+    } else if (hasSmtp) {
+      this.info.push('Checking email configuration (SMTP)...')
 
       const requiredEmailVars = [
         'SMTP_HOST',
@@ -244,7 +257,7 @@ class EnvValidator {
 
       requiredEmailVars.forEach(varName => {
         if (!process.env[varName]) {
-          this.errors.push(`${varName} is required when REQUIRE_EMAIL_VERIFICATION=true`)
+          this.errors.push(`${varName} is required when using SMTP`)
         }
       })
 
@@ -257,6 +270,69 @@ class EnvValidator {
       if (process.env.SMTP_FROM && !this.isValidEmail(process.env.SMTP_FROM)) {
         this.warnings.push('SMTP_FROM should be a valid email address or formatted as "Name <email@domain.com>"')
       }
+
+      this.info.push('✓ SMTP email provider configured')
+    } else if (process.env.REQUIRE_EMAIL_VERIFICATION === 'true') {
+      this.errors.push('Email provider required when REQUIRE_EMAIL_VERIFICATION=true (configure RESEND_API_KEY or SMTP)')
+    } else {
+      this.warnings.push('No email provider configured (RESEND or SMTP). Email features will be disabled.')
+    }
+  }
+
+  private validateStorage() {
+    this.info.push('Checking storage configuration...')
+
+    const hasR2 = !!(process.env.R2_ACCESS_KEY_ID && process.env.R2_SECRET_ACCESS_KEY && process.env.R2_BUCKET_NAME)
+    const hasAzureBlob = !!(process.env.AZURE_STORAGE_CONNECTION_STRING ||
+                           (process.env.AZURE_STORAGE_ACCOUNT_NAME && process.env.AZURE_STORAGE_ACCOUNT_KEY))
+
+    if (hasR2) {
+      // Validate R2 configuration
+      const r2Vars = ['R2_ACCESS_KEY_ID', 'R2_SECRET_ACCESS_KEY', 'R2_BUCKET_NAME']
+      const missingR2Vars = r2Vars.filter(v => !process.env[v])
+
+      if (missingR2Vars.length > 0) {
+        this.errors.push(`Incomplete R2 configuration. Missing: ${missingR2Vars.join(', ')}`)
+      } else {
+        this.info.push('✓ Cloudflare R2 storage configured')
+
+        // Validate R2_ACCOUNT_ID if provided
+        if (process.env.R2_ACCOUNT_ID) {
+          this.info.push('  - R2 Account ID configured')
+        } else {
+          this.warnings.push('R2_ACCOUNT_ID not set. May be required for some R2 operations.')
+        }
+
+        // Validate R2_PUBLIC_URL if provided
+        if (process.env.R2_PUBLIC_URL) {
+          if (!this.isValidUrl(process.env.R2_PUBLIC_URL)) {
+            this.warnings.push('R2_PUBLIC_URL is not a valid URL')
+          } else {
+            this.info.push('  - R2 public URL configured')
+          }
+        }
+      }
+    } else if (hasAzureBlob) {
+      // Validate Azure Blob configuration
+      if (process.env.AZURE_STORAGE_CONNECTION_STRING) {
+        this.info.push('✓ Azure Blob Storage configured (connection string)')
+      } else if (process.env.AZURE_STORAGE_ACCOUNT_NAME && process.env.AZURE_STORAGE_ACCOUNT_KEY) {
+        this.info.push('✓ Azure Blob Storage configured (account name + key)')
+      }
+
+      // Check container name
+      if (!process.env.AZURE_BLOB_CONTAINER_NAME) {
+        this.info.push('  - Using default container name: "uploads"')
+      } else {
+        this.info.push(`  - Container name: ${process.env.AZURE_BLOB_CONTAINER_NAME}`)
+      }
+    } else {
+      this.warnings.push('No storage provider configured (R2 or Azure Blob). File upload features will be disabled.')
+    }
+
+    // Check for conflicting storage configurations
+    if (hasR2 && hasAzureBlob) {
+      this.warnings.push('Both R2 and Azure Blob Storage are configured. R2 will be used by default.')
     }
   }
 
@@ -273,6 +349,16 @@ class EnvValidator {
           this.errors.push(`${varName} is required when payment is enabled (found partial payment config)`)
         }
       })
+
+      // Validate PayOS webhook secret if provided
+      if (process.env.PAYOS_WEBHOOK_SECRET) {
+        if (process.env.PAYOS_WEBHOOK_SECRET.length < 16) {
+          this.warnings.push('PAYOS_WEBHOOK_SECRET should be at least 16 characters for security')
+        }
+        this.info.push('✓ PayOS webhook secret configured')
+      }
+
+      this.info.push('✓ PayOS payment configuration complete')
     }
   }
 

@@ -103,6 +103,7 @@ jobs:
       # ----------------------------------------
       # Creates a clean deployment package with:
       # - Built application (.next)
+      # - Source code (src/) - REQUIRED for Next.js without standalone
       # - Dependencies (node_modules)
       # - Package files (package.json, package-lock.json)
       # - Prisma schema and generated client
@@ -118,32 +119,42 @@ jobs:
           cp package.json deployment/
           cp package-lock.json deployment/
           cp next.config.js deployment/ || echo "⚠️ next.config.js not found"
+          cp tsconfig.json deployment/ || echo "⚠️ tsconfig.json not found"
+
+          # ✅ CRITICAL FIX: Copy source code (needed for Next.js runtime)
+          echo "📦 Copying source code..."
+          cp -r src deployment/
 
           # Copy built application
+          echo "📦 Copying .next build output..."
           cp -r .next deployment/
 
           # Copy Prisma files
+          echo "📦 Copying Prisma schema..."
           mkdir -p deployment/prisma
           cp -r prisma/schema.prisma deployment/prisma/
 
-          # Copy Prisma Client (generated in node_modules)
-          mkdir -p deployment/node_modules/.prisma
-          cp -r node_modules/.prisma deployment/node_modules/
-          cp -r node_modules/@prisma deployment/node_modules/
-
           # Copy public assets (if exists)
           if [ -d "public" ]; then
+            echo "📦 Copying public assets..."
             cp -r public deployment/
           fi
 
-          # Install production dependencies only
+          # Install production dependencies
+          echo "📦 Installing production dependencies..."
           cd deployment
-          npm ci --omit=dev --ignore-scripts
+          npm ci --omit=dev
+
+          # ✅ CRITICAL FIX: Generate Prisma Client in deployment folder
+          echo "🗄️ Generating Prisma Client..."
+          DATABASE_URL="${{ secrets.DATABASE_URL }}" npx prisma generate
 
           # Go back to root
           cd ..
 
           echo "✅ Deployment package created"
+          echo "📊 Package contents:"
+          ls -la deployment/
 
       # ----------------------------------------
       # Step 7: Create Deployment Archive

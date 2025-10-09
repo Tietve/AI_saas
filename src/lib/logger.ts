@@ -43,8 +43,8 @@ export const logger = pino({
     res: pino.stdSerializers.res,
   },
 
-  // Pretty printing for development
-  transport: isDevelopment
+  // Pretty printing for development (only if module exists)
+  transport: isDevelopment && !process.env.AZURE_WEBAPP_NAME
     ? {
         target: 'pino-pretty',
         options: {

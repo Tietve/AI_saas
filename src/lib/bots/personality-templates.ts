@@ -69,6 +69,52 @@ export const BOTS: Bot[] = [
     }
 ]
 
+// BotPersonality interface for new bot selector
+export interface BotPersonality {
+    id: string
+    name: string
+    tagline: string
+    description: string
+    systemPrompt: string
+    typingIndicator?: string
+    appearance: {
+        emoji: string
+        primaryColor?: string
+        secondaryColor?: string
+        accentColor?: string
+    }
+    personality: {
+        traits: string[]
+        tone: string
+    }
+    capabilities: {
+        strengths: string[]
+    }
+}
+
+// Export botPersonalities array (map from BOTS for compatibility)
+export const botPersonalities: BotPersonality[] = BOTS.map(bot => ({
+    id: bot.id,
+    name: bot.name,
+    tagline: bot.description,
+    description: bot.description,
+    systemPrompt: bot.systemPrompt,
+    typingIndicator: bot.name + ' is typing...',
+    appearance: {
+        emoji: bot.avatar || '🤖',
+        primaryColor: '#3b82f6',
+        secondaryColor: '#60a5fa',
+        accentColor: '#2563eb'
+    },
+    personality: {
+        traits: bot.tags,
+        tone: bot.tags[0] || 'professional'
+    },
+    capabilities: {
+        strengths: [bot.description]
+    }
+}))
+
 export function getBotById(id: string): Bot | undefined {
     return BOTS.find(bot => bot.id === id)
 }

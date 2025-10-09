@@ -116,6 +116,7 @@ export class LoadBalancer {
       stats: this.instanceStats.get(instance.id) || {
         totalRequests: 0,
         successfulRequests: 0,
+        totalResponseTime: 0,
         averageResponseTime: 0,
         errorRate: 0
       }
@@ -192,10 +193,15 @@ export class LoadBalancer {
     const healthCheckPromises = this.config.instances.map(async (instance) => {
       try {
         const startTime = Date.now()
+        const controller = new AbortController()
+        const timeoutId = setTimeout(() => controller.abort(), this.config.healthCheck.timeout)
+
         const response = await fetch(`${instance.url}${this.config.healthCheck.path}`, {
           method: 'GET',
-          timeout: this.config.healthCheck.timeout
+          signal: controller.signal
         })
+
+        clearTimeout(timeoutId)
         const responseTime = Date.now() - startTime
 
         const isHealthy = response.status === this.config.healthCheck.expectedStatus

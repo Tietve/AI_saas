@@ -10,4 +10,6 @@ export const redisSimple: RedisSimple | null = upstash ? {
     incr: (k) => upstash.incr(k) as any,
     pexpire: (k, ms) => upstash.pexpire(k, ms) as any,
     pttl: (k) => upstash.pttl(k) as any,
+    get: (k) => upstash.get(k) as any,
+    setex: (k, sec, val) => upstash.setex(k, sec, val) as any,
 } : null

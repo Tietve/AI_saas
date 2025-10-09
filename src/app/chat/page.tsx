@@ -4,6 +4,9 @@ import React, { useState, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useChat } from '@/hooks/chat/useChat'
 import { useProjects } from '@/hooks/chat/useProjects'
+import { useToast } from '@/components/ui/toast'
+
+export const dynamic = 'force-dynamic'
 
 // Import components mới
 import { ChatSidebar } from '@/components/chat-v2/ChatSidebar'
@@ -25,6 +28,7 @@ import styles from '@/styles/pages/chat.module.css'
 export default function ChatPage() {
     const router = useRouter()
     const searchParams = useSearchParams()
+    const { showToast } = useToast()
 
     // States từ code cũ - GIỮ NGUYÊN
     const [loading, setLoading] = useState(true)
@@ -41,6 +45,7 @@ export default function ChatPage() {
     const [userPlanTier, setUserPlanTier] = useState<string>('FREE')
     const [currentTheme, setCurrentTheme] = useState('claude')
     const [showCreateProjectModal, setShowCreateProjectModal] = useState(false)
+    const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null)
 
     // Hook useChat - GIỮ NGUYÊN
     const {
@@ -83,7 +88,12 @@ export default function ChatPage() {
     })
 
     // Projects hook
-    const { projects, createProject } = useProjects()
+    const { projects, createProject, updateProject, deleteProject } = useProjects()
+
+    // Filter conversations by selected project
+    const conversationsFilteredByProject = selectedProjectId
+        ? filteredConversations.filter(c => c.projectId === selectedProjectId)
+        : filteredConversations
 
     // Theme initialization - GIỮ NGUYÊN
     useEffect(() => {
@@ -274,11 +284,27 @@ export default function ChatPage() {
                 body: JSON.stringify({ projectId })
             })
             if (!res.ok) throw new Error('Failed to add to project')
+            showToast('success', projectId ? 'Added to project' : 'Removed from project')
             // Reload conversations để cập nhật projectId
-            window.location.reload()
+            setTimeout(() => window.location.reload(), 500)
         } catch (error) {
             console.error('[Add to Project] Error:', error)
-            setError('Không thể thêm vào project')
+            showToast('error', 'Failed to update project')
+        }
+    }
+
+    async function getConversationMessages(conversationId: string) {
+        try {
+            const res = await fetch(`/api/conversations/${conversationId}/messages`, {
+                credentials: 'include',
+                cache: 'no-store'
+            })
+            if (!res.ok) throw new Error('Failed to load messages')
+            const data = await res.json()
+            return data.messages || []
+        } catch (error) {
+            console.error('[Get Messages] Error:', error)
+            return []
         }
     }
 
@@ -300,7 +326,7 @@ export default function ChatPage() {
                 isOpen={sidebarOpen}
                 isCollapsed={sidebarCollapsed}
                 onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
-                conversations={filteredConversations}
+                conversations={conversationsFilteredByProject}
                 currentConversationId={currentConversationId}
                 searchQuery={searchQuery}
                 onSearchChange={setSearchQuery}
@@ -322,9 +348,13 @@ export default function ChatPage() {
                 onRenameConversation={handleRenameConversation}
                 onTogglePin={togglePin}
                 projects={projects}
+                selectedProjectId={selectedProjectId}
+                onSelectProject={setSelectedProjectId}
                 onAddToProject={handleAddToProject}
                 onCreateProject={() => setShowCreateProjectModal(true)}
+                onDeleteProject={deleteProject}
                 onSignOut={handleSignOut}
+                getConversationMessages={getConversationMessages}
             />
 
             {/* Mobile Overlay */}

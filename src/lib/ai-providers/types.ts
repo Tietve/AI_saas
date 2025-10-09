@@ -12,6 +12,8 @@ export interface GenerateOptions {
     maxTokens?: number;
     systemPrompt?: string;
     model?: string;
+    userId?: string;
+    requestId?: string;
 }
 
 export interface AIResponse {
@@ -24,4 +26,5 @@ export interface AIResponse {
     provider: string;
     model: string;
     latency: number;
+    cached?: boolean;
 }

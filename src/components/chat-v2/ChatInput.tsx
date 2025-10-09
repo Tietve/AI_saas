@@ -4,14 +4,7 @@ import { Button } from '@/components/ui/button'
 import { VoiceRecorder } from './VoiceRecorder'
 import { PromptsLibrary } from './PromptsLibrary'
 import styles from '@/styles/components/chat/input.module.css'
-
-interface Attachment {
-    id: string
-    name: string
-    type: string
-    size: number
-    url?: string
-}
+import { Attachment } from '@/components/chat/shared/types'
 
 interface ChatInputProps {
     value: string
@@ -90,17 +83,18 @@ export function ChatInput({
         }
     }
 
-    // Helper function to get file icon based on type
-    const getFileIcon = (type: string | undefined, size: number = 14) => {
-        if (!type) return <File size={size} />
+    // Helper function to get file icon based on attachment kind
+    const getFileIcon = (attachment: Attachment, size: number = 14) => {
+        const kind = attachment.kind
+        const mimeType = attachment.meta?.mimeType
 
-        if (type.startsWith('image/')) {
+        if (kind === 'image') {
             return <ImageIcon size={size} />
-        } else if (type === 'application/pdf') {
+        } else if (kind === 'pdf') {
             return <FileText size={size} style={{ color: '#e74c3c' }} />
-        } else if (type.includes('sheet') || type.includes('excel')) {
+        } else if (mimeType?.includes('sheet') || mimeType?.includes('excel')) {
             return <FileSpreadsheet size={size} style={{ color: '#27ae60' }} />
-        } else if (type.includes('word') || type.includes('document')) {
+        } else if (mimeType?.includes('word') || mimeType?.includes('document')) {
             return <FileText size={size} style={{ color: '#3498db' }} />
         } else {
             return <File size={size} />
@@ -121,11 +115,11 @@ export function ChatInput({
                 <div className={styles.attachmentsPreview}>
                     {attachments.map(attachment => (
                         <div key={attachment.id} className={styles.attachmentChip}>
-                            {getFileIcon(attachment.type)}
+                            {getFileIcon(attachment)}
                             <div className={styles.attachmentInfo}>
-                                <span className={styles.attachmentName}>{attachment.name}</span>
+                                <span className={styles.attachmentName}>{attachment.meta?.name || 'File'}</span>
                                 <span className={styles.attachmentSize}>
-                                    {formatFileSize(attachment.size)}
+                                    {attachment.meta?.size ? formatFileSize(attachment.meta.size) : ''}
                                 </span>
                             </div>
                             {onRemoveAttachment && (

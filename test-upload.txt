@@ -1,4 +1,0 @@
-Đây là file test để kiểm tra upload và text extraction.
-Nội dung này sẽ được AI đọc và hiểu.
-
-Testing Vietnamese characters: áàảãạ éèẻẽẹ

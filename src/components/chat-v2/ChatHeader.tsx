@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { getBotsList } from '@/lib/bots/personality-templates'
 import { THEMES, ThemeManager } from '@/lib/theme/theme-manager'
 import { ExportMenu } from './ExportMenu'
+import { ActionsMenu } from './ActionsMenu'
 import type { Message } from '@/components/chat/shared/types'
 import styles from '@/styles/components/chat/header.module.css'
 
@@ -39,35 +40,60 @@ const AI_MODELS = [
         name: 'GPT-4o Mini',
         badge: 'Fast',
         color: '#10B981',
-        description: 'Fastest responses, good for simple tasks'
+        description: 'Fastest responses, good for simple tasks',
+        pricing: '$0.15/1M',
+        speed: 5,
+        quality: 3,
+        icon: '⚡',
+        bestFor: 'Quick questions, simple tasks, rapid prototyping'
     },
     {
         value: 'gpt_4o',
         name: 'GPT-4o',
         badge: 'Smart',
         color: '#3B82F6',
-        description: 'Most capable, best for complex reasoning'
+        description: 'Most capable, best for complex reasoning',
+        pricing: '$5.00/1M',
+        speed: 3,
+        quality: 5,
+        icon: '🧠',
+        bestFor: 'Complex reasoning, coding, data analysis'
     },
     {
         value: 'claude_3_5_sonnet',
         name: 'Claude 3.5',
         badge: 'Creative',
         color: '#8B5CF6',
-        description: 'Great for writing and creativity'
+        description: 'Great for writing and creativity',
+        pricing: '$3.00/1M',
+        speed: 4,
+        quality: 5,
+        icon: '✨',
+        bestFor: 'Writing, creativity, long-form content'
     },
     {
         value: 'gemini_1_5_pro',
         name: 'Gemini 1.5 Pro',
         badge: 'Long Context',
         color: '#F59E0B',
-        description: 'Handles very long conversations'
+        description: 'Handles very long conversations',
+        pricing: '$1.25/1M',
+        speed: 4,
+        quality: 4,
+        icon: '📚',
+        bestFor: 'Long documents, extensive context, research'
     },
     {
         value: 'llama_3_1_8b',
         name: 'Llama 3.1',
         badge: 'Open Source',
         color: '#EC4899',
-        description: 'Free and open-source model'
+        description: 'Free and open-source model',
+        pricing: 'Free',
+        speed: 4,
+        quality: 3,
+        icon: '🦙',
+        bestFor: 'Cost-effective usage, experimentation'
     }
 ]
 
@@ -221,17 +247,47 @@ export function ChatHeader(props: ChatHeaderProps) {
                                                     setShowModelMenu(false)
                                                 }}
                                             >
-                                                <div className={styles.itemContent}>
-                                                    <div className={styles.itemHeader}>
-                                                        <span className={styles.itemName}>{model.name}</span>
-                                                        <span
-                                                            className={styles.badge}
-                                                            style={{ backgroundColor: model.color }}
-                                                        >
-                              {model.badge}
-                            </span>
+                                                <div className={styles.modelItemContent}>
+                                                    <div className={styles.modelHeader}>
+                                                        <span className={styles.modelIcon}>{model.icon}</span>
+                                                        <div className={styles.modelInfo}>
+                                                            <div className={styles.modelNameRow}>
+                                                                <span className={styles.itemName}>{model.name}</span>
+                                                                <span
+                                                                    className={styles.badge}
+                                                                    style={{ backgroundColor: model.color }}
+                                                                >
+                                                                    {model.badge}
+                                                                </span>
+                                                            </div>
+                                                            <span className={styles.modelPricing}>{model.pricing}</span>
+                                                        </div>
                                                     </div>
-                                                    <span className={styles.itemDescription}>{model.description}</span>
+
+                                                    <div className={styles.modelMetrics}>
+                                                        <div className={styles.metricRow}>
+                                                            <span className={styles.metricLabel}>Speed</span>
+                                                            <div className={styles.metricBar}>
+                                                                <div
+                                                                    className={styles.metricFill}
+                                                                    style={{ width: `${model.speed * 20}%`, backgroundColor: model.color }}
+                                                                />
+                                                            </div>
+                                                        </div>
+                                                        <div className={styles.metricRow}>
+                                                            <span className={styles.metricLabel}>Quality</span>
+                                                            <div className={styles.metricBar}>
+                                                                <div
+                                                                    className={styles.metricFill}
+                                                                    style={{ width: `${model.quality * 20}%`, backgroundColor: model.color }}
+                                                                />
+                                                            </div>
+                                                        </div>
+                                                    </div>
+
+                                                    <span className={styles.itemDescription}>
+                                                        💡 {model.bestFor}
+                                                    </span>
                                                 </div>
                                             </button>
                                         ))}
@@ -256,14 +312,14 @@ export function ChatHeader(props: ChatHeaderProps) {
 
                     {/* Theme Selector Button */}
                     <div className={styles.themeSelector} ref={themeMenuRef}>
-                        <Button 
-                            variant="ghost" 
+                        <Button
+                            variant="ghost"
                             icon={<Paintbrush size={18} />}
                             onClick={() => setShowThemeMenu(!showThemeMenu)}
                             className={showThemeMenu ? styles.activeButton : ''}
                             title="Change Theme"
                         />
-                        
+
                         {showThemeMenu && (
                             <div className={styles.dropdownMenu} style={{ right: 0, width: '320px', maxHeight: '400px', overflowY: 'auto' }}>
                                 <div className={styles.dropdownHeader}>
@@ -272,7 +328,7 @@ export function ChatHeader(props: ChatHeaderProps) {
                                 </div>
                                 <div className={styles.dropdownContent}>
                                     {THEMES.map(theme => (
-                                        <button 
+                                        <button
                                             key={theme.id}
                                             className={`${styles.dropdownItem} ${currentTheme === theme.id ? styles.active : ''}`}
                                             onClick={() => handleThemeChange(theme.id)}
@@ -301,30 +357,32 @@ export function ChatHeader(props: ChatHeaderProps) {
                             </div>
                         )}
                     </div>
-                    
-                    {/* Export Button */}
-                    {props.messages && props.messages.length > 0 && (
-                        <ExportMenu
-                            messages={props.messages}
-                            conversationTitle={props.currentConversation?.title || 'Conversation'}
-                        />
-                    )}
 
-                    {props.onToggleSystemPrompt && (
-                        <Button
-                            variant="ghost"
-                            icon={<Code size={18} />}
-                            onClick={props.onToggleSystemPrompt}
-                            className={props.showSystemPrompt ? styles.activeButton : ''}
-                            title="System Prompt"
-                        />
-                    )}
-
-                    <Button
-                        variant="ghost"
-                        icon={<Settings size={18} />}
-                        title="Settings"
+                    {/* Consolidated Actions Menu */}
+                    <ActionsMenu
+                        hasMessages={props.messages && props.messages.length > 0}
+                        showSystemPrompt={props.showSystemPrompt}
+                        onExportClick={() => {
+                            // Trigger export - we'll need to extract this from ExportMenu
+                            const exportMenu = document.querySelector('[data-export-menu]') as HTMLElement
+                            if (exportMenu) exportMenu.click()
+                        }}
+                        onSystemPromptClick={props.onToggleSystemPrompt}
+                        onSettingsClick={() => {
+                            // Settings functionality to be implemented
+                            console.log('Settings clicked')
+                        }}
                     />
+
+                    {/* Hidden ExportMenu for functionality */}
+                    {props.messages && props.messages.length > 0 && (
+                        <div style={{ display: 'none' }}>
+                            <ExportMenu
+                                messages={props.messages}
+                                conversationTitle={props.currentConversation?.title || 'Conversation'}
+                            />
+                        </div>
+                    )}
                 </div>
             </header>
 

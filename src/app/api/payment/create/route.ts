@@ -1,36 +1,106 @@
+/**
+ * @swagger
+ * /api/payment/create:
+ *   post:
+ *     tags:
+ *       - Payment
+ *     summary: Create payment link for Plus subscription
+ *     description: Creates a PayOS payment link to upgrade to Plus plan (279k VND/month)
+ *     security:
+ *       - CookieAuth: []
+ *     responses:
+ *       200:
+ *         description: Payment link created successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     paymentId:
+ *                       type: string
+ *                     checkoutUrl:
+ *                       type: string
+ *                     qrCode:
+ *                       type: string
+ *                     orderCode:
+ *                       type: number
+ *                     amount:
+ *                       type: number
+ *                       example: 279000
+ *       400:
+ *         description: User already has active Plus subscription or PayOS error
+ *       404:
+ *         description: User not found
+ *       500:
+ *         description: Failed to create payment link
+ *   get:
+ *     tags:
+ *       - Payment
+ *     summary: Check payment status
+ *     description: Checks the status of a payment and updates subscription if paid
+ *     security:
+ *       - CookieAuth: []
+ *     parameters:
+ *       - name: paymentId
+ *         in: query
+ *         description: Payment ID
+ *         schema:
+ *           type: string
+ *       - name: orderCode
+ *         in: query
+ *         description: PayOS order code
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Payment status retrieved
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     status:
+ *                       type: string
+ *                       enum: [PENDING, SUCCESS, FAILED, PAID]
+ *                     paidAt:
+ *                       type: string
+ *                       format: date-time
+ *                     amount:
+ *                       type: number
+ *       400:
+ *         description: Missing paymentId or orderCode
+ *       404:
+ *         description: Payment not found
+ *       500:
+ *         description: Error checking payment status
+ */
 
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireUserId } from '@/lib/auth/session'
+import { PayOS } from '@payos/node'
 
-
-
-
-
-const payos = new PayOS(
-    process.env.PAYOS_CLIENT_ID!,
-    process.env.PAYOS_API_KEY!,
-    process.env.PAYOS_CHECKSUM_KEY!
-)
-
-
-
-
-
+const payos = new PayOS({
+    clientId: process.env.PAYOS_CLIENT_ID!,
+    apiKey: process.env.PAYOS_API_KEY!,
+    checksumKey: process.env.PAYOS_CHECKSUM_KEY!
+})
 
 export async function POST(req: NextRequest) {
     try {
-        
         const userId = await requireUserId()
-        const PayOS = (await import('@payos/node')).default || (await import('@payos/node'))
 
-        
-        const payos = new PayOS(
-            process.env.PAYOS_CLIENT_ID!,
-            process.env.PAYOS_API_KEY!,
-            process.env.PAYOS_CHECKSUM_KEY!
-        )
-        
         const user = await prisma.user.findUnique({
             where: { id: userId },
             include: {
@@ -50,7 +120,7 @@ export async function POST(req: NextRequest) {
             )
         }
 
-        
+        // Check if user already has an active PLUS subscription
         if (user.subscriptions.length > 0 && user.subscriptions[0].planTier === 'PLUS') {
             return NextResponse.json(
                 { error: 'Bạn đã có gói Plus đang hoạt động' },
@@ -58,16 +128,16 @@ export async function POST(req: NextRequest) {
             )
         }
 
-        
+        // Generate unique order code
         const orderCode = Number(String(Date.now()).slice(-9))
 
-        
-        const amount = 279000 
+        // Payment details
+        const amount = 279000 // 279k VND
         const description = 'Nâng cấp gói Plus - AI Chat'
         const cancelUrl = `${process.env.NEXT_PUBLIC_BASE_URL}/payment/cancel`
         const returnUrl = `${process.env.NEXT_PUBLIC_BASE_URL}/payment/success`
 
-        
+        // Create payment link
         const paymentData = {
             orderCode: orderCode,
             amount: amount,
@@ -85,12 +155,12 @@ export async function POST(req: NextRequest) {
 
         console.log('[Payment] Creating PayOS payment link:', paymentData)
 
-        
-        const paymentLinkResponse = await payos.createPaymentLink(paymentData)
+        // Call PayOS API
+        const paymentLinkResponse = await payos.paymentRequests.create(paymentData)
 
         console.log('[Payment] PayOS response:', paymentLinkResponse)
 
-        
+        // Save payment to database
         const payment = await prisma.payment.create({
             data: {
                 userId: userId,
@@ -110,7 +180,7 @@ export async function POST(req: NextRequest) {
 
         console.log('[Payment] Saved to DB:', payment.id)
 
-        
+        // Return checkout URL
         return NextResponse.json({
             success: true,
             data: {
@@ -125,7 +195,7 @@ export async function POST(req: NextRequest) {
     } catch (error: any) {
         console.error('[Payment] Error creating payment:', error)
 
-        
+        // Handle PayOS API errors
         if (error.response?.data) {
             return NextResponse.json(
                 {
@@ -143,7 +213,7 @@ export async function POST(req: NextRequest) {
     }
 }
 
-
+// GET /api/payment/create - Check payment status
 export async function GET(req: NextRequest) {
     try {
         const userId = await requireUserId()
@@ -159,7 +229,7 @@ export async function GET(req: NextRequest) {
             )
         }
 
-        
+        // Find payment in database
         const payment = await prisma.payment.findFirst({
             where: {
                 userId: userId,
@@ -177,7 +247,7 @@ export async function GET(req: NextRequest) {
             )
         }
 
-        
+        // If already successful, return immediately
         if (payment.status === 'SUCCESS') {
             return NextResponse.json({
                 success: true,
@@ -189,13 +259,13 @@ export async function GET(req: NextRequest) {
             })
         }
 
-        
+        // Check with PayOS
         if (payment.payosOrderCode) {
             try {
-                const payosInfo = await payos.getPaymentLinkInformation(payment.payosOrderCode)
+                const payosInfo = await payos.paymentRequests.get(payment.payosOrderCode)
 
-                
-                if (payosInfo.status === 'PAID' && payment.status !== 'SUCCESS') {
+                // Update payment status if paid
+                if (payosInfo.status === 'PAID' && payment.status === 'PENDING') {
                     await prisma.payment.update({
                         where: { id: payment.id },
                         data: {
@@ -204,7 +274,7 @@ export async function GET(req: NextRequest) {
                         }
                     })
 
-                    
+                    // Create or update subscription
                     await createOrUpdateSubscription(userId)
                 }
 
@@ -238,13 +308,13 @@ export async function GET(req: NextRequest) {
     }
 }
 
-
+// Helper function to create or update subscription
 async function createOrUpdateSubscription(userId: string) {
     const now = new Date()
     const endDate = new Date(now)
-    endDate.setMonth(endDate.getMonth() + 1) 
+    endDate.setMonth(endDate.getMonth() + 1) // Add 1 month
 
-    
+    // Check for existing active subscription
     const existingSubscription = await prisma.subscription.findFirst({
         where: {
             userId: userId,
@@ -253,7 +323,7 @@ async function createOrUpdateSubscription(userId: string) {
     })
 
     if (existingSubscription) {
-        
+        // Update existing subscription
         await prisma.subscription.update({
             where: { id: existingSubscription.id },
             data: {
@@ -263,7 +333,7 @@ async function createOrUpdateSubscription(userId: string) {
             }
         })
     } else {
-        
+        // Create new subscription
         await prisma.subscription.create({
             data: {
                 userId: userId,
@@ -275,7 +345,7 @@ async function createOrUpdateSubscription(userId: string) {
         })
     }
 
-    
+    // Update user's plan tier
     await prisma.user.update({
         where: { id: userId },
         data: { planTier: 'PLUS' }

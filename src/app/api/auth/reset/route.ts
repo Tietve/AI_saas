@@ -1,3 +1,66 @@
+/**
+ * @swagger
+ * /api/auth/reset:
+ *   post:
+ *     tags:
+ *       - Authentication
+ *     summary: Reset password with token
+ *     description: Resets user's password using the token from password reset email
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - token
+ *               - password
+ *             properties:
+ *               token:
+ *                 type: string
+ *                 minLength: 10
+ *                 description: Password reset token from email
+ *               password:
+ *                 type: string
+ *                 minLength: 8
+ *                 format: password
+ *                 description: New password (minimum 8 characters)
+ *     responses:
+ *       200:
+ *         description: Password reset successful
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 ok:
+ *                   type: boolean
+ *                   example: true
+ *       400:
+ *         description: Invalid or expired token
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 ok:
+ *                   type: boolean
+ *                   example: false
+ *                 error:
+ *                   type: string
+ *                   example: Invalid or expired token
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 ok:
+ *                   type: boolean
+ *                   example: false
+ */
+
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import crypto from "crypto";

@@ -1,3 +1,46 @@
+/**
+ * @swagger
+ * /api/chat/stream:
+ *   post:
+ *     tags:
+ *       - Chat
+ *     summary: Stream chat response (legacy)
+ *     description: Streams AI chat responses using Server-Sent Events. This is a legacy endpoint - prefer /api/chat/send for production use.
+ *     security:
+ *       - CookieAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - message
+ *               - conversationId
+ *             properties:
+ *               message:
+ *                 type: string
+ *                 description: User's message to send
+ *                 example: What is machine learning?
+ *               conversationId:
+ *                 type: string
+ *                 description: ID of the conversation
+ *     responses:
+ *       200:
+ *         description: Streaming response
+ *         content:
+ *           text/event-stream:
+ *             schema:
+ *               type: string
+ *               description: Server-Sent Events stream with chat chunks
+ *       401:
+ *         description: Unauthorized - user not authenticated
+ *       404:
+ *         description: Conversation not found or doesn't belong to user
+ *       500:
+ *         description: Internal server error
+ */
+
 import { NextRequest } from 'next/server';
 import { MultiProviderGateway } from '@/lib/ai-providers/multi-provider-gateway';
 import { requireUserId } from '@/lib/auth/session';

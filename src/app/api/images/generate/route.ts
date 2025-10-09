@@ -107,7 +107,11 @@ export async function POST(req: NextRequest) {
 
         const attachments: Array<{ id: string; kind: 'image'; url: string; meta: any }> = []
 
-        for (let i = 0; i < (result.data?.length || 0); i++) {
+        if (!result.data || result.data.length === 0) {
+            return json(500, { error: 'No images generated' })
+        }
+
+        for (let i = 0; i < result.data.length; i++) {
             const img = result.data[i]
             const id = randomUUID()
             const fileName = `${id}.png`

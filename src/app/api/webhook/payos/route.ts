@@ -1,15 +1,15 @@
 
 import { NextRequest, NextResponse } from 'next/server'
-import PayOS from '@payos/node'
+import { PayOS } from '@payos/node'
 import { prisma } from '@/lib/prisma'
 import crypto from 'crypto'
 
 
-const payos = new PayOS(
-    process.env.PAYOS_CLIENT_ID!,
-    process.env.PAYOS_API_KEY!,
-    process.env.PAYOS_CHECKSUM_KEY!
-)
+const payos = new PayOS({
+    clientId: process.env.PAYOS_CLIENT_ID!,
+    apiKey: process.env.PAYOS_API_KEY!,
+    checksumKey: process.env.PAYOS_CHECKSUM_KEY!
+})
 
 
 function verifyWebhookData(data: any, signature: string): boolean {

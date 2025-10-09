@@ -1,3 +1,99 @@
+/**
+ * @swagger
+ * /api/conversations:
+ *   get:
+ *     tags:
+ *       - Conversations
+ *     summary: List user conversations
+ *     description: Get paginated list of conversations with optional search and project filtering
+ *     security:
+ *       - CookieAuth: []
+ *     parameters:
+ *       - name: page
+ *         in: query
+ *         description: Page number
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *       - name: pageSize
+ *         in: query
+ *         description: Items per page
+ *         schema:
+ *           type: integer
+ *           default: 20
+ *           maximum: 100
+ *       - name: q
+ *         in: query
+ *         description: Search query (matches title and system prompt)
+ *         schema:
+ *           type: string
+ *       - name: projectId
+ *         in: query
+ *         description: Filter by project ID
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Conversations retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 page:
+ *                   type: integer
+ *                 pageSize:
+ *                   type: integer
+ *                 total:
+ *                   type: integer
+ *                 totalPages:
+ *                   type: integer
+ *                 items:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Conversation'
+ *       401:
+ *         description: Unauthorized
+ *       500:
+ *         description: Server error
+ *   post:
+ *     tags:
+ *       - Conversations
+ *     summary: Create new conversation
+ *     description: Creates a new chat conversation
+ *     security:
+ *       - CookieAuth: []
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               title:
+ *                 type: string
+ *                 default: New Chat
+ *               systemPrompt:
+ *                 type: string
+ *               model:
+ *                 type: string
+ *                 default: gpt_4o_mini
+ *               botId:
+ *                 type: string
+ *     responses:
+ *       201:
+ *         description: Conversation created successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 item:
+ *                   $ref: '#/components/schemas/Conversation'
+ *       401:
+ *         description: Unauthorized
+ *       500:
+ *         description: Server error
+ */
 
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'

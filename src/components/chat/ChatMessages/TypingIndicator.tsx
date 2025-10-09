@@ -24,7 +24,7 @@ export function TypingIndicator({ selectedBot, isVisible = true }: TypingIndicat
 
             <div className="flex flex-col gap-1">
                 <span className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                    {selectedBot?.typingIndicator?.text || 'AI is typing...'}
+                    {selectedBot?.typingIndicator || 'AI is typing...'}
                 </span>
                 <div className="flex gap-1">
                     <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"

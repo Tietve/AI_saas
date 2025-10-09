@@ -5,6 +5,8 @@ export interface RedisSimple {
     incr(key: string): Promise<number>
     pexpire(key: string, ms: number): Promise<number>
     pttl(key: string): Promise<number>
+    get(key: string): Promise<string | null>
+    setex(key: string, seconds: number, value: string): Promise<string>
 }
 
 

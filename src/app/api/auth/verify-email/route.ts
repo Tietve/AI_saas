@@ -1,7 +1,52 @@
+/**
+ * @swagger
+ * /api/auth/verify-email:
+ *   get:
+ *     tags:
+ *       - Authentication
+ *     summary: Verify user email address
+ *     description: Verifies user's email using the token sent via email. Redirects to verified page on success.
+ *     parameters:
+ *       - name: token
+ *         in: query
+ *         description: Email verification token from email link
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       302:
+ *         description: Verification successful - redirect to verified page
+ *         headers:
+ *           Location:
+ *             description: Redirect URL
+ *             schema:
+ *               type: string
+ *               example: /auth/verified
+ *       400:
+ *         description: Invalid or missing token
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       410:
+ *         description: Token expired
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
 
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import crypto from "crypto"
+
+export const dynamic = 'force-dynamic'
 
 export async function GET(req: Request) {
     try {

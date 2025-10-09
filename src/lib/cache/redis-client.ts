@@ -100,11 +100,12 @@ export class EnhancedQueryCache {
     }
   }
 
-  async mget<T>(keys: string[]): Promise<(T | null)[]> {
+  async mget<T = any>(keys: string[]): Promise<(T | null)[]> {
     if (!this.client) return keys.map(() => null)
 
     try {
-      return await this.client.mget<T>(...keys)
+      const result = await this.client.mget(...keys)
+      return result as (T | null)[]
     } catch (error) {
       console.error('[Enhanced Cache] MGET error:', error)
       return keys.map(() => null)

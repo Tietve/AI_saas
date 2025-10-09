@@ -1,0 +1,217 @@
+/* Projects Section */
+.projectSelector {
+    border-bottom: 1px solid var(--color-border, #e5e7eb);
+    padding: 16px 12px;
+    max-height: 320px;
+    overflow-y: auto;
+}
+
+.projectHeader {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--color-text-secondary, #6b7280);
+    margin-bottom: 12px;
+    padding: 0 4px;
+}
+
+.newProjectBtn {
+    padding: 4px;
+    border: none;
+    background: transparent;
+    color: var(--color-text-tertiary, #9ca3af);
+    cursor: pointer;
+    border-radius: 4px;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.newProjectBtn:hover {
+    background: var(--color-bg-tertiary, #f3f4f6);
+    color: var(--color-text-primary, #111827);
+}
+
+.projectItemWrapper {
+    position: relative;
+    margin-bottom: 4px;
+}
+
+.projectItem {
+    width: 100%;
+    padding: 10px 12px;
+    background: transparent;
+    border: none;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-align: left;
+    position: relative;
+}
+
+.projectItem:hover {
+    background: var(--color-bg-tertiary, #f3f4f6);
+}
+
+.projectItem.active {
+    background: var(--color-primary-light, #dbeafe);
+    font-weight: 500;
+}
+
+.projectIconSvg {
+    flex-shrink: 0;
+    color: var(--color-text-secondary, #6b7280);
+}
+
+.projectIcon {
+    width: 24px;
+    height: 24px;
+    min-width: 24px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: white;
+    text-transform: uppercase;
+}
+
+.projectInfo {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    overflow: hidden;
+}
+
+.projectName {
+    font-size: 0.875rem;
+    color: var(--color-text-primary, #111827);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.projectCount {
+    font-size: 0.75rem;
+    color: var(--color-text-tertiary, #9ca3af);
+}
+
+/* Project Menu Button */
+.projectMenuBtn {
+    padding: 4px;
+    border: none;
+    background: transparent;
+    color: var(--color-text-tertiary, #9ca3af);
+    cursor: pointer;
+    border-radius: 4px;
+    opacity: 0;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.projectItem:hover .projectMenuBtn {
+    opacity: 1;
+}
+
+.projectMenuBtn:hover {
+    background: var(--color-bg-secondary, #f9fafb);
+    color: var(--color-text-primary, #111827);
+}
+
+/* Dropdown Menu */
+.projectMenu {
+    position: absolute;
+    top: 100%;
+    right: 8px;
+    background: white;
+    border: 1px solid var(--color-border, #e5e7eb);
+    border-radius: 8px;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    min-width: 140px;
+    z-index: 10;
+    padding: 4px;
+    margin-top: 4px;
+}
+
+.projectMenu button {
+    width: 100%;
+    padding: 8px 12px;
+    border: none;
+    background: transparent;
+    color: var(--color-text-primary, #111827);
+    cursor: pointer;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.875rem;
+    text-align: left;
+    transition: background 0.15s ease;
+}
+
+.projectMenu button:hover {
+    background: var(--color-bg-tertiary, #f3f4f6);
+}
+
+.projectMenu .deleteBtn {
+    color: #ef4444;
+}
+
+.projectMenu .deleteBtn:hover {
+    background: #fef2f2;
+}
+
+/* Empty State */
+.emptyProjects {
+    text-align: center;
+    padding: 20px 12px;
+    color: var(--color-text-tertiary, #9ca3af);
+}
+
+.emptyProjects p {
+    font-size: 0.875rem;
+    margin-bottom: 12px;
+}
+
+.emptyProjects button {
+    padding: 8px 16px;
+    background: var(--color-primary, #3b82f6);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-size: 0.875rem;
+    cursor: pointer;
+    transition: background 0.2s ease;
+}
+
+.emptyProjects button:hover {
+    background: var(--color-primary-dark, #2563eb);
+}
+
+/* Scrollbar */
+.projectSelector::-webkit-scrollbar {
+    width: 6px;
+}
+
+.projectSelector::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.projectSelector::-webkit-scrollbar-thumb {
+    background: var(--color-border, #e5e7eb);
+    border-radius: 3px;
+}
+
+.projectSelector::-webkit-scrollbar-thumb:hover {
+    background: var(--color-text-tertiary, #9ca3af);
+}

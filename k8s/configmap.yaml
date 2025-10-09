@@ -1,0 +1,38 @@
+# ================================
+# Kubernetes ConfigMap
+# Non-sensitive configuration
+# ================================
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ai-saas-config
+  namespace: ai-saas
+data:
+  # Application
+  NODE_ENV: "production"
+  APP_PORT: "3000"
+  NEXT_PUBLIC_APP_URL: "https://your-domain.com"
+
+  # Features
+  ENABLE_SEMANTIC_CACHE: "true"
+  ENABLE_RATE_LIMITING: "true"
+  ENABLE_ANALYTICS: "true"
+  REQUIRE_EMAIL_VERIFICATION: "false"
+
+  # Performance
+  ENABLE_PERFORMANCE_MONITORING: "true"
+  ENABLE_REAL_TIME_METRICS: "true"
+
+  # Auto-scaling
+  AUTO_SCALING_ENABLED: "true"
+  MIN_INSTANCES: "2"
+  MAX_INSTANCES: "10"
+
+  # SMTP (non-sensitive)
+  SMTP_HOST: "smtp.gmail.com"
+  SMTP_PORT: "587"
+  SMTP_FROM: "AI SaaS <noreply@yourdomain.com>"
+
+  # Rate Limiting
+  RATE_LIMIT_WINDOW_MS: "60000"
+  RATE_LIMIT_MAX_REQUESTS: "100"

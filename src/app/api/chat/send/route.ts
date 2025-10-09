@@ -1,3 +1,139 @@
+/**
+ * @swagger
+ * /api/chat/send:
+ *   post:
+ *     tags:
+ *       - Chat
+ *     summary: Send chat message (production endpoint)
+ *     description: |
+ *       Primary chat endpoint with full feature support including:
+ *       - Multi-provider AI routing (OpenAI, Anthropic, Google)
+ *       - Streaming responses via Server-Sent Events
+ *       - File attachments (images, PDFs, documents)
+ *       - Usage quota management and billing
+ *       - Rate limiting and daily limits for free tier
+ *       - Idempotency support
+ *       - Automatic model fallback
+ *     security:
+ *       - CookieAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               content:
+ *                 type: string
+ *                 description: User's message content
+ *                 example: Explain quantum computing
+ *               conversationId:
+ *                 type: string
+ *                 description: Conversation ID or 'new' for new conversation
+ *                 example: clxxx123456
+ *               model:
+ *                 type: string
+ *                 description: Requested AI model (restricted for free tier)
+ *                 enum: [gpt-4o-mini, gpt-4o, gpt-3.5-turbo, claude-3.5-sonnet, gemini-1.5-flash]
+ *               systemPrompt:
+ *                 type: string
+ *                 description: System prompt for the conversation
+ *               botId:
+ *                 type: string
+ *                 description: Bot personality ID
+ *               requestId:
+ *                 type: string
+ *                 description: Idempotency key for request deduplication
+ *               attachments:
+ *                 type: array
+ *                 description: File attachments (images, PDFs, documents)
+ *                 items:
+ *                   type: object
+ *                   properties:
+ *                     kind:
+ *                       type: string
+ *                       enum: [image, file, pdf, document]
+ *                     url:
+ *                       type: string
+ *                     meta:
+ *                       type: object
+ *                       properties:
+ *                         name:
+ *                           type: string
+ *                         mimeType:
+ *                           type: string
+ *                         extractedText:
+ *                           type: string
+ *     responses:
+ *       200:
+ *         description: Streaming SSE response with chat chunks
+ *         content:
+ *           text/event-stream:
+ *             schema:
+ *               type: string
+ *               description: |
+ *                 Server-Sent Events stream containing:
+ *                 - meta: conversation metadata
+ *                 - delta: text chunks
+ *                 - done: completion signal
+ *       400:
+ *         description: Invalid request (content too large, missing content, etc.)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 code:
+ *                   type: string
+ *                   enum: [BAD_REQUEST, PER_REQUEST_TOO_LARGE]
+ *                 message:
+ *                   type: string
+ *       401:
+ *         description: Unauthorized - user not authenticated
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 code:
+ *                   type: string
+ *                   example: UNAUTHENTICATED
+ *       402:
+ *         description: Quota exceeded or daily limit reached
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 code:
+ *                   type: string
+ *                   enum: [QUOTA_EXCEEDED, DAILY_LIMIT_EXCEEDED]
+ *                 message:
+ *                   type: string
+ *                 showUpgrade:
+ *                   type: boolean
+ *                 quota:
+ *                   type: object
+ *                 usage:
+ *                   type: object
+ *       404:
+ *         description: User or conversation not found
+ *       429:
+ *         description: Rate limit exceeded
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 code:
+ *                   type: string
+ *                   example: RATE_LIMITED
+ *                 message:
+ *                   type: string
+ *       500:
+ *         description: Internal server error
+ */
+
 import { NextResponse } from 'next/server'
 import { promises as fs } from 'fs'
 import path from 'path'

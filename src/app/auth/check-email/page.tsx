@@ -5,6 +5,8 @@ import { useSearchParams } from "next/navigation"
 import { useState } from "react"
 import Link from "next/link"
 
+export const dynamic = 'force-dynamic'
+
 export default function CheckEmailPage() {
     const searchParams = useSearchParams()
     const email = searchParams.get("email") || ""

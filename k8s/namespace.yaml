@@ -1,0 +1,10 @@
+# ================================
+# Kubernetes Namespace
+# ================================
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ai-saas
+  labels:
+    name: ai-saas
+    environment: production

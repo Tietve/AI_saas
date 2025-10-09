@@ -8,7 +8,10 @@ export function useKeyboardShortcuts() {
             if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'T') {
                 e.preventDefault()
                 // Trigger theme selector open
-                document.querySelector('[title="Change Theme"]')?.click()
+                const themeButton = document.querySelector('[title="Change Theme"]')
+                if (themeButton instanceof HTMLElement) {
+                    themeButton.click()
+                }
             }
 
             // Ctrl/Cmd + Shift + D: Toggle dark mode

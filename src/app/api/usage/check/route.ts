@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireUserId } from '@/lib/auth/session'
 
+export const dynamic = 'force-dynamic'
 
 const PLAN_LIMITS = {
     FREE: {

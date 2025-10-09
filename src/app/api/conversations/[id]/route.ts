@@ -1,3 +1,107 @@
+/**
+ * @swagger
+ * /api/conversations/{id}:
+ *   get:
+ *     tags:
+ *       - Conversations
+ *     summary: Get conversation by ID
+ *     description: Retrieves a single conversation with full details
+ *     security:
+ *       - CookieAuth: []
+ *     parameters:
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         description: Conversation ID
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Conversation retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 item:
+ *                   $ref: '#/components/schemas/Conversation'
+ *       404:
+ *         description: Conversation not found or not owned by user
+ *       400:
+ *         description: Bad request
+ *   patch:
+ *     tags:
+ *       - Conversations
+ *     summary: Update conversation
+ *     description: Updates conversation properties (title, system prompt, model, metadata)
+ *     security:
+ *       - CookieAuth: []
+ *     parameters:
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         description: Conversation ID
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               title:
+ *                 type: string
+ *               systemPrompt:
+ *                 type: string
+ *               model:
+ *                 type: string
+ *               meta:
+ *                 type: object
+ *     responses:
+ *       200:
+ *         description: Conversation updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 item:
+ *                   $ref: '#/components/schemas/Conversation'
+ *       400:
+ *         description: Invalid model or no update fields
+ *       404:
+ *         description: Conversation not found or not owned by user
+ *   delete:
+ *     tags:
+ *       - Conversations
+ *     summary: Delete conversation
+ *     description: Permanently deletes a conversation and all its messages
+ *     security:
+ *       - CookieAuth: []
+ *     parameters:
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         description: Conversation ID
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Conversation deleted successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 ok:
+ *                   type: boolean
+ *                   example: true
+ *       404:
+ *         description: Conversation not found or not owned by user
+ *       400:
+ *         description: Bad request
+ */
+
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireUserId } from '@/lib/auth/session'

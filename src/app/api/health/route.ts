@@ -1,6 +1,63 @@
 /**
  * Health Check API for Load Balancing
  * Provides system health status for load balancer health checks
+ *
+ * @swagger
+ * /api/health:
+ *   get:
+ *     tags:
+ *       - Health
+ *     summary: Get system health status
+ *     description: Returns comprehensive health check for load balancers and monitoring
+ *     responses:
+ *       200:
+ *         description: System is healthy or degraded
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   enum: [healthy, unhealthy, degraded]
+ *                 timestamp:
+ *                   type: string
+ *                   format: date-time
+ *                 instanceId:
+ *                   type: string
+ *                 version:
+ *                   type: string
+ *                 uptime:
+ *                   type: number
+ *                   description: Uptime in seconds
+ *                 checks:
+ *                   type: object
+ *                   properties:
+ *                     database:
+ *                       $ref: '#/components/schemas/CheckResult'
+ *                     cache:
+ *                       $ref: '#/components/schemas/CheckResult'
+ *                     memory:
+ *                       $ref: '#/components/schemas/CheckResult'
+ *                     disk:
+ *                       $ref: '#/components/schemas/CheckResult'
+ *                 metrics:
+ *                   type: object
+ *                   properties:
+ *                     cpu:
+ *                       type: number
+ *                     memory:
+ *                       type: number
+ *                     disk:
+ *                       type: number
+ *                     activeConnections:
+ *                       type: number
+ *       503:
+ *         description: System is unhealthy
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
  */
 
 import { NextRequest, NextResponse } from 'next/server'
@@ -176,13 +233,21 @@ async function checkDatabase(): Promise<CheckResult> {
  */
 async function checkCache(): Promise<CheckResult> {
   const startTime = Date.now()
-  
+
+  if (!redis) {
+    return {
+      status: 'warn',
+      message: 'Cache not configured',
+      details: { type: 'None' }
+    }
+  }
+
   try {
     // Test Redis connection
     await redis.ping()
-    
+
     const responseTime = Date.now() - startTime
-    
+
     return {
       status: 'pass',
       message: 'Cache connection healthy',

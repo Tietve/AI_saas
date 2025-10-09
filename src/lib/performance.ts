@@ -1,3 +1,25 @@
+// Extend Window interface for gtag
+declare global {
+    interface Window {
+        gtag?: (
+            command: 'event',
+            eventName: string,
+            eventParams?: Record<string, any>
+        ) => void
+    }
+}
+
+// Extend PerformanceEntry for FID
+interface FIDEntry extends PerformanceEntry {
+    processingStart: number
+}
+
+// Extend PerformanceEntry for CLS
+interface CLSEntry extends PerformanceEntry {
+    hadRecentInput: boolean
+    value: number
+}
+
 // Performance monitoring
 export class PerformanceMonitor {
     private marks: Map<string, number> = new Map()
@@ -37,7 +59,8 @@ export class PerformanceMonitor {
             // First Input Delay
             new PerformanceObserver((list) => {
                 for (const entry of list.getEntries()) {
-                    const fid = entry.processingStart - entry.startTime
+                    const fidEntry = entry as FIDEntry
+                    const fid = fidEntry.processingStart - fidEntry.startTime
                     console.log('FID:', fid)
                 }
             }).observe({ type: 'first-input', buffered: true })
@@ -46,8 +69,9 @@ export class PerformanceMonitor {
             let cls = 0
             new PerformanceObserver((list) => {
                 for (const entry of list.getEntries()) {
-                    if (!(entry as any).hadRecentInput) {
-                        cls += (entry as any).value
+                    const clsEntry = entry as CLSEntry
+                    if (!clsEntry.hadRecentInput) {
+                        cls += clsEntry.value
                         console.log('CLS:', cls)
                     }
                 }

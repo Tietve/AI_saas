@@ -68,7 +68,7 @@ export const PerformanceConfig = {
 
 // Helper functions
 export const isFeatureEnabled = (feature: keyof typeof PerformanceConfig.FEATURES): boolean => {
-  return PerformanceConfig.FEATURES[feature]
+  return Boolean(PerformanceConfig.FEATURES[feature])
 }
 
 export const getCacheTTL = (type: keyof typeof PerformanceConfig.CACHE): number => {

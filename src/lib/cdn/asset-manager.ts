@@ -38,8 +38,8 @@ class CDNAssetManager {
   }
 
   private loadConfig(): void {
-    const provider = process.env.CDN_PROVIDER as CDNConfig['provider']
-    
+    const provider = process.env.CDN_PROVIDER as CDNConfig['provider'] | 'none' | undefined
+
     if (!provider || provider === 'none') {
       console.log('[CDN] No CDN provider configured, using local assets')
       return
@@ -143,11 +143,13 @@ class CDNAssetManager {
     options: AssetTransformOptions
   ): Promise<AssetUploadResult> {
     const formData = new FormData()
-    
-    if (file instanceof File) {
+
+    if (typeof File !== 'undefined' && file instanceof File) {
       formData.append('file', file)
-    } else {
-      formData.append('file', new Blob([file]), filename)
+    } else if (typeof Buffer !== 'undefined' && Buffer.isBuffer && Buffer.isBuffer(file)) {
+      // Convert Buffer to ArrayBuffer for Blob
+      const arrayBuffer = file.buffer.slice(file.byteOffset, file.byteOffset + file.byteLength) as ArrayBuffer
+      formData.append('file', new Blob([arrayBuffer]), filename)
     }
     
     formData.append('upload_preset', process.env.CLOUDINARY_UPLOAD_PRESET || 'ml_default')
@@ -251,10 +253,17 @@ class CDNAssetManager {
     // This would save to local public folder
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
     const url = `${baseUrl}/uploads/${filename}`
-    
+
+    let size = 0
+    if (typeof File !== 'undefined' && file instanceof File) {
+      size = file.size
+    } else if (typeof Buffer !== 'undefined' && Buffer.isBuffer && Buffer.isBuffer(file)) {
+      size = file.length
+    }
+
     return {
       url,
-      size: file instanceof File ? file.size : file.length,
+      size,
     }
   }
 

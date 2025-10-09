@@ -1,3 +1,94 @@
+/**
+ * @swagger
+ * /api/projects:
+ *   get:
+ *     tags:
+ *       - Projects
+ *     summary: List user projects
+ *     description: Get all projects for the authenticated user with conversation counts
+ *     security:
+ *       - CookieAuth: []
+ *     responses:
+ *       200:
+ *         description: Projects retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 items:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id:
+ *                         type: string
+ *                       name:
+ *                         type: string
+ *                       description:
+ *                         type: string
+ *                       color:
+ *                         type: string
+ *                       icon:
+ *                         type: string
+ *                       createdAt:
+ *                         type: string
+ *                         format: date-time
+ *                       updatedAt:
+ *                         type: string
+ *                         format: date-time
+ *                       conversationCount:
+ *                         type: number
+ *       401:
+ *         description: Unauthorized
+ *       500:
+ *         description: Server error
+ *   post:
+ *     tags:
+ *       - Projects
+ *     summary: Create new project
+ *     description: Creates a new project for organizing conversations
+ *     security:
+ *       - CookieAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - name
+ *             properties:
+ *               name:
+ *                 type: string
+ *                 example: My AI Project
+ *               description:
+ *                 type: string
+ *                 example: Project for AI research
+ *               color:
+ *                 type: string
+ *                 default: '#3b82f6'
+ *               icon:
+ *                 type: string
+ *                 default: Folder
+ *     responses:
+ *       201:
+ *         description: Project created successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 item:
+ *                   type: object
+ *       400:
+ *         description: Project name is required
+ *       401:
+ *         description: Unauthorized
+ *       500:
+ *         description: Server error
+ */
+
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireUserId } from '@/lib/auth/session'

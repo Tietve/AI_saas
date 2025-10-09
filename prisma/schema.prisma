@@ -18,18 +18,17 @@ model User {
   monthlyTokenUsed   Int                      @default(0)
   planTier           PlanTier                 @default(FREE)
   conversations      Conversation[]
-  projects           Project[]
+  usageRecords       DailyUsageRecord[]
   verificationTokens EmailVerificationToken[]
+  invoices           Invoice[]
+  feedbacks          MessageFeedback[]
   resetTokens        PasswordResetToken[]
+  payments           Payment[]
+  projects           Project[]
   subscriptions      Subscription[]
   tokenUsages        TokenUsage[]
   settings           UserSetting?
-  payments           Payment[]
-  usageRecords       DailyUsageRecord[]
-  invoices           Invoice[]
-  feedbacks          MessageFeedback[]
 
-  // Performance indexes
   @@index([planTier])
   @@index([monthlyTokenUsed])
   @@index([createdAt])
@@ -70,8 +69,8 @@ model Project {
   icon          String?        @db.VarChar(50)
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
-  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
   conversations Conversation[]
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, updatedAt(sort: Desc)])
 }
@@ -79,22 +78,21 @@ model Project {
 model Conversation {
   id           String            @id @default(cuid())
   userId       String
-  projectId    String?
   title        String?           @db.VarChar(200)
   systemPrompt String?
   meta         Json?
   botId        String?
-  pinned       Boolean           @default(false)
   createdAt    DateTime          @default(now())
   updatedAt    DateTime          @updatedAt
   model        String            @default("gpt-4o-mini")
+  pinned       Boolean           @default(false)
+  projectId    String?
   attachments  Attachment[]
+  project      Project?          @relation(fields: [projectId], references: [id])
   user         User              @relation(fields: [userId], references: [id], onDelete: Cascade)
-  project      Project?          @relation(fields: [projectId], references: [id], onDelete: SetNull)
   messages     Message[]
   feedbacks    MessageFeedback[]
 
-  // Performance indexes
   @@index([userId, updatedAt(sort: Desc)])
   @@index([userId, createdAt(sort: Desc)])
   @@index([userId, pinned, updatedAt(sort: Desc)])
@@ -131,12 +129,12 @@ model MessageFeedback {
   messageId      String
   userId         String
   conversationId String?
-  feedback       String        // 'like' or 'dislike'
+  feedback       String
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
+  conversation   Conversation? @relation(fields: [conversationId], references: [id], onDelete: Cascade)
   message        Message       @relation(fields: [messageId], references: [id], onDelete: Cascade)
   user           User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  conversation   Conversation? @relation(fields: [conversationId], references: [id], onDelete: Cascade)
 
   @@unique([messageId, userId])
   @@index([userId])
@@ -169,8 +167,8 @@ model Subscription {
   payosSubscriptionId String?            @unique
   createdAt           DateTime           @default(now())
   updatedAt           DateTime           @updatedAt
-  user                User               @relation(fields: [userId], references: [id], onDelete: Cascade)
   payments            Payment[]
+  user                User               @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, status])
   @@index([currentPeriodEnd])
@@ -191,8 +189,8 @@ model Payment {
   paidAt           DateTime?
   createdAt        DateTime      @default(now())
   updatedAt        DateTime      @updatedAt
-  user             User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   subscription     Subscription? @relation(fields: [subscriptionId], references: [id])
+  user             User          @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([status])
@@ -259,12 +257,33 @@ model TokenUsage {
   model     ModelId
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  // Performance indexes
   @@index([userId, createdAt], map: "TokenUsage_userId_createdAt_asc_idx")
   @@index([userId, createdAt(sort: Desc)], map: "TokenUsage_userId_createdAt_desc_idx")
   @@index([userId, model])
   @@index([model, createdAt])
   @@index([createdAt(sort: Desc)])
+}
+
+model ProviderMetrics {
+  id           String     @id @default(cuid())
+  provider     AIProvider
+  model        ModelId
+  latencyMs    Int
+  costUsd      Float      @default(0)
+  success      Boolean
+  errorCode    String?    @db.VarChar(100)
+  errorMessage String?
+  userId       String?
+  requestId    String?    @db.VarChar(100)
+  tokensIn     Int?
+  tokensOut    Int?
+  createdAt    DateTime   @default(now())
+
+  @@index([provider, createdAt(sort: Desc)])
+  @@index([model, createdAt(sort: Desc)])
+  @@index([success, createdAt(sort: Desc)])
+  @@index([provider, model, createdAt(sort: Desc)])
+  @@index([userId, createdAt(sort: Desc)])
 }
 
 model UserSetting {
@@ -275,7 +294,6 @@ model UserSetting {
   user         User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
-// Enums
 enum Role {
   USER
   ASSISTANT
@@ -333,4 +351,10 @@ enum ModelId {
   gemini_1_5_pro
   gemini_1_5_flash
   gemini_2_0_flash
+}
+
+enum AIProvider {
+  OPENAI
+  ANTHROPIC
+  GOOGLE
 }

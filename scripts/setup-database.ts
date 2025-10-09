@@ -195,7 +195,7 @@ async function main() {
             prisma.conversation.count(),
             prisma.message.count(),
             prisma.tokenUsage.count(),
-            prisma.subscription.count({ where: { isActive: true } })
+            prisma.subscription.count({ where: { status: 'ACTIVE' } })
         ])
 
         console.log(`  Total Users: ${totalUsers}`)

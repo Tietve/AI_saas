@@ -5,6 +5,8 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 
+export const dynamic = 'force-dynamic'
+
 export default function VerifyPage() {
     const sp = useSearchParams();
     const router = useRouter();

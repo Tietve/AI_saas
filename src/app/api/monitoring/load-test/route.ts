@@ -161,10 +161,13 @@ export async function DELETE(
   }
 }
 
-/**
- * GET /api/monitoring/load-test
- * List all active load tests
+/*
+ * NOTE: GET_LIST and GET_EXPORT are disabled
+ * Next.js only allows one GET handler per route
+ * These functions should be moved to separate routes if needed
  */
+
+/*
 export async function GET_LIST(request: NextRequest) {
   try {
     const tests = Array.from(activeTests.entries()).map(([id, tester]) => ({
@@ -184,10 +187,6 @@ export async function GET_LIST(request: NextRequest) {
   }
 }
 
-/**
- * GET /api/monitoring/load-test/:testId/export
- * Export load test results
- */
 export async function GET_EXPORT(
   request: NextRequest,
   { params }: { params: { testId: string } }
@@ -236,6 +235,7 @@ export async function GET_EXPORT(
     )
   }
 }
+*/
 
 
 

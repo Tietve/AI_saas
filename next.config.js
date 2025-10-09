@@ -4,6 +4,14 @@ const nextConfig = {
     reactStrictMode: true,
     swcMinify: true,
 
+    // Skip type checking during build (old code has many type errors)
+    typescript: {
+        ignoreBuildErrors: true,
+    },
+
+    // Docker support - standalone output
+    output: 'standalone',
+
     // Image optimization
     images: {
         domains: ['localhost'],

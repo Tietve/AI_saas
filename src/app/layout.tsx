@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next'
 import { Inter } from 'next/font/google'
+import { ToastProvider } from '@/components/ui/toast'
 import './globals.css'
 
 const inter = Inter({ subsets: ['latin', 'vietnamese'] })
@@ -64,10 +65,11 @@ export default function RootLayout({
             <meta name="apple-mobile-web-app-status-bar-style" content="default" />
         </head>
         <body className={`${inter.className} safe-area-padding`}>
-
-        <main id="main">
-            {children}
-        </main>
+        <ToastProvider>
+            <main id="main">
+                {children}
+            </main>
+        </ToastProvider>
         </body>
         </html>
     )

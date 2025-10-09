@@ -1,3 +1,83 @@
+/**
+ * @swagger
+ * /api/auth/signup:
+ *   post:
+ *     tags:
+ *       - Authentication
+ *     summary: Register a new user account
+ *     description: Creates a new user account with email and password. Sends verification email if email verification is enabled.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - email
+ *               - password
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 format: email
+ *                 example: user@example.com
+ *               password:
+ *                 type: string
+ *                 format: password
+ *                 minLength: 6
+ *                 example: securePassword123
+ *     responses:
+ *       200:
+ *         description: Account created successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               oneOf:
+ *                 - type: object
+ *                   properties:
+ *                     ok:
+ *                       type: boolean
+ *                       example: true
+ *                     needsVerification:
+ *                       type: boolean
+ *                       example: true
+ *                     message:
+ *                       type: string
+ *                     email:
+ *                       type: string
+ *                 - type: object
+ *                   properties:
+ *                     ok:
+ *                       type: boolean
+ *                       example: true
+ *                     message:
+ *                       type: string
+ *                     redirectUrl:
+ *                       type: string
+ *                       example: /chat
+ *         headers:
+ *           Set-Cookie:
+ *             description: Session cookie (if verification disabled)
+ *             schema:
+ *               type: string
+ *       400:
+ *         description: Invalid input (missing fields or password too short)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       409:
+ *         description: Email already in use
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
 
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'

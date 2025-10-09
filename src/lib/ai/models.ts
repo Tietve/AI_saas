@@ -3,28 +3,27 @@ import { ModelId } from '@prisma/client'
 
 
 export const MODEL_PROVIDER_MAP: Record<ModelId, string> = {
-    
+
     gpt_4_turbo: 'gpt-4-turbo-preview',
     gpt_4o: 'gpt-4o',
     gpt_4o_mini: 'gpt-4o-mini',
     gpt_3_5_turbo: 'gpt-3.5-turbo',
-    "gpt_5_nano": 'gpt-5-nano',
 
 
-    
     claude_3_opus: 'claude-3-opus-20240229',
     claude_3_5_sonnet: 'claude-3-5-sonnet-20241022',
     claude_3_5_haiku: 'claude-3-5-haiku-20241022',
 
-    
+
     gemini_1_5_pro: 'gemini-1.5-pro',
     gemini_1_5_flash: 'gemini-1.5-flash',
     gemini_2_0_flash: 'gemini-2.0-flash-exp',
 
-    
-    gpt5_thinking: 'gpt-4o',
-    gpt5_mini: 'gpt-4o-mini',
-    gpt4o_mini: 'gpt-4o-mini',
+
+    gpt_5: 'gpt-5',
+    gpt_5_mini: 'gpt-5-mini',
+    gpt_5_nano: 'gpt-5-nano',
+    gpt_4_1_nano: 'gpt-4.1-nano',
 }
 
 

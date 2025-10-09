@@ -20,10 +20,11 @@ export const PRICES_PER_K: Record<ModelId, PricePerK> = {
     gemini_1_5_flash: { in: 0.075, out: 0.3 },
     gemini_2_0_flash: { in: 0, out: 0 }, 
     
-    
-    gpt5_thinking: { in: 0.8, out: 2.4 },
-    gpt5_mini: { in: 0.15, out: 0.6 },
-    gpt4o_mini: { in: 0.05, out: 0.2 },
+
+    gpt_5: { in: 10, out: 30 },
+    gpt_5_mini: { in: 0.8, out: 2.4 },
+    gpt_5_nano: { in: 0.15, out: 0.6 },
+    gpt_4_1_nano: { in: 0.05, out: 0.2 },
 }
 
 export function calcCostUsd(model: ModelId, tokensIn: number, tokensOut: number) {

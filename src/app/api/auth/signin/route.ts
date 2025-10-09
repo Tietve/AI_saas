@@ -1,3 +1,83 @@
+/**
+ * @swagger
+ * /api/auth/signin:
+ *   post:
+ *     tags:
+ *       - Authentication
+ *     summary: Sign in to user account
+ *     description: Authenticates user with email and password. Returns session cookie on success.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - email
+ *               - password
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 format: email
+ *                 example: user@example.com
+ *               password:
+ *                 type: string
+ *                 format: password
+ *                 example: securePassword123
+ *     responses:
+ *       200:
+ *         description: Sign in successful
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 ok:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                 redirectUrl:
+ *                   type: string
+ *                   example: /chat
+ *         headers:
+ *           Set-Cookie:
+ *             description: Session cookie for authenticated requests
+ *             schema:
+ *               type: string
+ *       400:
+ *         description: Missing email or password
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       401:
+ *         description: Invalid credentials
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       403:
+ *         description: Email not verified
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 error:
+ *                   type: string
+ *                 needsVerification:
+ *                   type: boolean
+ *                   example: true
+ *                 email:
+ *                   type: string
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
 
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'

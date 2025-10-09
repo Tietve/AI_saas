@@ -14,7 +14,7 @@ export interface AttachmentMeta {
 
 export interface Attachment {
     id: string
-    kind: 'image' | 'file'
+    kind: 'image' | 'file' | 'pdf' | 'document'
     url: string
     meta?: AttachmentMeta | null
 }

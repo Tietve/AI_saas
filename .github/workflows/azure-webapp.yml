@@ -73,8 +73,9 @@ jobs:
       # ----------------------------------------
       # Installs all npm packages including dev dependencies
       # (needed for build tools, TypeScript, Prisma CLI, etc.)
+      # Uses --legacy-peer-deps to handle Storybook version conflicts
       - name: 📦 Install dependencies
-        run: npm ci --include=dev
+        run: npm ci --include=dev --legacy-peer-deps
 
       # ----------------------------------------
       # Step 4: Generate Prisma Client
@@ -143,7 +144,7 @@ jobs:
           # Install production dependencies
           echo "📦 Installing production dependencies..."
           cd deployment
-          npm ci --omit=dev
+          npm ci --omit=dev --legacy-peer-deps
 
           # ✅ CRITICAL FIX: Generate Prisma Client in deployment folder
           echo "🗄️ Generating Prisma Client..."

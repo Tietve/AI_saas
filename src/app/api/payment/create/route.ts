@@ -94,11 +94,30 @@ import { PayOS } from '@payos/node'
 
 // Force Node.js runtime (required for Prisma)
 export const runtime = 'nodejs'
-const payos = new PayOS({
-    clientId: process.env.PAYOS_CLIENT_ID!,
-    apiKey: process.env.PAYOS_API_KEY!,
-    checksumKey: process.env.PAYOS_CHECKSUM_KEY!
-})
+
+// Lazy-load PayOS client (only initialize when needed at runtime)
+let payosInstance: PayOS | null = null
+
+function getPayOSClient(): PayOS {
+    if (!payosInstance) {
+        const clientId = process.env.PAYOS_CLIENT_ID
+        const apiKey = process.env.PAYOS_API_KEY
+        const checksumKey = process.env.PAYOS_CHECKSUM_KEY
+
+        if (!clientId || !apiKey || !checksumKey) {
+            throw new Error(
+                'PayOS credentials not configured. Please set PAYOS_CLIENT_ID, PAYOS_API_KEY, and PAYOS_CHECKSUM_KEY environment variables.'
+            )
+        }
+
+        payosInstance = new PayOS({
+            clientId,
+            apiKey,
+            checksumKey
+        })
+    }
+    return payosInstance
+}
 
 export async function POST(req: NextRequest) {
     try {
@@ -158,7 +177,8 @@ export async function POST(req: NextRequest) {
 
         console.log('[Payment] Creating PayOS payment link:', paymentData)
 
-        // Call PayOS API
+        // Call PayOS API (lazy-loaded)
+        const payos = getPayOSClient()
         const paymentLinkResponse = await payos.paymentRequests.create(paymentData)
 
         console.log('[Payment] PayOS response:', paymentLinkResponse)
@@ -265,6 +285,7 @@ export async function GET(req: NextRequest) {
         // Check with PayOS
         if (payment.payosOrderCode) {
             try {
+                const payos = getPayOSClient()
                 const payosInfo = await payos.paymentRequests.get(payment.payosOrderCode)
 
                 // Update payment status if paid

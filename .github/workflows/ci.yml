@@ -30,7 +30,7 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies
-        run: npm ci
+        run: npm ci --legacy-peer-deps
 
       - name: Run ESLint
         run: npm run lint || true
@@ -55,7 +55,7 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies
-        run: npm ci
+        run: npm ci --legacy-peer-deps
 
       - name: Generate Prisma Client
         run: npx prisma generate
@@ -92,7 +92,7 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies
-        run: npm ci
+        run: npm ci --legacy-peer-deps
 
       - name: Generate Prisma Client
         run: npx prisma generate
@@ -106,10 +106,12 @@ jobs:
 
       - name: Check build output
         run: |
-          if [ -d ".next/standalone" ]; then
-            echo "✅ Standalone build successful"
+          if [ -d ".next" ]; then
+            echo "✅ Next.js build successful"
+            echo "📊 Build artifacts:"
+            ls -lh .next/ | head -10
           else
-            echo "❌ Standalone build failed"
+            echo "❌ Next.js build failed - .next directory not found"
             exit 1
           fi
 

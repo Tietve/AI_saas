@@ -146,9 +146,15 @@ jobs:
           cd deployment
           npm ci --omit=dev --legacy-peer-deps --ignore-scripts
 
-          # ✅ CRITICAL FIX: Generate Prisma Client in deployment folder (after install)
-          echo "🗄️ Generating Prisma Client..."
-          DATABASE_URL="${{ secrets.DATABASE_URL }}" npx prisma generate
+          # ✅ CRITICAL FIX: Copy pre-generated Prisma Client from root build
+          # (Already generated in Step 4 with DATABASE_URL)
+          echo "🗄️ Copying Prisma Client from build..."
+          mkdir -p node_modules/@prisma
+          mkdir -p node_modules/.prisma
+          cp -r ../node_modules/@prisma/client node_modules/@prisma/ || echo "⚠️ @prisma/client not found"
+          cp -r ../node_modules/.prisma/client node_modules/.prisma/ || echo "⚠️ .prisma/client not found"
+
+          echo "✅ Prisma Client copied successfully"
 
           # Go back to root
           cd ..

@@ -107,23 +107,12 @@ jobs:
           npx prisma generate
 
       # ----------------------------------------
-      # Step 6: Prune Dev Dependencies
-      # ----------------------------------------
-      # Remove dev dependencies from node_modules while keeping production deps
-      # This keeps the generated Prisma Client intact
-      # Much more efficient than reinstalling in deployment folder
-      - name: 🧹 Prune dev dependencies
-        run: |
-          echo "🧹 Removing dev dependencies..."
-          npm prune --omit=dev --legacy-peer-deps
-          echo "✅ Dev dependencies removed"
-
-      # ----------------------------------------
-      # Step 7: Build Application
+      # Step 6: Build Application
       # ----------------------------------------
       # Runs Next.js production build
       # Creates optimized .next directory
       # DATABASE_URL available from $GITHUB_ENV (set in Step 3)
+      # IMPORTANT: Build BEFORE pruning dev deps (needs tailwindcss, postcss, etc.)
       - name: 🏗️ Build Next.js application
         env:
           NODE_ENV: production
@@ -139,10 +128,22 @@ jobs:
           npm run build
 
       # ----------------------------------------
+      # Step 7: Prune Dev Dependencies
+      # ----------------------------------------
+      # Remove dev dependencies from node_modules AFTER build completes
+      # This keeps the generated Prisma Client intact
+      # Dev deps (tailwindcss, postcss, typescript) no longer needed after build
+      - name: 🧹 Prune dev dependencies
+        run: |
+          echo "🧹 Removing dev dependencies after build..."
+          npm prune --omit=dev --legacy-peer-deps
+          echo "✅ Dev dependencies removed"
+
+      # ----------------------------------------
       # Step 8: Prepare Deployment Package
       # ----------------------------------------
       # Creates deployment package by copying all necessary files
-      # node_modules already contains only production deps + Prisma Client (from Step 6)
+      # node_modules already contains only production deps + Prisma Client (from Step 7)
       - name: 📦 Create deployment package
         run: |
           echo "📋 Creating deployment package..."

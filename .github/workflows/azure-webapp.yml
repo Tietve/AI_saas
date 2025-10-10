@@ -86,18 +86,38 @@ jobs:
       - name: 🗄️ Generate Prisma Client
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
-        run: npx prisma generate
+        run: |
+          echo "🔍 Verifying DATABASE_URL is set..."
+          if [ -z "$DATABASE_URL" ]; then
+            echo "❌ ERROR: DATABASE_URL is not set!"
+            echo "Please add DATABASE_URL to GitHub Secrets"
+            exit 1
+          fi
+          echo "✅ DATABASE_URL is set (length: ${#DATABASE_URL} chars)"
+
+          echo "🗄️ Generating Prisma Client..."
+          npx prisma generate
 
       # ----------------------------------------
       # Step 5: Build Application
       # ----------------------------------------
       # Runs Next.js production build
       # Creates optimized .next directory
+      # IMPORTANT: DATABASE_URL must be set for build-time Prisma usage
       - name: 🏗️ Build Next.js application
         env:
           NODE_ENV: production
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
-        run: npm run build
+        run: |
+          echo "🔍 Verifying DATABASE_URL for build..."
+          if [ -z "$DATABASE_URL" ]; then
+            echo "❌ ERROR: DATABASE_URL is not set for build!"
+            exit 1
+          fi
+          echo "✅ DATABASE_URL verified (length: ${#DATABASE_URL} chars)"
+
+          echo "🏗️ Building Next.js application..."
+          npm run build
 
       # ----------------------------------------
       # Step 6: Prepare Deployment Package

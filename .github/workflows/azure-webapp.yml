@@ -141,12 +141,12 @@ jobs:
             cp -r public deployment/
           fi
 
-          # Install production dependencies
+          # Install production dependencies (skip postinstall to avoid Prisma error)
           echo "📦 Installing production dependencies..."
           cd deployment
-          npm ci --omit=dev --legacy-peer-deps
+          npm ci --omit=dev --legacy-peer-deps --ignore-scripts
 
-          # ✅ CRITICAL FIX: Generate Prisma Client in deployment folder
+          # ✅ CRITICAL FIX: Generate Prisma Client in deployment folder (after install)
           echo "🗄️ Generating Prisma Client..."
           DATABASE_URL="${{ secrets.DATABASE_URL }}" npx prisma generate
 

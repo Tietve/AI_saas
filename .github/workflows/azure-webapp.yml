@@ -69,7 +69,17 @@ jobs:
           cache: 'npm'  # Cache npm dependencies for faster builds
 
       # ----------------------------------------
-      # Step 3: Install Dependencies
+      # Step 3: Export DATABASE_URL
+      # ----------------------------------------
+      # Export DATABASE_URL to $GITHUB_ENV so all subsequent steps can access it
+      # This ensures Prisma Client can connect during build-time operations
+      - name: 🔑 Export DATABASE_URL for pipeline
+        run: |
+          echo "DATABASE_URL=${{ secrets.DATABASE_URL }}" >> $GITHUB_ENV
+          echo "✅ DATABASE_URL exported to pipeline environment"
+
+      # ----------------------------------------
+      # Step 4: Install Dependencies
       # ----------------------------------------
       # Installs all npm packages including dev dependencies
       # (needed for build tools, TypeScript, Prisma CLI, etc.)
@@ -78,14 +88,12 @@ jobs:
         run: npm ci --include=dev --legacy-peer-deps
 
       # ----------------------------------------
-      # Step 4: Generate Prisma Client
+      # Step 5: Generate Prisma Client
       # ----------------------------------------
       # Generates Prisma Client for database access
-      # Uses DATABASE_URL from GitHub Secrets
+      # Uses DATABASE_URL from $GITHUB_ENV (set in Step 3)
       # NOTE: We only generate, NOT migrate (migration handled separately)
       - name: 🗄️ Generate Prisma Client
-        env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: |
           echo "🔍 Verifying DATABASE_URL is set..."
           if [ -z "$DATABASE_URL" ]; then
@@ -99,15 +107,26 @@ jobs:
           npx prisma generate
 
       # ----------------------------------------
-      # Step 5: Build Application
+      # Step 6: Prune Dev Dependencies
+      # ----------------------------------------
+      # Remove dev dependencies from node_modules while keeping production deps
+      # This keeps the generated Prisma Client intact
+      # Much more efficient than reinstalling in deployment folder
+      - name: 🧹 Prune dev dependencies
+        run: |
+          echo "🧹 Removing dev dependencies..."
+          npm prune --omit=dev --legacy-peer-deps
+          echo "✅ Dev dependencies removed"
+
+      # ----------------------------------------
+      # Step 7: Build Application
       # ----------------------------------------
       # Runs Next.js production build
       # Creates optimized .next directory
-      # IMPORTANT: DATABASE_URL must be set for build-time Prisma usage
+      # DATABASE_URL available from $GITHUB_ENV (set in Step 3)
       - name: 🏗️ Build Next.js application
         env:
           NODE_ENV: production
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: |
           echo "🔍 Verifying DATABASE_URL for build..."
           if [ -z "$DATABASE_URL" ]; then
@@ -120,15 +139,10 @@ jobs:
           npm run build
 
       # ----------------------------------------
-      # Step 6: Prepare Deployment Package
+      # Step 8: Prepare Deployment Package
       # ----------------------------------------
-      # Creates a clean deployment package with:
-      # - Built application (.next)
-      # - Source code (src/) - REQUIRED for Next.js without standalone
-      # - Dependencies (node_modules)
-      # - Package files (package.json, package-lock.json)
-      # - Prisma schema and generated client
-      # - Configuration files
+      # Creates deployment package by copying all necessary files
+      # node_modules already contains only production deps + Prisma Client (from Step 6)
       - name: 📦 Create deployment package
         run: |
           echo "📋 Creating deployment package..."
@@ -136,13 +150,14 @@ jobs:
           # Create deployment directory
           mkdir -p deployment
 
-          # Copy essential files for production
+          # Copy essential files
+          echo "📦 Copying package files..."
           cp package.json deployment/
           cp package-lock.json deployment/
           cp next.config.js deployment/ || echo "⚠️ next.config.js not found"
           cp tsconfig.json deployment/ || echo "⚠️ tsconfig.json not found"
 
-          # ✅ CRITICAL FIX: Copy source code (needed for Next.js runtime)
+          # Copy source code (REQUIRED for Next.js without standalone mode)
           echo "📦 Copying source code..."
           cp -r src deployment/
 
@@ -150,10 +165,10 @@ jobs:
           echo "📦 Copying .next build output..."
           cp -r .next deployment/
 
-          # Copy Prisma files
+          # Copy Prisma schema
           echo "📦 Copying Prisma schema..."
           mkdir -p deployment/prisma
-          cp -r prisma/schema.prisma deployment/prisma/
+          cp prisma/schema.prisma deployment/prisma/
 
           # Copy public assets (if exists)
           if [ -d "public" ]; then
@@ -161,30 +176,17 @@ jobs:
             cp -r public deployment/
           fi
 
-          # Install production dependencies (skip postinstall to avoid Prisma error)
-          echo "📦 Installing production dependencies..."
-          cd deployment
-          npm ci --omit=dev --legacy-peer-deps --ignore-scripts
-
-          # ✅ CRITICAL FIX: Copy pre-generated Prisma Client from root build
-          # (Already generated in Step 4 with DATABASE_URL)
-          echo "🗄️ Copying Prisma Client from build..."
-          mkdir -p node_modules/@prisma
-          mkdir -p node_modules/.prisma
-          cp -r ../node_modules/@prisma/client node_modules/@prisma/ || echo "⚠️ @prisma/client not found"
-          cp -r ../node_modules/.prisma/client node_modules/.prisma/ || echo "⚠️ .prisma/client not found"
-
-          echo "✅ Prisma Client copied successfully"
-
-          # Go back to root
-          cd ..
+          # Copy production node_modules (already pruned in Step 6)
+          # This includes generated Prisma Client
+          echo "📦 Copying production node_modules..."
+          cp -r node_modules deployment/
 
           echo "✅ Deployment package created"
           echo "📊 Package contents:"
           ls -la deployment/
 
       # ----------------------------------------
-      # Step 7: Create Deployment Archive
+      # Step 9: Create Deployment Archive
       # ----------------------------------------
       # Zips the deployment package for upload
       - name: 📦 Zip deployment package
@@ -197,7 +199,7 @@ jobs:
           ls -lh deployment.zip
 
       # ----------------------------------------
-      # Step 8: Deploy to Azure App Service
+      # Step 10: Deploy to Azure App Service
       # ----------------------------------------
       # Uploads and deploys the package to Azure
       # Uses Publish Profile from GitHub Secrets
@@ -209,7 +211,7 @@ jobs:
           package: deployment.zip
 
       # ----------------------------------------
-      # Step 9: Verify Deployment
+      # Step 11: Verify Deployment
       # ----------------------------------------
       # Checks if the deployed app is responding
       - name: ✅ Verify deployment
@@ -230,7 +232,7 @@ jobs:
           fi
 
       # ----------------------------------------
-      # Step 10: Cleanup
+      # Step 12: Cleanup
       # ----------------------------------------
       # Removes temporary files
       - name: 🧹 Cleanup

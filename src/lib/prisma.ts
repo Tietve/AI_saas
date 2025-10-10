@@ -91,24 +91,49 @@ const prismaClientSingleton = () => {
     return client
 }
 
+// Lazy singleton instance
+let prismaInstance: PrismaClient | undefined
 
+/**
+ * Get Prisma Client instance (lazy initialization)
+ *
+ * This function creates the Prisma Client only when first called,
+ * avoiding module-level initialization that would fail during
+ * Next.js build-time page data collection.
+ */
+export function db(): PrismaClient {
+    if (!prismaInstance) {
+        // Check if we have a cached instance in development
+        if (typeof globalThis.prisma !== 'undefined') {
+            prismaInstance = globalThis.prisma
+        } else {
+            // Create new instance
+            prismaInstance = prismaClientSingleton()
 
-const prisma = globalThis.prisma ?? prismaClientSingleton()
-
-if (process.env.NODE_ENV !== 'production') {
-    globalThis.prisma = prisma
+            // Cache in development to prevent connection spam during hot reload
+            if (process.env.NODE_ENV !== 'production') {
+                globalThis.prisma = prismaInstance
+            }
+        }
+    }
+    return prismaInstance
 }
 
-
-export { prisma }
-
-
-export const db = prisma
+/**
+ * @deprecated Use db() function instead for lazy initialization
+ * Kept for backwards compatibility
+ */
+export const prisma = new Proxy({} as PrismaClient, {
+    get(_target, prop) {
+        return db()[prop as keyof PrismaClient]
+    },
+})
 
 export async function testDatabaseConnection(): Promise<boolean> {
     try {
-        await prisma.$connect()
-        await prisma.$queryRaw`SELECT 1`
+        const client = db()
+        await client.$connect()
+        await client.$queryRaw`SELECT 1`
         logger.info('✅ Database connected successfully')
         return true
     } catch (error) {
@@ -120,7 +145,8 @@ export async function testDatabaseConnection(): Promise<boolean> {
 
 export async function disconnectDatabase(): Promise<void> {
     try {
-        await prisma.$disconnect()
+        const client = db()
+        await client.$disconnect()
         logger.info('📊 Database disconnected')
     } catch (error) {
         logger.error({ err: error }, 'Error disconnecting database')
@@ -139,7 +165,8 @@ export async function checkDatabaseHealth(): Promise<{
     const startTime = Date.now()
 
     try {
-        await prisma.$queryRaw`SELECT 1`
+        const client = db()
+        await client.$queryRaw`SELECT 1`
         const latency = Date.now() - startTime
 
         return {

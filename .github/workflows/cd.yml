@@ -1,13 +1,17 @@
 # ================================
 # CD Workflow - Deploy to Production
 # ================================
-name: CD - Deploy
+# DISABLED: This workflow is for Kubernetes deployment
+# Currently using Azure App Service (see azure-webapp.yml)
+# Re-enable if switching to Kubernetes in the future
+name: CD - Deploy (DISABLED)
 
 on:
-  push:
-    branches: [main]
-    tags:
-      - 'v*'
+  # Disabled - uncomment to re-enable
+  # push:
+  #   branches: [main]
+  #   tags:
+  #     - 'v*'
   workflow_dispatch:
     inputs:
       environment:

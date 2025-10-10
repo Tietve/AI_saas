@@ -47,4 +47,3 @@ export function Logo({ size = 'md', className = '', showText = true }: LogoProps
     </div>
   )
 }
-import React from 'react'

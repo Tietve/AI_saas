@@ -217,7 +217,7 @@ export class UserRepository {
         PRO: 0,
       }
 
-      counts.forEach((count) => {
+      counts.forEach((count: any) => {
         result[count.planTier] = count._count
       })
 

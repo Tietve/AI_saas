@@ -15,10 +15,6 @@
 import { PrismaClient } from '@prisma/client'
 import { logger, logDbQuery, logError } from './logger'
 
-declare global {
-    var prisma: PrismaClient | undefined
-}
-
 /**
  * Create Prisma Client with optimal configuration
  */
@@ -103,6 +99,14 @@ function createPrismaClient() {
     logger.info('Prisma client initialized')
 
     return extendedClient
+}
+
+// Extended Prisma Client Type
+type ExtendedPrismaClient = ReturnType<typeof createPrismaClient>
+
+// Global declaration for development hot-reload
+declare global {
+    var prisma: ExtendedPrismaClient | undefined
 }
 
 /**

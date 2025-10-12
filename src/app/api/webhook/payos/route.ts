@@ -1,6 +1,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { Prisma } from '@prisma/client'
 import crypto from 'crypto'
 import { logger } from '@/lib/logger'
 
@@ -213,9 +214,9 @@ async function handlePaymentSuccess(data: any, webhookEventId: string) {
             throw new Error('Amount mismatch')
         }
 
-        
-        await prisma.$transaction(async (tx) => {
-            
+
+        await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+
             await tx.payment.update({
                 where: { id: payment.id },
                 data: {

@@ -154,10 +154,8 @@ export async function getUserUsageStats(
       },
       _count: true,
       orderBy: {
-        _count: {
-          model: 'desc',
-        },
-      },
+        model: 'desc',
+      } as any,
     }),
   ])
 
@@ -168,7 +166,7 @@ export async function getUserUsageStats(
       costUsd: totalUsage._sum.costUsd || 0,
       requests: totalUsage._count,
     },
-    byModel: usageByModel.map((item) => ({
+    byModel: usageByModel.map((item: any) => ({
       model: item.model,
       tokensIn: item._sum.tokensIn || 0,
       tokensOut: item._sum.tokensOut || 0,

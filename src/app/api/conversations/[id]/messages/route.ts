@@ -36,19 +36,21 @@ export async function GET(
         })
         if (!convo) return json(404, { error: 'NOT_FOUND' })
 
-        
+        // Handle cursor-based pagination
+        let whereClause: any = { conversationId: id }
+
+        if (cursor) {
+            const cursorMessage = await prisma.message.findUnique({
+                where: { id: cursor },
+                select: { createdAt: true }
+            })
+            if (cursorMessage) {
+                whereClause.createdAt = { lt: cursorMessage.createdAt }
+            }
+        }
+
         const messages = await prisma.message.findMany({
-            where: {
-                conversationId: id,
-                ...(cursor ? {
-                    createdAt: {
-                        lt: await prisma.message.findUnique({
-                            where: { id: cursor },
-                            select: { createdAt: true }
-                        }).then(m => m?.createdAt || new Date())
-                    }
-                } : {})
-            },
+            where: whereClause,
             select: {
                 id: true,
                 role: true,

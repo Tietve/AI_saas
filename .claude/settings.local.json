@@ -14,7 +14,8 @@
       "Bash(tasklist)",
       "Bash(timeout 30 bash -c 'while [ ! -f package-lock.json ]; do sleep 2; done; echo \"\"package-lock.json created\"\"')",
       "Bash(npm install:*)",
-      "Bash(npx prisma generate:*)"
+      "Bash(npx prisma generate:*)",
+      "Bash(npm i:*)"
     ],
     "deny": [],
     "ask": []

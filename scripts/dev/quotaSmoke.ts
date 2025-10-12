@@ -1,6 +1,6 @@
 // scripts/dev/quotaSmoke.ts
 import 'dotenv/config'
-import { prisma } from '../../src/lib/db'
+import { prisma } from '../../src/lib/prisma'
 import { getUserLimits, canSpend, recordUsage, getUsageSummary } from '../../src/lib/billing/quota'
 import { ModelId, PlanTier } from '@prisma/client'
 

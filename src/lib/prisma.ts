@@ -22,7 +22,7 @@ declare global {
 /**
  * Create Prisma Client with optimal configuration
  */
-function createPrismaClient(): PrismaClient {
+function createPrismaClient() {
     const client = new PrismaClient({
         // Minimize logging in production to reduce memory usage
         log: process.env.NODE_ENV === 'production'
@@ -36,67 +36,73 @@ function createPrismaClient(): PrismaClient {
         },
     })
 
-    // Add middleware for query performance monitoring (only once)
-    client.$use(async (params, next) => {
-        const startTime = Date.now()
+    // Add query extension for performance monitoring (replaces deprecated $use)
+    const extendedClient = client.$extends({
+        query: {
+            $allModels: {
+                async $allOperations({ model, operation, args, query }) {
+                    const startTime = Date.now()
 
-        try {
-            const result = await next(params)
-            const duration = Date.now() - startTime
+                    try {
+                        const result = await query(args)
+                        const duration = Date.now() - startTime
 
-            // Log slow queries (> 1000ms)
-            if (duration > 1000) {
-                logDbQuery({
-                    operation: params.action,
-                    model: params.model || 'unknown',
-                    duration,
-                })
+                        // Log slow queries (> 1000ms)
+                        if (duration > 1000) {
+                            logDbQuery({
+                                operation,
+                                model: model || 'unknown',
+                                duration,
+                            })
+                        }
+
+                        // Debug logging in development only
+                        if (process.env.NODE_ENV === 'development' && duration > 500) {
+                            logger.debug(
+                                {
+                                    model,
+                                    action: operation,
+                                    duration,
+                                },
+                                `DB: ${model}.${operation} - ${duration}ms`
+                            )
+                        }
+
+                        return result
+                    } catch (error) {
+                        const duration = Date.now() - startTime
+
+                        logDbQuery({
+                            operation,
+                            model: model || 'unknown',
+                            duration,
+                            error: error instanceof Error ? error : new Error(String(error)),
+                        })
+
+                        if (error instanceof Error) {
+                            logError(error, {
+                                extra: {
+                                    operation,
+                                    model,
+                                    args,
+                                },
+                                tags: {
+                                    component: 'database',
+                                    model: model || 'unknown',
+                                },
+                            })
+                        }
+
+                        throw error
+                    }
+                }
             }
-
-            // Debug logging in development only
-            if (process.env.NODE_ENV === 'development' && duration > 500) {
-                logger.debug(
-                    {
-                        model: params.model,
-                        action: params.action,
-                        duration,
-                    },
-                    `DB: ${params.model}.${params.action} - ${duration}ms`
-                )
-            }
-
-            return result
-        } catch (error) {
-            const duration = Date.now() - startTime
-
-            logDbQuery({
-                operation: params.action,
-                model: params.model || 'unknown',
-                duration,
-                error: error instanceof Error ? error : new Error(String(error)),
-            })
-
-            if (error instanceof Error) {
-                logError(error, {
-                    extra: {
-                        operation: params.action,
-                        model: params.model,
-                        args: params.args,
-                    },
-                    tags: {
-                        component: 'database',
-                        model: params.model || 'unknown',
-                    },
-                })
-            }
-
-            throw error
         }
     })
 
     logger.info('Prisma client initialized')
 
-    return client
+    return extendedClient
 }
 
 /**

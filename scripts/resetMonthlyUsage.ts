@@ -1,6 +1,6 @@
 // scripts/resetMonthlyUsage.ts
 import 'dotenv/config'                     // để load .env khi chạy bằng node/tsx
-import { prisma } from '../src/lib/db'         // nếu db.ts nằm ở src/lib thì đổi thành '../src/lib/db'
+import { prisma } from '../src/lib/prisma'
 
 async function main() {
     const res = await prisma.user.updateMany({ data: { monthlyTokenUsed: 0 } })

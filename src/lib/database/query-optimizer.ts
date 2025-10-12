@@ -220,42 +220,23 @@ export async function batchLoadConversations(conversationIds: string[]) {
 
 /**
  * Check for N+1 queries in development
+ *
+ * Note: This function is deprecated because Prisma $use middleware is no longer supported.
+ * Query monitoring is now handled via $extends in src/lib/prisma.ts
+ * For N+1 detection, consider using external tools like:
+ * - Prisma Studio
+ * - npx prisma-query-log
+ * - Application Performance Monitoring (APM) tools
  */
 export function enableN1Detection() {
-  if (process.env.NODE_ENV !== 'development') {
-    logger.warn('N+1 detection is only available in development')
-    return
-  }
+  logger.warn(
+    'enableN1Detection() is deprecated. Query monitoring is now built into prisma client via $extends. ' +
+    'For N+1 detection, use external tools like Prisma Studio or APM.'
+  )
 
-  const queryCount = new Map<string, number>()
-  let requestId = 0
-
-  // Reset on each request
-  setInterval(() => {
-    if (queryCount.size > 0) {
-      const queries = Array.from(queryCount.entries())
-        .filter(([_, count]) => count > 5)
-        .sort((a, b) => b[1] - a[1])
-
-      if (queries.length > 0) {
-        logger.warn(
-          { queries },
-          `Potential N+1 detected: ${queries.length} query patterns with >5 executions`
-        )
-      }
-
-      queryCount.clear()
-      requestId++
-    }
-  }, 5000)
-
-  prisma.$use(async (params, next) => {
-    const queryKey = `${params.model}.${params.action}`
-    queryCount.set(queryKey, (queryCount.get(queryKey) || 0) + 1)
-    return next(params)
-  })
-
-  logger.info('N+1 query detection enabled')
+  // Feature disabled - $use middleware is no longer supported in Prisma v5+
+  // Query performance monitoring is now handled in src/lib/prisma.ts using $extends
+  return
 }
 
 /**

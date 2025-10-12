@@ -95,7 +95,9 @@ export class DistributedCache {
     const startTime = Date.now()
     
     try {
-      const strategyConfig = this.strategies.get(strategy)
+      const strategiesData = await redis?.get(this.STRATEGIES_KEY)
+      const strategies: Record<string, CacheStrategy> = strategiesData ? JSON.parse(strategiesData as string) : {}
+      const strategyConfig = strategies[strategy]
       if (!strategyConfig) {
         throw new Error(`Unknown cache strategy: ${strategy}`)
       }
@@ -146,7 +148,9 @@ export class DistributedCache {
    * Warm cache with frequently accessed data
    */
   async warmCache(strategy: string): Promise<void> {
-    const strategyConfig = this.strategies.get(strategy)
+    const strategiesData = await redis?.get(this.STRATEGIES_KEY)
+    const strategies: Record<string, CacheStrategy> = strategiesData ? JSON.parse(strategiesData as string) : {}
+    const strategyConfig = strategies[strategy]
     if (!strategyConfig?.warming.enabled) return
 
     console.log(`[DistributedCache] Warming cache for strategy: ${strategy}`)
@@ -257,7 +261,9 @@ export class DistributedCache {
   }
 
   private async setToPrimary(key: string, value: string, strategy: string): Promise<void> {
-    const strategyConfig = this.strategies.get(strategy)
+    const strategiesData = await redis?.get(this.STRATEGIES_KEY)
+    const strategies: Record<string, CacheStrategy> = strategiesData ? JSON.parse(strategiesData as string) : {}
+    const strategyConfig = strategies[strategy]
     if (!strategyConfig || !redis) return
 
     const ttl = strategyConfig.ttl
@@ -269,7 +275,9 @@ export class DistributedCache {
   }
 
   private async getFromSecondary(key: string): Promise<string | null> {
-    const healthyNodes = Array.from(this.nodes.values()).filter(node => node.isHealthy)
+    const nodesData = await redis?.get(this.NODES_KEY)
+    const nodes: Record<string, CacheNode> = nodesData ? JSON.parse(nodesData as string) : {}
+    const healthyNodes = Object.values(nodes).filter(node => node.isHealthy)
     
     for (const node of healthyNodes) {
       try {
@@ -296,8 +304,13 @@ export class DistributedCache {
   }
 
   private async setToSecondary(key: string, value: string, strategy: string): Promise<void> {
-    const healthyNodes = Array.from(this.nodes.values()).filter(node => node.isHealthy)
-    const strategyConfig = this.strategies.get(strategy)
+    const nodesData = await redis?.get(this.NODES_KEY)
+    const nodes: Record<string, CacheNode> = nodesData ? JSON.parse(nodesData as string) : {}
+    const healthyNodes = Object.values(nodes).filter(node => node.isHealthy)
+
+    const strategiesData = await redis?.get(this.STRATEGIES_KEY)
+    const strategies: Record<string, CacheStrategy> = strategiesData ? JSON.parse(strategiesData as string) : {}
+    const strategyConfig = strategies[strategy]
     
     const promises = healthyNodes.map(async (node) => {
       try {
@@ -321,7 +334,9 @@ export class DistributedCache {
   }
 
   private async deleteFromSecondary(key: string): Promise<void> {
-    const healthyNodes = Array.from(this.nodes.values()).filter(node => node.isHealthy)
+    const nodesData = await redis?.get(this.NODES_KEY)
+    const nodes: Record<string, CacheNode> = nodesData ? JSON.parse(nodesData as string) : {}
+    const healthyNodes = Object.values(nodes).filter(node => node.isHealthy)
     
     const promises = healthyNodes.map(async (node) => {
       try {
@@ -343,7 +358,9 @@ export class DistributedCache {
   }
 
   private async invalidateDependencies(key: string, strategy: string): Promise<void> {
-    const strategyConfig = this.strategies.get(strategy)
+    const strategiesData = await redis?.get(this.STRATEGIES_KEY)
+    const strategies: Record<string, CacheStrategy> = strategiesData ? JSON.parse(strategiesData as string) : {}
+    const strategyConfig = strategies[strategy]
     if (!strategyConfig?.invalidation.dependencies) return
 
     for (const dependency of strategyConfig.invalidation.dependencies) {
@@ -453,8 +470,10 @@ export class DistributedCache {
   }
 
   private startCacheWarming(): void {
-    this.warmingScheduler = setInterval(() => {
-      for (const [strategy, config] of this.strategies) {
+    this.warmingScheduler = setInterval(async () => {
+      const strategiesData = await redis?.get(this.STRATEGIES_KEY)
+      const strategies: Record<string, CacheStrategy> = strategiesData ? JSON.parse(strategiesData as string) : {}
+      for (const [strategy, config] of Object.entries(strategies)) {
         if (config.warming.enabled) {
           this.warmCache(strategy)
         }
@@ -469,7 +488,10 @@ export class DistributedCache {
   }
 
   private async performHealthChecks(): Promise<void> {
-    for (const [nodeId, node] of this.nodes) {
+    const nodesData = await redis?.get(this.NODES_KEY)
+    const nodes: Record<string, CacheNode> = nodesData ? JSON.parse(nodesData as string) : {}
+
+    for (const [nodeId, node] of Object.entries(nodes)) {
       try {
         const startTime = Date.now()
         const controller = new AbortController()
@@ -491,6 +513,9 @@ export class DistributedCache {
         console.warn(`[DistributedCache] Health check failed for node ${nodeId}:`, error)
       }
     }
+
+    // Save updated nodes back to Redis
+    await redis?.set(this.NODES_KEY, JSON.stringify(nodes))
   }
 
   private async isPrimaryCacheHealthy(): Promise<boolean> {

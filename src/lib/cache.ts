@@ -146,8 +146,8 @@ export async function cacheMSet(keyValuePairs: Record<string, any>, ttlSec?: num
  */
 export async function cacheMGet<T = any>(keys: string[]): Promise<(T | null)[]> {
   try {
-    const values = await redis.mget(...keys)
-    return values.map((v: string | null) => v ? JSON.parse(v) as T : null)
+    const values = await redis.mget(...keys) as (string | null)[]
+    return values.map((v) => v ? JSON.parse(v) as T : null)
   } catch (error) {
     console.error(`[Cache] Error getting multiple keys:`, error)
     return keys.map(() => null)

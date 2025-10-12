@@ -47,7 +47,10 @@
     "verify:production": "tsx scripts/post-deploy-verifier.ts",
     "verify:production:verbose": "tsx scripts/post-deploy-verifier.ts --verbose",
     "conn:check": "tsx scripts/conn-check.ts",
-    "conn:check:verbose": "tsx scripts/conn-check.ts --verbose"
+    "conn:check:verbose": "tsx scripts/conn-check.ts --verbose",
+    "storybook": "storybook dev -p 6006",
+    "build:storybook": "storybook build",
+    "chromatic": "chromatic --project-token=$CHROMATIC_PROJECT_TOKEN"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.24.3",
@@ -112,6 +115,11 @@
     "zod-validation-error": "^4.0.2"
   },
   "devDependencies": {
+    "@chromatic-com/storybook": "4.1.1",
+    "@storybook/addon-essentials": "8.6.14",
+    "@storybook/nextjs": "8.6.14",
+    "chromatic": "^13.3.0",
+    "storybook": "8.6.14",
     "@tailwindcss/postcss": "^4.1.13",
     "@types/bcryptjs": "^2.4.6",
     "@types/jsonwebtoken": "^9.0.10",

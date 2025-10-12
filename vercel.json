@@ -1,5 +1,6 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
+  "installCommand": "npm install --legacy-peer-deps",
   "buildCommand": "prisma generate && next build",
   "framework": "nextjs",
   "regions": ["sin1"],
@@ -10,7 +11,7 @@
       "maxDuration": 30
     },
     "src/app/api/chat/**/*.ts": {
-      "memory": 1024,
+      "memory": 2048,
       "maxDuration": 60
     },
     "src/app/api/upload/**/*.ts": {

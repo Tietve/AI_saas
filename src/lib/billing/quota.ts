@@ -1,6 +1,6 @@
 
 import { prisma } from '@/lib/prisma'
-import { ModelId, PlanTier, Prisma } from '@prisma/client'
+import { ModelId, PlanTier } from '@prisma/client'
 import { PLAN_LIMITS } from './limits'
 import { calcCostUsd } from './costs'
 import { enhancedCache, CacheKeys, CacheTTL } from '@/lib/cache/redis-client'
@@ -104,7 +104,7 @@ export async function recordUsage(args: {
 
     const totalTokens = (tokensIn || 0) + (tokensOut || 0)
 
-    const res = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+    const res = await prisma.$transaction(async (tx) => {
 
         const usage = await tx.tokenUsage.create({
             data: {

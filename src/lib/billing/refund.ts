@@ -5,7 +5,7 @@
  */
 
 import { prisma } from '@/lib/prisma'
-import { PaymentStatus, SubscriptionStatus, PlanTier, Prisma } from '@prisma/client'
+import { PaymentStatus, SubscriptionStatus, PlanTier } from '@prisma/client'
 import { logger, logBillingEvent, logError } from '@/lib/logger'
 
 export type RefundReason =
@@ -98,7 +98,7 @@ export async function processRefund(params: {
     // For now, we'll simulate the refund process
 
     // Start transaction
-    const result = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+    const result = await prisma.$transaction(async (tx) => {
       // Update payment status
       const updatedPayment = await tx.payment.update({
         where: { id: paymentId },

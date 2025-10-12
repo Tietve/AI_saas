@@ -120,14 +120,10 @@ export function db(): PrismaClient {
 }
 
 /**
- * @deprecated Use db() function instead for lazy initialization
- * Kept for backwards compatibility
+ * Export prisma directly from db() for backwards compatibility
+ * This ensures all methods like $use work correctly
  */
-export const prisma = new Proxy({} as PrismaClient, {
-    get(_target, prop) {
-        return db()[prop as keyof PrismaClient]
-    },
-})
+export const prisma = db()
 
 export async function testDatabaseConnection(): Promise<boolean> {
     try {

@@ -7,7 +7,10 @@
       "Bash(git commit:*)",
       "Bash(npm run clean:*)",
       "Bash(npm run build:*)",
-      "Bash(npm run prisma:generate:*)"
+      "Bash(npm run prisma:generate:*)",
+      "Bash(npm install)",
+      "Bash(npm view:*)",
+      "Bash(npm search:*)"
     ],
     "deny": [],
     "ask": []

@@ -5,6 +5,7 @@ import { verifyCsrfToken, requiresCsrfProtection, isCsrfExempt, generateCsrfToke
 import { applySecurityHeaders } from '@/middleware/security-headers'
 import { createRateLimiter, getClientIp, toHeaders } from '@/lib/rate-limit'
 import { logger } from '@/lib/logger'
+import { redis } from '@/lib/cache/redis-client'
 
 export const runtime = 'nodejs'
 
@@ -12,14 +13,23 @@ const protectedRoutes = ['/chat', '/dashboard', '/settings', '/admin']
 const authRoutes = ['/auth/signin', '/auth/signup']
 const COOKIE_NAME = process.env.AUTH_COOKIE_NAME || 'session'
 
-// Global rate limiters
+// Ensure Redis is configured
+if (!process.env.UPSTASH_REDIS_REST_URL || !process.env.UPSTASH_REDIS_REST_TOKEN) {
+    logger.warn('Redis not configured for rate limiting, falling back to in-memory')
+}
+
+// Global rate limiters with Redis backend
 const globalApiLimiter = createRateLimiter({
-    backend: 'memory',
+    backend: redis ? 'redis' : 'memory',
+    redis: redis,
+    prefix: 'rl:api',
     defaults: { limit: 100, windowMs: 60_000, burst: 100 } // 100 req/min
 })
 
 const authLimiter = createRateLimiter({
-    backend: 'memory',
+    backend: redis ? 'redis' : 'memory',
+    redis: redis,
+    prefix: 'rl:auth',
     defaults: { limit: 10, windowMs: 60_000, burst: 15 } // 10 req/min for auth routes
 })
 

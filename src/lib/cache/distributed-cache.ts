@@ -44,9 +44,10 @@ export interface CacheMetrics {
 }
 
 export class DistributedCache {
-  private nodes: Map<string, CacheNode> = new Map()
-  private strategies: Map<string, CacheStrategy> = new Map()
-  private metrics: Map<string, CacheMetrics> = new Map()
+  // Store these in Redis instead of in-memory Maps
+  private readonly NODES_KEY = 'cache:nodes'
+  private readonly STRATEGIES_KEY = 'cache:strategies'
+  private readonly METRICS_KEY = 'cache:metrics'
   private warmingScheduler: NodeJS.Timeout | null = null
 
   constructor() {
@@ -168,43 +169,80 @@ export class DistributedCache {
   /**
    * Get cache metrics for monitoring
    */
-  getMetrics(strategy?: string): CacheMetrics | Map<string, CacheMetrics> {
-    if (strategy) {
-      return this.metrics.get(strategy) || this.createEmptyMetrics()
+  async getMetrics(strategy?: string): Promise<CacheMetrics | Record<string, CacheMetrics>> {
+    try {
+      const metricsData = await redis?.get(this.METRICS_KEY)
+      const metrics: Record<string, CacheMetrics> = metricsData ? JSON.parse(metricsData as string) : {}
+
+      if (strategy) {
+        return metrics[strategy] || this.createEmptyMetrics()
+      }
+      return metrics
+    } catch (error) {
+      console.error('[DistributedCache] Error getting metrics:', error)
+      return strategy ? this.createEmptyMetrics() : {}
     }
-    return new Map(this.metrics)
   }
 
   /**
    * Add cache node
    */
-  addNode(node: CacheNode): void {
-    this.nodes.set(node.id, node)
-    console.log(`[DistributedCache] Added cache node: ${node.id}`)
+  async addNode(node: CacheNode): Promise<void> {
+    try {
+      const nodesData = await redis?.get(this.NODES_KEY)
+      const nodes: Record<string, CacheNode> = nodesData ? JSON.parse(nodesData as string) : {}
+      nodes[node.id] = node
+      await redis?.set(this.NODES_KEY, JSON.stringify(nodes))
+      console.log(`[DistributedCache] Added cache node: ${node.id}`)
+    } catch (error) {
+      console.error(`[DistributedCache] Error adding node ${node.id}:`, error)
+    }
   }
 
   /**
    * Remove cache node
    */
-  removeNode(nodeId: string): void {
-    this.nodes.delete(nodeId)
-    console.log(`[DistributedCache] Removed cache node: ${nodeId}`)
+  async removeNode(nodeId: string): Promise<void> {
+    try {
+      const nodesData = await redis?.get(this.NODES_KEY)
+      const nodes: Record<string, CacheNode> = nodesData ? JSON.parse(nodesData as string) : {}
+      delete nodes[nodeId]
+      await redis?.set(this.NODES_KEY, JSON.stringify(nodes))
+      console.log(`[DistributedCache] Removed cache node: ${nodeId}`)
+    } catch (error) {
+      console.error(`[DistributedCache] Error removing node ${nodeId}:`, error)
+    }
   }
 
   /**
    * Get cache health status
    */
-  getHealthStatus(): CacheHealthStatus {
-    const healthyNodes = Array.from(this.nodes.values()).filter(node => node.isHealthy)
-    const totalNodes = this.nodes.size
-    
-    return {
-      totalNodes,
-      healthyNodes: healthyNodes.length,
-      unhealthyNodes: totalNodes - healthyNodes.length,
-      primaryCacheHealthy: this.isPrimaryCacheHealthy(),
-      averageResponseTime: this.calculateAverageResponseTime(),
-      overallHitRate: this.calculateOverallHitRate()
+  async getHealthStatus(): Promise<CacheHealthStatus> {
+    try {
+      const nodesData = await redis?.get(this.NODES_KEY)
+      const nodes: Record<string, CacheNode> = nodesData ? JSON.parse(nodesData as string) : {}
+      const nodeArray = Object.values(nodes)
+      const healthyNodes = nodeArray.filter(node => node.isHealthy)
+      const totalNodes = nodeArray.length
+
+      return {
+        totalNodes,
+        healthyNodes: healthyNodes.length,
+        unhealthyNodes: totalNodes - healthyNodes.length,
+        primaryCacheHealthy: await this.isPrimaryCacheHealthy(),
+        averageResponseTime: await this.calculateAverageResponseTime(),
+        overallHitRate: await this.calculateOverallHitRate()
+      }
+    } catch (error) {
+      console.error('[DistributedCache] Error getting health status:', error)
+      return {
+        totalNodes: 0,
+        healthyNodes: 0,
+        unhealthyNodes: 0,
+        primaryCacheHealthy: false,
+        averageResponseTime: 0,
+        overallHitRate: 0
+      }
     }
   }
 
@@ -341,32 +379,64 @@ export class DistributedCache {
     return JSON.parse(value)
   }
 
-  private recordHit(strategy: string, responseTime: number): void {
-    const metrics = this.getOrCreateMetrics(strategy)
-    metrics.hits++
-    metrics.totalRequests++
-    metrics.averageResponseTime = (metrics.averageResponseTime + responseTime) / 2
-    metrics.hitRate = metrics.hits / metrics.totalRequests
-  }
-
-  private recordMiss(strategy: string, responseTime: number): void {
-    const metrics = this.getOrCreateMetrics(strategy)
-    metrics.misses++
-    metrics.totalRequests++
-    metrics.averageResponseTime = (metrics.averageResponseTime + responseTime) / 2
-    metrics.hitRate = metrics.hits / metrics.totalRequests
-  }
-
-  private recordError(strategy: string): void {
-    const metrics = this.getOrCreateMetrics(strategy)
-    metrics.errors++
-  }
-
-  private getOrCreateMetrics(strategy: string): CacheMetrics {
-    if (!this.metrics.has(strategy)) {
-      this.metrics.set(strategy, this.createEmptyMetrics())
+  private async recordHit(strategy: string, responseTime: number): Promise<void> {
+    try {
+      const metrics = await this.getOrCreateMetrics(strategy)
+      metrics.hits++
+      metrics.totalRequests++
+      metrics.averageResponseTime = (metrics.averageResponseTime + responseTime) / 2
+      metrics.hitRate = metrics.hits / metrics.totalRequests
+      await this.saveMetrics(strategy, metrics)
+    } catch (error) {
+      console.error('[DistributedCache] Error recording hit:', error)
     }
-    return this.metrics.get(strategy)!
+  }
+
+  private async recordMiss(strategy: string, responseTime: number): Promise<void> {
+    try {
+      const metrics = await this.getOrCreateMetrics(strategy)
+      metrics.misses++
+      metrics.totalRequests++
+      metrics.averageResponseTime = (metrics.averageResponseTime + responseTime) / 2
+      metrics.hitRate = metrics.hits / metrics.totalRequests
+      await this.saveMetrics(strategy, metrics)
+    } catch (error) {
+      console.error('[DistributedCache] Error recording miss:', error)
+    }
+  }
+
+  private async recordError(strategy: string): Promise<void> {
+    try {
+      const metrics = await this.getOrCreateMetrics(strategy)
+      metrics.errors++
+      await this.saveMetrics(strategy, metrics)
+    } catch (error) {
+      console.error('[DistributedCache] Error recording error:', error)
+    }
+  }
+
+  private async getOrCreateMetrics(strategy: string): Promise<CacheMetrics> {
+    try {
+      const metricsData = await redis?.get(this.METRICS_KEY)
+      const metrics: Record<string, CacheMetrics> = metricsData ? JSON.parse(metricsData as string) : {}
+      if (!metrics[strategy]) {
+        metrics[strategy] = this.createEmptyMetrics()
+      }
+      return metrics[strategy]
+    } catch {
+      return this.createEmptyMetrics()
+    }
+  }
+
+  private async saveMetrics(strategy: string, metricsData: CacheMetrics): Promise<void> {
+    try {
+      const allMetricsData = await redis?.get(this.METRICS_KEY)
+      const allMetrics: Record<string, CacheMetrics> = allMetricsData ? JSON.parse(allMetricsData as string) : {}
+      allMetrics[strategy] = metricsData
+      await redis?.set(this.METRICS_KEY, JSON.stringify(allMetrics))
+    } catch (error) {
+      console.error('[DistributedCache] Error saving metrics:', error)
+    }
   }
 
   private createEmptyMetrics(): CacheMetrics {
@@ -423,36 +493,49 @@ export class DistributedCache {
     }
   }
 
-  private isPrimaryCacheHealthy(): boolean {
+  private async isPrimaryCacheHealthy(): Promise<boolean> {
     try {
-      // Simple ping to Redis
-      return true // This would actually ping Redis
+      if (!redis) return false
+      const result = await redis.ping()
+      return result === 'PONG'
     } catch {
       return false
     }
   }
 
-  private calculateAverageResponseTime(): number {
-    const allMetrics = Array.from(this.metrics.values())
-    if (allMetrics.length === 0) return 0
-    
-    const totalResponseTime = allMetrics.reduce((sum, metrics) => sum + metrics.averageResponseTime, 0)
-    return totalResponseTime / allMetrics.length
+  private async calculateAverageResponseTime(): Promise<number> {
+    try {
+      const metricsData = await redis?.get(this.METRICS_KEY)
+      const metrics: Record<string, CacheMetrics> = metricsData ? JSON.parse(metricsData as string) : {}
+      const allMetrics = Object.values(metrics)
+      if (allMetrics.length === 0) return 0
+
+      const totalResponseTime = allMetrics.reduce((sum, metric) => sum + metric.averageResponseTime, 0)
+      return totalResponseTime / allMetrics.length
+    } catch {
+      return 0
+    }
   }
 
-  private calculateOverallHitRate(): number {
-    const allMetrics = Array.from(this.metrics.values())
-    if (allMetrics.length === 0) return 0
-    
-    const totalHits = allMetrics.reduce((sum, metrics) => sum + metrics.hits, 0)
-    const totalRequests = allMetrics.reduce((sum, metrics) => sum + metrics.totalRequests, 0)
-    
-    return totalRequests > 0 ? totalHits / totalRequests : 0
+  private async calculateOverallHitRate(): Promise<number> {
+    try {
+      const metricsData = await redis?.get(this.METRICS_KEY)
+      const metrics: Record<string, CacheMetrics> = metricsData ? JSON.parse(metricsData as string) : {}
+      const allMetrics = Object.values(metrics)
+      if (allMetrics.length === 0) return 0
+
+      const totalHits = allMetrics.reduce((sum, metric) => sum + metric.hits, 0)
+      const totalRequests = allMetrics.reduce((sum, metric) => sum + metric.totalRequests, 0)
+
+      return totalRequests > 0 ? totalHits / totalRequests : 0
+    } catch {
+      return 0
+    }
   }
 
-  private initializeDefaultStrategies(): void {
-    // Default strategy
-    this.strategies.set('default', {
+  private async initializeDefaultStrategies(): Promise<void> {
+    const strategies: Record<string, CacheStrategy> = {
+      'default': {
       name: 'Default',
       ttl: 3600, // 1 hour
       maxSize: 1000,
@@ -468,10 +551,8 @@ export class DistributedCache {
         dependencies: [],
         events: []
       }
-    })
-
-    // User data strategy
-    this.strategies.set('user', {
+    },
+    'user': {
       name: 'User Data',
       ttl: 1800, // 30 minutes
       maxSize: 10000,
@@ -487,10 +568,8 @@ export class DistributedCache {
         dependencies: ['user:*', 'subscription:*'],
         events: ['user.updated', 'subscription.changed']
       }
-    })
-
-    // Chat data strategy
-    this.strategies.set('chat', {
+    },
+    'chat': {
       name: 'Chat Data',
       ttl: 7200, // 2 hours
       maxSize: 5000,
@@ -506,7 +585,16 @@ export class DistributedCache {
         dependencies: ['conversation:*'],
         events: ['conversation.deleted', 'message.added']
       }
-    })
+    }
+    }
+
+    // Save all strategies to Redis
+    try {
+      await redis?.set(this.STRATEGIES_KEY, JSON.stringify(strategies))
+      console.log('[DistributedCache] Initialized default strategies')
+    } catch (error) {
+      console.error('[DistributedCache] Error initializing strategies:', error)
+    }
   }
 }
 

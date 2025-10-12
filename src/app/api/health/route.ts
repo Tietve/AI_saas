@@ -152,13 +152,20 @@ export async function GET(request: NextRequest) {
     }
 
     // Determine overall status
-    const checkResults = Object.values(healthStatus.checks)
-    const failedChecks = checkResults.filter(check => check.status === 'fail')
-    const warningChecks = checkResults.filter(check => check.status === 'warn')
+    // Critical services: database and cache
+    // Non-critical services: memory and disk
+    const criticalChecks = [healthStatus.checks.database, healthStatus.checks.cache]
+    const nonCriticalChecks = [healthStatus.checks.memory, healthStatus.checks.disk]
 
-    if (failedChecks.length > 0) {
+    const criticalFailed = criticalChecks.filter(check => check.status === 'fail')
+    const criticalWarning = criticalChecks.filter(check => check.status === 'warn')
+    const nonCriticalFailed = nonCriticalChecks.filter(check => check.status === 'fail')
+
+    // Only mark as unhealthy if critical services fail
+    if (criticalFailed.length > 0) {
       healthStatus.status = 'unhealthy'
-    } else if (warningChecks.length > 0) {
+    } else if (nonCriticalFailed.length > 0 || criticalWarning.length > 0) {
+      // Degraded if non-critical services fail or critical services have warnings
       healthStatus.status = 'degraded'
     }
 
@@ -271,34 +278,59 @@ async function checkCache(): Promise<CheckResult> {
 
 /**
  * Check memory usage
+ * Uses RSS (Resident Set Size) instead of heap for more accurate memory usage
  */
 async function checkMemory(): Promise<CheckResult> {
   try {
     const memUsage = process.memoryUsage()
-    const totalMemory = memUsage.heapTotal
-    const usedMemory = memUsage.heapUsed
-    const memoryPercentage = (usedMemory / totalMemory) * 100
+
+    // Get memory limits from env or use defaults
+    const MEMORY_LIMIT_MB = parseInt(process.env.HEALTH_MEMORY_LIMIT_MB || '1024')
+    const MEMORY_WARN_PCT = parseInt(process.env.HEALTH_MEMORY_WARN_PCT || '85')
+    const MEMORY_FAIL_PCT = parseInt(process.env.HEALTH_MEMORY_FAIL_PCT || '97')
+    const MIN_FAIL_RSS_MB = parseInt(process.env.HEALTH_MEMORY_MIN_FAIL_RSS_MB || '600')
+
+    // Use RSS (Resident Set Size) for actual memory usage
+    const rssInMB = memUsage.rss / (1024 * 1024)
+    const totalMemoryMB = MEMORY_LIMIT_MB // Use configured limit
+    const memoryPercentage = (rssInMB / totalMemoryMB) * 100
+
+    // Also calculate heap usage for reference
+    const heapPercentage = (memUsage.heapUsed / memUsage.heapTotal) * 100
 
     let status: 'pass' | 'warn' | 'fail' = 'pass'
     let message = 'Memory usage healthy'
 
-    if (memoryPercentage > 85) {
+    // Only fail if both percentage is high AND absolute RSS is above minimum
+    if (memoryPercentage > MEMORY_FAIL_PCT && rssInMB > MIN_FAIL_RSS_MB) {
       status = 'fail'
-      message = 'Memory usage critical'
-    } else if (memoryPercentage > 75) {
+      message = `Memory usage critical: ${rssInMB.toFixed(1)}MB (${memoryPercentage.toFixed(1)}%)`
+    } else if (memoryPercentage > MEMORY_WARN_PCT) {
       status = 'warn'
-      message = 'Memory usage high'
+      message = `Memory usage high: ${rssInMB.toFixed(1)}MB (${memoryPercentage.toFixed(1)}%)`
     }
 
     return {
       status,
       message,
       details: {
-        used: usedMemory,
-        total: totalMemory,
-        percentage: memoryPercentage,
-        rss: memUsage.rss,
-        external: memUsage.external
+        rss: {
+          bytes: memUsage.rss,
+          mb: rssInMB,
+          percentage: memoryPercentage,
+          limit_mb: totalMemoryMB
+        },
+        heap: {
+          used: memUsage.heapUsed,
+          total: memUsage.heapTotal,
+          percentage: heapPercentage
+        },
+        external: memUsage.external,
+        thresholds: {
+          warn_pct: MEMORY_WARN_PCT,
+          fail_pct: MEMORY_FAIL_PCT,
+          min_fail_rss_mb: MIN_FAIL_RSS_MB
+        }
       }
     }
   } catch (error) {
@@ -367,7 +399,9 @@ async function getCpuUsage(): Promise<number> {
 async function getMemoryUsage(): Promise<number> {
   try {
     const memUsage = process.memoryUsage()
-    return (memUsage.heapUsed / memUsage.heapTotal) * 100
+    const MEMORY_LIMIT_MB = parseInt(process.env.HEALTH_MEMORY_LIMIT_MB || '1024')
+    const rssInMB = memUsage.rss / (1024 * 1024)
+    return (rssInMB / MEMORY_LIMIT_MB) * 100
   } catch {
     return 0
   }

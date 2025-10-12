@@ -17,7 +17,9 @@
       "Bash(npx prisma generate:*)",
       "Bash(npm i:*)",
       "Bash(cat:*)",
-      "Bash(npm uninstall:*)"
+      "Bash(npm uninstall:*)",
+      "Bash(npm ls:*)",
+      "Bash(npm run type-check:*)"
     ],
     "deny": [],
     "ask": []

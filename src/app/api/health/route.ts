@@ -282,10 +282,10 @@ async function checkMemory(): Promise<CheckResult> {
     let status: 'pass' | 'warn' | 'fail' = 'pass'
     let message = 'Memory usage healthy'
 
-    if (memoryPercentage > 90) {
+    if (memoryPercentage > 85) {
       status = 'fail'
       message = 'Memory usage critical'
-    } else if (memoryPercentage > 80) {
+    } else if (memoryPercentage > 75) {
       status = 'warn'
       message = 'Memory usage high'
     }

@@ -134,13 +134,16 @@ AZURE_APP_INSIGHTS_KEY=...
 - **Vercel**: ✅ | **Azure**: ✅
 - **Example**:
   ```
-  postgresql://user:pass@host.neon.tech:5432/dbname?sslmode=require&connection_limit=10&pool_timeout=20
+  postgresql://USER:PASSWORD@ep-xxx-xxx-pooler.ap-southeast-1.aws.neon.tech/DBNAME?sslmode=require&connection_limit=1
   ```
 - **Description**: PostgreSQL connection string with pooling parameters
 - **Production Tips**:
-  - Use connection pooling: `connection_limit=10`
-  - Set timeouts: `pool_timeout=20`, `connect_timeout=10`
-  - Enable SSL: `sslmode=require`
+  - **CRITICAL**: Use Neon **POOLER** endpoint (URL must contain `-pooler.`)
+  - **CRITICAL**: Set `connection_limit=1` for Azure App Service (prevents pool exhaustion)
+  - **CRITICAL**: Use `sslmode=require`, **DO NOT** use `channel_binding=require`
+  - Get pooler URL from: Neon.tech dashboard → Connection Details → "Pooled connection"
+  - For Azure: Configure in Azure Portal → App Service → Configuration → Application settings
+  - **IMPORTANT**: Never commit actual credentials to git. Use Azure App Settings or environment variables.
 
 ---
 
@@ -719,8 +722,8 @@ NODE_ENV=production
 NEXT_PUBLIC_APP_URL=https://your-app.vercel.app
 APP_URL=https://your-app.vercel.app
 
-# Database
-DATABASE_URL=postgresql://user:pass@host.neon.tech/db?sslmode=require&connection_limit=10
+# Database (USE POOLER ENDPOINT!)
+DATABASE_URL=postgresql://USER:PASSWORD@ep-xxx-pooler.ap-southeast-1.aws.neon.tech/DBNAME?sslmode=require&connection_limit=1
 
 # Auth
 AUTH_SECRET=<generated-32-char-secret>

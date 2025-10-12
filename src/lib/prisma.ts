@@ -1,11 +1,15 @@
 /**
- * Prisma Client with Production-Ready Configuration
+ * Prisma Client Singleton - Production Ready
+ *
+ * This is the ONLY place where PrismaClient should be instantiated.
+ * All other files MUST import from this module.
  *
  * Features:
+ * - Single instance (prevents "e.$use is not a function" errors)
  * - Connection pooling (configured in DATABASE_URL)
  * - Query performance monitoring
- * - Slow query logging
- * - Error tracking with Sentry
+ * - Error tracking
+ * - Proper cleanup on shutdown
  */
 
 import { PrismaClient } from '@prisma/client'
@@ -15,12 +19,16 @@ declare global {
     var prisma: PrismaClient | undefined
 }
 
-const prismaClientSingleton = () => {
+/**
+ * Create Prisma Client with optimal configuration
+ */
+function createPrismaClient(): PrismaClient {
     const client = new PrismaClient({
-        log: process.env.NODE_ENV === 'development'
-            ? ['query', 'error', 'warn']
-            : ['error'],
-        errorFormat: 'pretty',
+        // Minimize logging in production to reduce memory usage
+        log: process.env.NODE_ENV === 'production'
+            ? ['error', 'warn']
+            : ['error', 'warn'],
+        errorFormat: 'minimal',
         datasources: {
             db: {
                 url: process.env.DATABASE_URL,
@@ -28,7 +36,7 @@ const prismaClientSingleton = () => {
         },
     })
 
-    // Add middleware for query performance monitoring
+    // Add middleware for query performance monitoring (only once)
     client.$use(async (params, next) => {
         const startTime = Date.now()
 
@@ -45,8 +53,8 @@ const prismaClientSingleton = () => {
                 })
             }
 
-            // Debug logging in development
-            if (process.env.NODE_ENV === 'development' && duration > 100) {
+            // Debug logging in development only
+            if (process.env.NODE_ENV === 'development' && duration > 500) {
                 logger.debug(
                     {
                         model: params.model,
@@ -86,50 +94,31 @@ const prismaClientSingleton = () => {
         }
     })
 
-    logger.info('Prisma client initialized with connection pooling')
+    logger.info('Prisma client initialized')
 
     return client
 }
 
-// Lazy singleton instance
-let prismaInstance: PrismaClient | undefined
-
 /**
- * Get Prisma Client instance (lazy initialization)
+ * Singleton Prisma Client Instance
  *
- * This function creates the Prisma Client only when first called,
- * avoiding module-level initialization that would fail during
- * Next.js build-time page data collection.
+ * Uses globalThis in development to prevent hot-reload connection spam.
+ * In production, creates a single instance.
  */
-export function db(): PrismaClient {
-    if (!prismaInstance) {
-        // Check if we have a cached instance in development
-        if (typeof globalThis.prisma !== 'undefined') {
-            prismaInstance = globalThis.prisma
-        } else {
-            // Create new instance
-            prismaInstance = prismaClientSingleton()
+export const prisma = globalThis.prisma ?? createPrismaClient()
 
-            // Cache in development to prevent connection spam during hot reload
-            if (process.env.NODE_ENV !== 'production') {
-                globalThis.prisma = prismaInstance
-            }
-        }
-    }
-    return prismaInstance
+// Cache in development to prevent connection spam during hot reload
+if (process.env.NODE_ENV !== 'production') {
+    globalThis.prisma = prisma
 }
 
 /**
- * Export prisma directly from db() for backwards compatibility
- * This ensures all methods like $use work correctly
+ * Database Connection Test
  */
-export const prisma = db()
-
 export async function testDatabaseConnection(): Promise<boolean> {
     try {
-        const client = db()
-        await client.$connect()
-        await client.$queryRaw`SELECT 1`
+        await prisma.$connect()
+        await prisma.$queryRaw`SELECT 1`
         logger.info('✅ Database connected successfully')
         return true
     } catch (error) {
@@ -139,19 +128,20 @@ export async function testDatabaseConnection(): Promise<boolean> {
     }
 }
 
+/**
+ * Database Disconnect (cleanup)
+ */
 export async function disconnectDatabase(): Promise<void> {
     try {
-        const client = db()
-        await client.$disconnect()
+        await prisma.$disconnect()
         logger.info('📊 Database disconnected')
     } catch (error) {
         logger.error({ err: error }, 'Error disconnecting database')
-        process.exit(1)
     }
 }
 
 /**
- * Database health check
+ * Database Health Check (for /api/health)
  */
 export async function checkDatabaseHealth(): Promise<{
     healthy: boolean
@@ -161,8 +151,7 @@ export async function checkDatabaseHealth(): Promise<{
     const startTime = Date.now()
 
     try {
-        const client = db()
-        await client.$queryRaw`SELECT 1`
+        await prisma.$queryRaw`SELECT 1`
         const latency = Date.now() - startTime
 
         return {
@@ -182,7 +171,7 @@ export async function checkDatabaseHealth(): Promise<{
     }
 }
 
-
+// Graceful shutdown
 if (process.env.NODE_ENV === 'production') {
     process.on('SIGINT', async () => {
         await disconnectDatabase()

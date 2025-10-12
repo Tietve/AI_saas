@@ -85,7 +85,7 @@ jobs:
       # (needed for build tools, TypeScript, Prisma CLI, etc.)
       # Uses --legacy-peer-deps to handle Storybook version conflicts
       - name: 📦 Install dependencies
-        run: npm ci --include=dev --legacy-peer-deps
+        run: npm install --include=dev --legacy-peer-deps
 
       # ----------------------------------------
       # Step 5: Generate Prisma Client

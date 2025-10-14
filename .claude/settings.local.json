@@ -29,7 +29,8 @@
       "Bash(set CURL_CA_BUNDLE=)",
       "Bash(az webapp config appsettings list:*)",
       "Bash(curl -X GET https://firbox-api-ddhtc0hfd2brhaa4.southeastasia-01.azurewebsites.net/api/health)",
-      "Bash(az webapp log tail:*)"
+      "Bash(az webapp log tail:*)",
+      "Bash(curl -I https://www.firbox.net)"
     ],
     "deny": [],
     "ask": []

@@ -19,9 +19,14 @@
       "Bash(cat:*)",
       "Bash(npm uninstall:*)",
       "Bash(npm ls:*)",
-      "Bash(npm run type-check:*)"
+      "Bash(npm run type-check:*)",
+      "Bash(npx tsc:*)",
+      "Bash(npx --package typescript tsc --noEmit)",
+      "Bash(npm test:*)",
+      "Bash(npx --package typescript tsc:*)"
     ],
     "deny": [],
     "ask": []
-  }
+  },
+  "model": "claude-opus-4-1-20250805"
 }

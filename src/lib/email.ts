@@ -12,7 +12,13 @@ const transporter = nodemailer.createTransport({
 })
 
 
-if (process.env.NODE_ENV === "development") {
+// Only verify in runtime, not during build
+// Skip during build and SSR
+if (process.env.NODE_ENV === "development" &&
+    typeof window === "undefined" &&
+    !process.env.BUILDING &&
+    !process.env.CI &&
+    !process.env.VERCEL) {
     transporter.verify()
         .then(() => console.log("✅ [Email] MailHog connected"))
         .catch((e) => console.error("❌ [Email] MailHog error:", e.message))

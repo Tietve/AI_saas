@@ -67,6 +67,7 @@
     "@types/swagger-ui-react": "^5.18.0",
     "@upstash/redis": "^1.35.3",
     "argon2": "^0.40.3",
+    "autoprefixer": "^10.4.21",
     "bcryptjs": "^2.4.3",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.1",
@@ -93,6 +94,7 @@
     "pg": "^8.16.3",
     "pino": "^10.0.0",
     "pino-pretty": "^13.1.1",
+    "postcss": "^8.5.6",
     "prismjs": "^1.30.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
@@ -106,15 +108,13 @@
     "swagger-jsdoc": "^6.2.8",
     "swagger-ui-react": "^5.29.3",
     "tailwind-merge": "^2.5.4",
+    "tailwindcss": "^3.4.18",
     "tailwindcss-animate": "^1.0.7",
     "ts-jest": "^29.4.4",
     "tsyringe": "^4.10.0",
     "xlsx": "^0.18.5",
     "zod": "^3.23.8",
-    "zod-validation-error": "^4.0.2",
-    "autoprefixer": "^10.4.21",
-    "postcss": "^8.5.6",
-    "tailwindcss": "^3.4.18"
+    "zod-validation-error": "^4.0.2"
   },
   "devDependencies": {
     "@storybook/addon-essentials": "8.6.14",

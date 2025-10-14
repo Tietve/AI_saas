@@ -64,3 +64,13 @@ create-test-pdf.js
 # Backups
 src_clean/
 *_backup/
+
+# Test scripts
+*.ps1
+test-*.sh
+check-*.ps1
+fix-*.ps1
+run-*.ps1
+safe-*.ps1
+verify-*.ps1
+

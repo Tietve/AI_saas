@@ -187,15 +187,15 @@ export async function POST(req: Request) {
             })
 
             response.cookies.set(
-                cookieData.name,
-                cookieData.value,
-                {
-                    httpOnly: true,
-                    secure: false,
-                    sameSite: 'lax',
-                    path: '/',
-                    maxAge: 60 * 60 * 24 * 7
-                }
+            cookieData.name,
+            cookieData.value,
+            {
+                httpOnly: true,
+                secure: process.env.NODE_ENV === 'production',
+                sameSite: 'lax',
+                path: '/',
+                maxAge: 60 * 60 * 24 * 7
+            }
             )
 
             return response

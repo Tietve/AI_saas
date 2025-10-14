@@ -70,6 +70,8 @@ import { hashPassword } from "@/lib/crypto";
 
 // Force Node.js runtime (required for Prisma)
 export const runtime = 'nodejs'
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
 
 const schema = z.object({
     token: z.string().min(10),

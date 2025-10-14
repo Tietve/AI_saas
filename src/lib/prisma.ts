@@ -115,12 +115,23 @@ declare global {
  * Uses globalThis in development to prevent hot-reload connection spam.
  * In production, creates a single instance.
  */
-export const prisma = globalThis.prisma ?? createPrismaClient()
-
-// Cache in development to prevent connection spam during hot reload
-if (process.env.NODE_ENV !== 'production') {
-    globalThis.prisma = prisma
+/**
+ * Lazily create Prisma client on first actual use to avoid
+ * instantiating during build-time analysis (e.g., on Vercel).
+ */
+function getOrCreatePrisma(): ExtendedPrismaClient {
+    if (!globalThis.prisma) {
+        globalThis.prisma = createPrismaClient()
+    }
+    return globalThis.prisma
 }
+
+export const prisma: ExtendedPrismaClient = new Proxy({} as any, {
+    get(_target, prop, receiver) {
+        const instance = getOrCreatePrisma()
+        return Reflect.get(instance as any, prop, receiver)
+    },
+}) as ExtendedPrismaClient
 
 /**
  * Database Connection Test

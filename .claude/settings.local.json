@@ -23,7 +23,13 @@
       "Bash(npx tsc:*)",
       "Bash(npx --package typescript tsc --noEmit)",
       "Bash(npm test:*)",
-      "Bash(npx --package typescript tsc:*)"
+      "Bash(npx --package typescript tsc:*)",
+      "Bash(powershell:*)",
+      "Bash(set REQUESTS_CA_BUNDLE=)",
+      "Bash(set CURL_CA_BUNDLE=)",
+      "Bash(az webapp config appsettings list:*)",
+      "Bash(curl -X GET https://firbox-api-ddhtc0hfd2brhaa4.southeastasia-01.azurewebsites.net/api/health)",
+      "Bash(az webapp log tail:*)"
     ],
     "deny": [],
     "ask": []

@@ -56,6 +56,20 @@ const nextConfig = {
         return config
     },
 
+    // API Rewrites - Proxy all /api/* to Azure backend
+    async rewrites() {
+        // Only proxy to Azure backend in production
+        if (process.env.NEXT_PUBLIC_API_URL) {
+            return [
+                {
+                    source: '/api/:path*',
+                    destination: `${process.env.NEXT_PUBLIC_API_URL}/api/:path*`,
+                }
+            ]
+        }
+        return []
+    },
+
     // Security headers
     async headers() {
         return [

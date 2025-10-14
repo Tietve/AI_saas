@@ -1,27 +1,33 @@
-
 import nodemailer from "nodemailer"
+import type { Transporter } from "nodemailer"
 
-const transporter = nodemailer.createTransport({
-    host: process.env.SMTP_HOST || "127.0.0.1",
-    port: Number(process.env.SMTP_PORT || "1025"),
-    secure: process.env.SMTP_SECURE === "true",
-    auth: process.env.SMTP_USER && process.env.SMTP_PASS ? {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASS,
-    } : undefined,
-})
+// Lazy initialization - only create transporter when needed
+let transporter: Transporter | null = null
 
+function getTransporter(): Transporter {
+    if (!transporter) {
+        transporter = nodemailer.createTransport({
+            host: process.env.SMTP_HOST || "127.0.0.1",
+            port: Number(process.env.SMTP_PORT || "1025"),
+            secure: process.env.SMTP_SECURE === "true",
+            auth: process.env.SMTP_USER && process.env.SMTP_PASS ? {
+                user: process.env.SMTP_USER,
+                pass: process.env.SMTP_PASS,
+            } : undefined,
+        })
 
-// Only verify in runtime, not during build
-// Skip during build and SSR
-if (process.env.NODE_ENV === "development" &&
-    typeof window === "undefined" &&
-    !process.env.BUILDING &&
-    !process.env.CI &&
-    !process.env.VERCEL) {
-    transporter.verify()
-        .then(() => console.log("✅ [Email] MailHog connected"))
-        .catch((e) => console.error("❌ [Email] MailHog error:", e.message))
+        // Only verify in development runtime
+        if (process.env.NODE_ENV === "development" &&
+            typeof window === "undefined" &&
+            !process.env.BUILDING &&
+            !process.env.CI &&
+            !process.env.VERCEL) {
+            transporter.verify()
+                .then(() => console.log("✅ [Email] MailHog connected"))
+                .catch((e) => console.error("❌ [Email] MailHog error:", e.message))
+        }
+    }
+    return transporter
 }
 
 export async function sendVerificationEmail(to: string, token: string) {
@@ -30,7 +36,8 @@ export async function sendVerificationEmail(to: string, token: string) {
     console.log(`[Email] Sending verification to ${to}`)
 
     try {
-        await transporter.sendMail({
+        const transport = getTransporter()
+        await transport.sendMail({
             from: process.env.SMTP_FROM || "AI Chat <noreply@localhost>",
             to,
             subject: "Xác minh email của bạn",
@@ -63,7 +70,8 @@ export async function sendVerificationEmail(to: string, token: string) {
 export async function sendPasswordResetEmail(to: string, token: string) {
     const url = `${process.env.APP_URL || "http://localhost:3000"}/auth/reset?token=${encodeURIComponent(token)}`
 
-    await transporter.sendMail({
+    const transport = getTransporter()
+    await transport.sendMail({
         from: process.env.SMTP_FROM || "AI Chat <noreply@localhost>",
         to,
         subject: "Đặt lại mật khẩu",

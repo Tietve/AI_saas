@@ -82,7 +82,14 @@ docker-compose.*.yml
 .dockerignore
 
 # ==========================================
-# 8. CI/CD & GITHUB
+# 8. API ROUTES (Handled by Azure Backend)
+# ==========================================
+# CRITICAL: API routes must be excluded from Vercel
+# They are handled by Azure backend via Next.js rewrites
+src/app/api/
+
+# ==========================================
+# 9. CI/CD & GITHUB
 # ==========================================
 .github/
 .gitlab-ci.yml
@@ -90,7 +97,7 @@ azure-pipelines.yml
 .circleci/
 
 # ==========================================
-# 9. ENVIRONMENT & SECRETS
+# 10. ENVIRONMENT & SECRETS
 # ==========================================
 # Vercel uses its own env var system
 .env
@@ -99,7 +106,7 @@ azure-pipelines.yml
 !.env.production.example
 
 # ==========================================
-# 10. DOCUMENTATION (Optional - Keep if needed)
+# 11. DOCUMENTATION (Optional - Keep if needed)
 # ==========================================
 # Uncomment to exclude docs
 # README.md
@@ -111,14 +118,14 @@ azure-pipelines.yml
 # docs/
 
 # ==========================================
-# 11. SCRIPTS & TOOLS (Not needed in production)
+# 12. SCRIPTS & TOOLS (Not needed in production)
 # ==========================================
 scripts/
 *.sh
 *.bat
 
 # ==========================================
-# 12. LOGS & DEBUG FILES
+# 13. LOGS & DEBUG FILES
 # ==========================================
 *.log
 npm-debug.log*
@@ -131,7 +138,7 @@ logs/
 *.pid.lock
 
 # ==========================================
-# 13. BACKUPS & TEMPORARY FILES
+# 14. BACKUPS & TEMPORARY FILES
 # ==========================================
 *_backup/
 src_clean/
@@ -142,20 +149,20 @@ src_clean/
 .cache/
 
 # ==========================================
-# 14. UPLOADS & USER CONTENT
+# 15. UPLOADS & USER CONTENT
 # ==========================================
 # Keep structure but ignore uploaded files
 public/uploads/*
 !public/uploads/.gitkeep
 
 # ==========================================
-# 15. POSTMAN & API TESTING
+# 16. POSTMAN & API TESTING
 # ==========================================
 *.postman_collection.json
 *.postman_environment.json
 
 # ==========================================
-# 16. MISC
+# 17. MISC
 # ==========================================
 *.pem
 .npmrc

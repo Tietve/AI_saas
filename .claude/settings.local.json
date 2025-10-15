@@ -30,7 +30,16 @@
       "Bash(az webapp config appsettings list:*)",
       "Bash(curl -X GET https://firbox-api-ddhtc0hfd2brhaa4.southeastasia-01.azurewebsites.net/api/health)",
       "Bash(az webapp log tail:*)",
-      "Bash(curl -I https://www.firbox.net)"
+      "Bash(curl -I https://www.firbox.net)",
+      "Bash(curl -s https://firbox-api-ddhtc0hfd2brhaa4.southeastasia-01.azurewebsites.net/api/health)",
+      "Bash(python:*)",
+      "Bash(git reset:*)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" https://firbox-api-ddhtc0hfd2brhaa4.southeastasia-01.azurewebsites.net/api/health)",
+      "WebSearch",
+      "Bash(az webapp show:*)",
+      "Bash(az webapp restart:*)",
+      "Bash(curl:*)",
+      "Bash(az webapp config set:*)"
     ],
     "deny": [],
     "ask": []

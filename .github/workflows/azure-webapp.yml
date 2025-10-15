@@ -128,18 +128,31 @@ jobs:
           npm run build
 
       # ----------------------------------------
-      # Step 7: Prepare Deployment Package
+      # Step 7: Optimize and Prepare Dependencies
       # ----------------------------------------
-      # Creates lightweight deployment package WITHOUT node_modules
-      # Azure will install dependencies on the server
+      # Prune dev dependencies but keep production ones
+      - name: 🧹 Optimize dependencies
+        run: |
+          echo "🧹 Removing dev dependencies..."
+          npm prune --omit=dev --legacy-peer-deps
+
+          echo "📊 Checking node_modules size..."
+          du -sh node_modules/ || echo "Size check failed"
+
+          echo "✅ Dependencies optimized"
+
+      # ----------------------------------------
+      # Step 8: Prepare Deployment Package
+      # ----------------------------------------
+      # Creates deployment package WITH optimized node_modules
       - name: 📦 Create deployment package
         run: |
-          echo "📋 Creating lightweight deployment package..."
+          echo "📋 Creating deployment package..."
 
           # Create deployment directory
           mkdir -p deployment
 
-          # Copy package files (Azure needs these to install deps)
+          # Copy package files
           echo "📦 Copying package files..."
           cp package.json deployment/
           cp package-lock.json deployment/ || echo "⚠️ package-lock.json not found"
@@ -154,7 +167,7 @@ jobs:
           echo "📦 Copying .next build output..."
           cp -r .next deployment/
 
-          # Copy Prisma schema (for Prisma generate on Azure)
+          # Copy Prisma schema
           echo "📦 Copying Prisma schema..."
           mkdir -p deployment/prisma
           cp prisma/schema.prisma deployment/prisma/
@@ -165,31 +178,21 @@ jobs:
             cp -r public deployment/
           fi
 
-          # Create deployment script for Azure
-          echo "📝 Creating deployment script..."
-          cat > deployment/deploy.sh << 'EOF'
-          #!/bin/bash
-          echo "🚀 Starting Azure deployment..."
+          # Copy ONLY essential node_modules (exclude large unnecessary files)
+          echo "📦 Copying optimized node_modules..."
+          rsync -av --exclude='*.md' --exclude='*.map' --exclude='test/' \
+                    --exclude='tests/' --exclude='example/' --exclude='examples/' \
+                    --exclude='.github/' --exclude='docs/' \
+                    node_modules/ deployment/node_modules/
 
-          # Install production dependencies
-          echo "📦 Installing production dependencies..."
-          npm ci --omit=dev --legacy-peer-deps || npm install --omit=dev --legacy-peer-deps
-
-          # Generate Prisma Client
-          echo "🗄️ Generating Prisma Client..."
-          npx prisma generate
-
-          echo "✅ Deployment preparation complete"
-          EOF
-          chmod +x deployment/deploy.sh
-
-          echo "✅ Deployment package created (without node_modules)"
+          echo "✅ Deployment package created"
           echo "📊 Package contents:"
           ls -la deployment/
-          echo "📊 Package will be ~50MB instead of 500MB+"
+          echo "📊 Checking package size..."
+          du -sh deployment/
 
       # ----------------------------------------
-      # Step 8: Create Deployment Archive
+      # Step 9: Create Deployment Archive
       # ----------------------------------------
       # Zips the deployment package for upload
       - name: 📦 Zip deployment package
@@ -198,11 +201,11 @@ jobs:
           zip -r ../deployment.zip . -q
           cd ..
 
-          echo "📊 Package size (should be ~50MB):"
+          echo "📊 Package size:"
           ls -lh deployment.zip
 
       # ----------------------------------------
-      # Step 9: Deploy to Azure App Service
+      # Step 10: Deploy to Azure App Service
       # ----------------------------------------
       # Uploads and deploys the package to Azure
       # Uses Publish Profile from GitHub Secrets
@@ -212,18 +215,6 @@ jobs:
           app-name: ${{ env.AZURE_WEBAPP_NAME }}
           publish-profile: ${{ secrets.AZURE_PUBLISH_PROFILE }}
           package: deployment.zip
-
-      # ----------------------------------------
-      # Step 10: Run Post-Deployment Setup
-      # ----------------------------------------
-      # Install dependencies and generate Prisma Client on Azure
-      - name: 🔧 Configure Azure App Service
-        run: |
-          echo "⏱️ Waiting for deployment to stabilize..."
-          sleep 20
-
-          echo "🔍 Note: Azure will automatically run 'npm install' on deployment"
-          echo "    and generate Prisma Client via postinstall script"
 
       # ----------------------------------------
       # Step 11: Verify Deployment

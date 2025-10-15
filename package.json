@@ -7,6 +7,7 @@
     "clean-comments:inplace": "node scripts/removeComments.cjs --in-place",
     "dev": "next dev",
     "prisma:generate": "prisma generate",
+    "postinstall": "prisma generate",
     "build": "prisma generate && next build",
     "start": "next start -p $PORT",
     "lint": "next lint",

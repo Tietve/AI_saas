@@ -128,43 +128,59 @@ jobs:
           npm run build
 
       # ----------------------------------------
-      # Step 7: Generate package-lock.json
+      # Step 7: Optimize Dependencies
       # ----------------------------------------
-      # Ensure package-lock.json exists for Azure Oryx build
-      - name: 📝 Ensure package-lock.json exists
+      # Remove all unnecessary files from node_modules
+      - name: 🧹 Deep clean node_modules
         run: |
-          if [ ! -f package-lock.json ]; then
-            echo "⚠️ package-lock.json not found, generating..."
-            npm install --package-lock-only --legacy-peer-deps
-            echo "✅ package-lock.json generated"
-          else
-            echo "✅ package-lock.json already exists"
-          fi
+          echo "🧹 Starting aggressive node_modules optimization..."
+
+          # Remove dev dependencies
+          npm prune --omit=dev --legacy-peer-deps
+
+          # Remove all unnecessary files
+          echo "🗑️ Removing unnecessary files from node_modules..."
+          find node_modules -type f -name "*.md" -delete
+          find node_modules -type f -name "*.map" -delete
+          find node_modules -type f -name "*.ts" ! -path "*/node_modules/@types/*" -delete
+          find node_modules -type f -name "*.flow" -delete
+          find node_modules -type f -name ".npmignore" -delete
+          find node_modules -type f -name ".gitignore" -delete
+          find node_modules -type f -name "*.yml" -delete
+          find node_modules -type f -name "*.yaml" -delete
+          find node_modules -type d -name "test" -exec rm -rf {} + 2>/dev/null || true
+          find node_modules -type d -name "tests" -exec rm -rf {} + 2>/dev/null || true
+          find node_modules -type d -name "__tests__" -exec rm -rf {} + 2>/dev/null || true
+          find node_modules -type d -name "example" -exec rm -rf {} + 2>/dev/null || true
+          find node_modules -type d -name "examples" -exec rm -rf {} + 2>/dev/null || true
+          find node_modules -type d -name ".github" -exec rm -rf {} + 2>/dev/null || true
+          find node_modules -type d -name "docs" -exec rm -rf {} + 2>/dev/null || true
+
+          echo "📊 Optimized node_modules size:"
+          du -sh node_modules/
 
       # ----------------------------------------
       # Step 8: Prepare Deployment Package
       # ----------------------------------------
-      # Creates MINIMAL deployment package for Azure Oryx build
+      # Creates deployment package WITH heavily optimized node_modules
       - name: 📦 Create deployment package
         run: |
-          echo "📋 Creating minimal deployment package for Azure Oryx..."
-          echo "🔍 Azure Oryx will handle dependency installation"
+          echo "📋 Creating optimized deployment package..."
 
           # Create deployment directory
           mkdir -p deployment
 
-          # Copy package files (REQUIRED for Oryx)
+          # Copy essential files
           echo "📦 Copying package files..."
           cp package.json deployment/
-          cp package-lock.json deployment/
           cp next.config.js deployment/ || echo "⚠️ next.config.js not found"
           cp tsconfig.json deployment/ || echo "⚠️ tsconfig.json not found"
 
-          # Copy source code (REQUIRED for Next.js)
+          # Copy source code
           echo "📦 Copying source code..."
           cp -r src deployment/
 
-          # Copy built application (pre-built to save Azure resources)
+          # Copy built application
           echo "📦 Copying .next build output..."
           cp -r .next deployment/
 
@@ -179,23 +195,14 @@ jobs:
             cp -r public deployment/
           fi
 
-          # Copy only critical production node_modules
-          # (Prisma client and binary dependencies that Oryx might not handle well)
-          echo "📦 Copying critical dependencies only..."
-          mkdir -p deployment/node_modules/.prisma
-          mkdir -p deployment/node_modules/@prisma
-          if [ -d "node_modules/.prisma" ]; then
-            cp -r node_modules/.prisma deployment/node_modules/
-          fi
-          if [ -d "node_modules/@prisma" ]; then
-            cp -r node_modules/@prisma deployment/node_modules/
-          fi
+          # Copy optimized node_modules
+          echo "📦 Copying optimized node_modules..."
+          cp -r node_modules deployment/
 
-          echo "✅ Minimal deployment package created"
-          echo "📊 Package contents:"
-          ls -la deployment/
-          echo "📊 Package size (should be <100MB):"
+          echo "✅ Deployment package created"
+          echo "📊 Final package size:"
           du -sh deployment/
+          echo "📊 Breakdown by folder:"
           du -sh deployment/* | sort -h
 
       # ----------------------------------------

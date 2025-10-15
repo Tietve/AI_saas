@@ -128,34 +128,35 @@ jobs:
           npm run build
 
       # ----------------------------------------
-      # Step 7: Optimize and Prepare Dependencies
+      # Step 7: Generate package-lock.json
       # ----------------------------------------
-      # Prune dev dependencies but keep production ones
-      - name: 🧹 Optimize dependencies
+      # Ensure package-lock.json exists for Azure Oryx build
+      - name: 📝 Ensure package-lock.json exists
         run: |
-          echo "🧹 Removing dev dependencies..."
-          npm prune --omit=dev --legacy-peer-deps
-
-          echo "📊 Checking node_modules size..."
-          du -sh node_modules/ || echo "Size check failed"
-
-          echo "✅ Dependencies optimized"
+          if [ ! -f package-lock.json ]; then
+            echo "⚠️ package-lock.json not found, generating..."
+            npm install --package-lock-only --legacy-peer-deps
+            echo "✅ package-lock.json generated"
+          else
+            echo "✅ package-lock.json already exists"
+          fi
 
       # ----------------------------------------
       # Step 8: Prepare Deployment Package
       # ----------------------------------------
-      # Creates deployment package WITH optimized node_modules
+      # Creates MINIMAL deployment package for Azure Oryx build
       - name: 📦 Create deployment package
         run: |
-          echo "📋 Creating deployment package..."
+          echo "📋 Creating minimal deployment package for Azure Oryx..."
+          echo "🔍 Azure Oryx will handle dependency installation"
 
           # Create deployment directory
           mkdir -p deployment
 
-          # Copy package files
+          # Copy package files (REQUIRED for Oryx)
           echo "📦 Copying package files..."
           cp package.json deployment/
-          cp package-lock.json deployment/ || echo "⚠️ package-lock.json not found"
+          cp package-lock.json deployment/
           cp next.config.js deployment/ || echo "⚠️ next.config.js not found"
           cp tsconfig.json deployment/ || echo "⚠️ tsconfig.json not found"
 
@@ -163,7 +164,7 @@ jobs:
           echo "📦 Copying source code..."
           cp -r src deployment/
 
-          # Copy built application
+          # Copy built application (pre-built to save Azure resources)
           echo "📦 Copying .next build output..."
           cp -r .next deployment/
 
@@ -178,18 +179,24 @@ jobs:
             cp -r public deployment/
           fi
 
-          # Copy ONLY essential node_modules (exclude large unnecessary files)
-          echo "📦 Copying optimized node_modules..."
-          rsync -av --exclude='*.md' --exclude='*.map' --exclude='test/' \
-                    --exclude='tests/' --exclude='example/' --exclude='examples/' \
-                    --exclude='.github/' --exclude='docs/' \
-                    node_modules/ deployment/node_modules/
+          # Copy only critical production node_modules
+          # (Prisma client and binary dependencies that Oryx might not handle well)
+          echo "📦 Copying critical dependencies only..."
+          mkdir -p deployment/node_modules/.prisma
+          mkdir -p deployment/node_modules/@prisma
+          if [ -d "node_modules/.prisma" ]; then
+            cp -r node_modules/.prisma deployment/node_modules/
+          fi
+          if [ -d "node_modules/@prisma" ]; then
+            cp -r node_modules/@prisma deployment/node_modules/
+          fi
 
-          echo "✅ Deployment package created"
+          echo "✅ Minimal deployment package created"
           echo "📊 Package contents:"
           ls -la deployment/
-          echo "📊 Checking package size..."
+          echo "📊 Package size (should be <100MB):"
           du -sh deployment/
+          du -sh deployment/* | sort -h
 
       # ----------------------------------------
       # Step 9: Create Deployment Archive
@@ -222,8 +229,9 @@ jobs:
       # Checks if the deployed app is responding
       - name: ✅ Verify deployment
         run: |
-          echo "🔍 Waiting for app to fully start..."
-          sleep 60  # Give more time for npm install to complete
+          echo "🔍 Azure Oryx is installing dependencies..."
+          echo "⏱️ This may take 3-5 minutes on first deployment"
+          sleep 120  # Give Azure Oryx time to install dependencies
 
           echo "🧪 Testing health endpoint..."
           RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" https://${{ env.AZURE_WEBAPP_NAME }}.azurewebsites.net/api/health || echo "000")
@@ -233,8 +241,14 @@ jobs:
             echo "🌐 App URL: https://${{ env.AZURE_WEBAPP_NAME }}.azurewebsites.net"
           else
             echo "⚠️ Health check returned HTTP $RESPONSE"
-            echo "🔍 App may still be installing dependencies. Check Azure logs."
+            echo "🔍 Azure Oryx may still be building. Check Azure logs."
             echo "📍 Portal: https://portal.azure.com"
+
+            # Try again after more waiting
+            echo "⏱️ Waiting additional 60 seconds..."
+            sleep 60
+            RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" https://${{ env.AZURE_WEBAPP_NAME }}.azurewebsites.net/api/health || echo "000")
+            echo "🔍 Retry health check: HTTP $RESPONSE"
           fi
 
       # ----------------------------------------

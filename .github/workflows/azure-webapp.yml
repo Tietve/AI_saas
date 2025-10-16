@@ -130,34 +130,43 @@ jobs:
       # ----------------------------------------
       # Step 7: Optimize Dependencies
       # ----------------------------------------
-      # Remove all unnecessary files from node_modules
-      - name: 🧹 Deep clean node_modules
+      # Remove ONLY safe files, keep all JS files intact
+      - name: 🧹 Safe optimization of node_modules
         run: |
-          echo "🧹 Starting aggressive node_modules optimization..."
+          echo "🧹 Starting safe node_modules optimization..."
 
           # Remove dev dependencies
           npm prune --omit=dev --legacy-peer-deps
 
-          # Remove all unnecessary files
-          echo "🗑️ Removing unnecessary files from node_modules..."
+          # Remove ONLY documentation and test files - DO NOT remove JS/TS files
+          echo "🗑️ Removing only safe files from node_modules..."
+
+          # Remove documentation files only
           find node_modules -type f -name "*.md" -delete
-          find node_modules -type f -name "*.map" -delete
-          find node_modules -type f -name "*.ts" ! -path "*/node_modules/@types/*" -delete
-          find node_modules -type f -name "*.flow" -delete
+          find node_modules -type f -name "LICENSE*" -delete
+          find node_modules -type f -name "CHANGELOG*" -delete
+          find node_modules -type f -name "README*" -delete
+
+          # Remove config files that are not needed at runtime
           find node_modules -type f -name ".npmignore" -delete
           find node_modules -type f -name ".gitignore" -delete
-          find node_modules -type f -name "*.yml" -delete
-          find node_modules -type f -name "*.yaml" -delete
-          find node_modules -type d -name "test" -exec rm -rf {} + 2>/dev/null || true
-          find node_modules -type d -name "tests" -exec rm -rf {} + 2>/dev/null || true
-          find node_modules -type d -name "__tests__" -exec rm -rf {} + 2>/dev/null || true
-          find node_modules -type d -name "example" -exec rm -rf {} + 2>/dev/null || true
-          find node_modules -type d -name "examples" -exec rm -rf {} + 2>/dev/null || true
-          find node_modules -type d -name ".github" -exec rm -rf {} + 2>/dev/null || true
-          find node_modules -type d -name "docs" -exec rm -rf {} + 2>/dev/null || true
+          find node_modules -type f -name ".eslintrc*" -delete
+          find node_modules -type f -name ".prettierrc*" -delete
 
-          echo "📊 Optimized node_modules size:"
+          # Remove test directories (but be careful with Next.js)
+          find node_modules -type d -name "__tests__" ! -path "*/next/*" -exec rm -rf {} + 2>/dev/null || true
+          find node_modules -type d -name "test" ! -path "*/next/*" -exec rm -rf {} + 2>/dev/null || true
+          find node_modules -type d -name ".github" -exec rm -rf {} + 2>/dev/null || true
+
+          # DO NOT DELETE: *.js, *.json, *.node, *.wasm files - they are needed!
+
+          echo "📊 Safely optimized node_modules size:"
           du -sh node_modules/
+
+          # Verify Next.js is intact
+          echo "🔍 Verifying Next.js installation..."
+          ls -la node_modules/.bin/next || echo "⚠️ Next.js binary missing!"
+          ls -la node_modules/next/dist/server/require-hook.js || echo "⚠️ require-hook missing!"
 
       # ----------------------------------------
       # Step 8: Prepare Deployment Package

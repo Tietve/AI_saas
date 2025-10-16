@@ -46,7 +46,14 @@
       "Bash(az webapp start:*)",
       "Bash(az webapp config show:*)",
       "Bash(git rm:*)",
-      "Bash(az webapp config appsettings set:*)"
+      "Bash(az webapp config appsettings set:*)",
+      "Bash(npx prisma migrate deploy:*)",
+      "Bash(DATABASE_URL=\"postgresql://neondb_owner:npg_vgyS7pzt1IGm@ep-fancy-haze-a1k0t2yx-pooler.ap-southeast-1.aws.neon.tech/neondb?sslmode=require\" npx prisma migrate:*)",
+      "Bash(DATABASE_URL=\"postgresql://neondb_owner:npg_vgyS7pzt1IGm@ep-fancy-haze-a1k0t2yx-pooler.ap-southeast-1.aws.neon.tech/neondb?sslmode=require\" npx prisma migrate dev:*)",
+      "Bash(gh run list:*)",
+      "Bash(npx prisma migrate dev:*)",
+      "Bash(mkdir:*)",
+      "Bash(timeout 120 bash:*)"
     ],
     "deny": [],
     "ask": []

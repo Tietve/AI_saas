@@ -3,12 +3,14 @@
  *
  * Handles all database operations related to users.
  * Isolates data access logic from business logic.
+ * Includes Redis caching for performance optimization.
  */
 
 import { injectable } from 'tsyringe'
 import { prisma } from '@/lib/prisma'
 import { User, PlanTier, Prisma } from '@prisma/client'
 import { logger } from '@/lib/logger'
+import { cacheGet, cacheDelete, CacheTTL, CacheKey } from '@/lib/redis'
 
 export interface CreateUserInput {
   email: string
@@ -36,13 +38,19 @@ export interface UserWithSubscription extends User {
 @injectable()
 export class UserRepository {
   /**
-   * Find user by ID
+   * Find user by ID (with Redis caching)
    */
   async findById(userId: string): Promise<User | null> {
     try {
-      return await prisma.user.findUnique({
-        where: { id: userId },
-      })
+      return await cacheGet(
+        CacheKey.USER(userId),
+        CacheTTL.MEDIUM, // 15 minutes
+        async () => {
+          return await prisma.user.findUnique({
+            where: { id: userId },
+          })
+        }
+      )
     } catch (error) {
       logger.error({ err: error, userId }, 'Failed to find user by ID')
       throw error
@@ -50,14 +58,20 @@ export class UserRepository {
   }
 
   /**
-   * Find user by email
+   * Find user by email (with Redis caching)
    */
   async findByEmail(email: string): Promise<User | null> {
     try {
       const emailLower = email.toLowerCase()
-      return await prisma.user.findUnique({
-        where: { emailLower },
-      })
+      return await cacheGet(
+        `user:email:${emailLower}`,
+        CacheTTL.MEDIUM, // 15 minutes
+        async () => {
+          return await prisma.user.findUnique({
+            where: { emailLower },
+          })
+        }
+      )
     } catch (error) {
       logger.error({ err: error, email }, 'Failed to find user by email')
       throw error
@@ -65,23 +79,29 @@ export class UserRepository {
   }
 
   /**
-   * Find user with active subscription
+   * Find user with active subscription (with Redis caching)
    */
   async findByIdWithSubscription(userId: string): Promise<UserWithSubscription | null> {
     try {
-      return await prisma.user.findUnique({
-        where: { id: userId },
-        include: {
-          subscriptions: {
-            where: {
-              status: 'ACTIVE',
-              currentPeriodEnd: { gte: new Date() },
+      return await cacheGet(
+        CacheKey.USER_SUBSCRIPTION(userId),
+        CacheTTL.SHORT, // 5 minutes (shorter TTL for subscription data)
+        async () => {
+          return await prisma.user.findUnique({
+            where: { id: userId },
+            include: {
+              subscriptions: {
+                where: {
+                  status: 'ACTIVE',
+                  currentPeriodEnd: { gte: new Date() },
+                },
+                orderBy: { createdAt: 'desc' },
+                take: 1,
+              },
             },
-            orderBy: { createdAt: 'desc' },
-            take: 1,
-          },
-        },
-      }) as UserWithSubscription | null
+          }) as UserWithSubscription | null
+        }
+      )
     } catch (error) {
       logger.error({ err: error, userId }, 'Failed to find user with subscription')
       throw error
@@ -112,7 +132,7 @@ export class UserRepository {
   }
 
   /**
-   * Update user
+   * Update user (with cache invalidation)
    */
   async update(userId: string, data: UpdateUserInput): Promise<User> {
     try {
@@ -132,10 +152,17 @@ export class UserRepository {
         updateData.monthlyTokenUsed = data.monthlyTokenUsed
       }
 
-      return await prisma.user.update({
+      const updatedUser = await prisma.user.update({
         where: { id: userId },
         data: updateData,
       })
+
+      // Invalidate cache
+      await cacheDelete(CacheKey.USER(userId))
+      await cacheDelete(CacheKey.USER_SUBSCRIPTION(userId))
+      await cacheDelete(`user:email:${updatedUser.emailLower}`)
+
+      return updatedUser
     } catch (error) {
       logger.error({ err: error, userId }, 'Failed to update user')
       throw error
@@ -143,11 +170,11 @@ export class UserRepository {
   }
 
   /**
-   * Increment monthly token usage
+   * Increment monthly token usage (with cache invalidation)
    */
   async incrementTokenUsage(userId: string, tokens: number): Promise<User> {
     try {
-      return await prisma.user.update({
+      const updatedUser = await prisma.user.update({
         where: { id: userId },
         data: {
           monthlyTokenUsed: {
@@ -155,6 +182,12 @@ export class UserRepository {
           },
         },
       })
+
+      // Invalidate cache (token usage changes frequently, so clear it)
+      await cacheDelete(CacheKey.USER(userId))
+      await cacheDelete(CacheKey.USER_SUBSCRIPTION(userId))
+
+      return updatedUser
     } catch (error) {
       logger.error({ err: error, userId, tokens }, 'Failed to increment token usage')
       throw error

@@ -30,6 +30,13 @@ function createPrismaClient() {
                 url: process.env.DATABASE_URL,
             },
         },
+        // Connection pool configuration
+        // Note: Pool size is controlled by DATABASE_URL parameters (connection_limit)
+        // These settings optimize connection behavior:
+        transactionOptions: {
+            maxWait: 5000, // Max time to wait for transaction to start (5s)
+            timeout: 30000, // Max time a transaction can run (30s)
+        },
     })
 
     // Add query extension for performance monitoring (replaces deprecated $use)

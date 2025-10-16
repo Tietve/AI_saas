@@ -30,6 +30,7 @@ model User {
   tokenUsages        TokenUsage[]
   settings           UserSetting?
 
+  @@index([email])
   @@index([planTier])
   @@index([monthlyTokenUsed])
   @@index([createdAt])
@@ -172,7 +173,9 @@ model Subscription {
   user                User               @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, status])
+  @@index([userId, currentPeriodEnd])
   @@index([currentPeriodEnd])
+  @@index([status, currentPeriodEnd])
 }
 
 model Payment {

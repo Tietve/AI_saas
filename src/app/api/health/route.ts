@@ -62,7 +62,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { redis } from '@/lib/cache/redis-client'
+import { upstash as redis } from '@/lib/redis'
 
 // Force Node.js runtime (required for Prisma)
 export const runtime = 'nodejs'

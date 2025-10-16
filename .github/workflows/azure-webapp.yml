@@ -173,12 +173,12 @@ jobs:
 
           # Create startup script for Azure
           echo "📝 Creating Azure startup script..."
-          cat > deployment/startup.sh << 'EOF'
-#!/bin/bash
-echo "🚀 Starting Next.js Standalone Server..."
-export PORT=${PORT:-8080}
-node server.js
-EOF
+          cat > deployment/startup.sh << 'SCRIPT_EOF'
+          #!/bin/bash
+          echo "🚀 Starting Next.js Standalone Server..."
+          export PORT=${PORT:-8080}
+          node server.js
+          SCRIPT_EOF
           chmod +x deployment/startup.sh
 
           echo "✅ Standalone deployment prepared"

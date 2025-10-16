@@ -53,7 +53,9 @@
       "Bash(gh run list:*)",
       "Bash(npx prisma migrate dev:*)",
       "Bash(mkdir:*)",
-      "Bash(timeout 120 bash:*)"
+      "Bash(timeout 120 bash:*)",
+      "Bash(DATABASE_URL=\"postgresql://neondb_owner:npg_vgyS7pzt1IGm@ep-fancy-haze-a1k0t2yx-pooler.ap-southeast-1.aws.neon.tech/neondb?sslmode=require\" npx prisma migrate deploy:*)",
+      "Bash(DATABASE_URL=\"postgresql://neondb_owner:npg_vgyS7pzt1IGm@ep-fancy-haze-a1k0t2yx-pooler.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&connection_limit=20&pool_timeout=30&connect_timeout=10&pgbouncer=true&statement_cache_size=0\" npx prisma migrate deploy:*)"
     ],
     "deny": [],
     "ask": []

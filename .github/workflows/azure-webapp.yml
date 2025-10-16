@@ -129,41 +129,43 @@ jobs:
           echo "✅ Build completed"
 
       # ----------------------------------------
-      # Step 7: Prepare Standalone Deployment CORRECTLY
+      # Step 7: Prepare Standalone Deployment
       # ----------------------------------------
       - name: 📦 Prepare standalone deployment
         run: |
           echo "📋 Preparing standalone deployment..."
 
+          # Verify standalone was built
+          if [ ! -d ".next/standalone" ]; then
+            echo "❌ ERROR: .next/standalone not found!"
+            exit 1
+          fi
+
           # Create deployment directory
           mkdir -p deployment
 
-          # 1. Copy standalone server (contains everything needed)
-          echo "📦 Copying standalone server from .next/standalone..."
-          if [ ! -d ".next/standalone" ]; then
-            echo "❌ ERROR: .next/standalone not found! Check if output: 'standalone' is enabled"
-            exit 1
-          fi
+          # CRITICAL: Copy .next/standalone AS A WHOLE (includes server.js + node_modules)
+          echo "📦 Step 1: Copying .next/standalone (contains server.js + its node_modules)..."
           cp -r .next/standalone/. deployment/
 
-          # 2. Copy static files (REQUIRED for standalone)
-          echo "📦 Copying .next/static..."
-          mkdir -p deployment/.next
-          cp -r .next/static deployment/.next/
+          # Copy static files to .next/static inside deployment
+          echo "📦 Step 2: Copying static files..."
+          mkdir -p deployment/.next/static
+          cp -r .next/static/. deployment/.next/static/
 
-          # 3. Copy public folder
+          # Copy public folder
           if [ -d "public" ]; then
-            echo "📦 Copying public folder..."
+            echo "📦 Step 3: Copying public folder..."
             cp -r public deployment/
           fi
 
-          # 4. Copy Prisma schema
-          echo "📦 Copying Prisma schema..."
+          # Copy Prisma schema
+          echo "📦 Step 4: Copying Prisma schema..."
           mkdir -p deployment/prisma
           cp prisma/schema.prisma deployment/prisma/
 
-          # 5. Copy Prisma binaries (CRITICAL)
-          echo "📦 Copying Prisma binaries..."
+          # Copy Prisma binaries to STANDALONE's node_modules
+          echo "📦 Step 5: Copying Prisma binaries..."
           if [ -d "node_modules/.prisma" ]; then
             mkdir -p deployment/node_modules/.prisma
             cp -r node_modules/.prisma/client deployment/node_modules/.prisma/
@@ -173,18 +175,18 @@ jobs:
             cp -r node_modules/@prisma/client deployment/node_modules/@prisma/
           fi
 
-          # 6. Verify standalone structure
-          echo "✅ Verifying standalone structure..."
-          ls -la deployment/ | head -15
+          # Verify structure
+          echo "✅ Verifying deployment structure..."
+          echo "Root files:"
+          ls -la deployment/ | head -10
           echo ""
-          echo "Checking server.js..."
-          if [ -f "deployment/server.js" ]; then
-            echo "✅ server.js found"
-          else
-            echo "❌ ERROR: server.js not found!"
-            exit 1
-          fi
+          echo "Checking server.js:"
+          [ -f "deployment/server.js" ] && echo "✅ server.js exists" || echo "❌ server.js missing"
+          echo ""
+          echo "Checking standalone node_modules:"
+          [ -d "deployment/node_modules" ] && echo "✅ node_modules exists" || echo "❌ node_modules missing"
 
+          echo ""
           echo "📊 Package size:"
           du -sh deployment/
 

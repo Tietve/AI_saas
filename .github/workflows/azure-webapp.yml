@@ -109,9 +109,8 @@ jobs:
       # ----------------------------------------
       # Step 6: Build Application
       # ----------------------------------------
-      # Runs Next.js production build in STANDALONE mode
-      # Creates self-contained application
-      - name: 🏗️ Build Next.js application (Standalone)
+      # Simple Next.js production build
+      - name: 🏗️ Build Next.js application
         env:
           NODE_ENV: production
         run: |
@@ -120,72 +119,72 @@ jobs:
             echo "❌ ERROR: DATABASE_URL is not set for build!"
             exit 1
           fi
-          echo "✅ DATABASE_URL verified (length: ${#DATABASE_URL} chars)"
+          echo "✅ DATABASE_URL verified"
 
-          echo "🏗️ Building Next.js application in STANDALONE mode..."
+          echo "🏗️ Building Next.js application (NORMAL mode)..."
           npm run build
 
-          echo "📊 Checking standalone output..."
-          ls -la .next/standalone/
-          echo "📊 Standalone size:"
-          du -sh .next/standalone/
+          echo "📊 Build output:"
+          ls -la .next/
+          echo "✅ Build completed"
 
       # ----------------------------------------
-      # Step 7: Prepare Standalone Deployment
+      # Step 7: Prepare SIMPLE Deployment
       # ----------------------------------------
-      # Creates deployment package using Next.js standalone output
-      - name: 📦 Prepare standalone deployment
+      # Simple approach - just copy everything needed
+      - name: 📦 Prepare simple deployment
         run: |
-          echo "📋 Preparing standalone deployment..."
+          echo "📋 Preparing SIMPLE deployment (no more complex optimizations)..."
 
           # Create deployment directory
           mkdir -p deployment
 
-          # Copy standalone server
-          echo "📦 Copying standalone server..."
-          cp -r .next/standalone/* deployment/
+          # 1. Copy ENTIRE .next folder as-is
+          echo "📦 Copying .next build output..."
+          cp -r .next deployment/
 
-          # Copy static files (required for standalone)
-          echo "📦 Copying static assets..."
-          cp -r .next/static deployment/.next/
+          # 2. Copy source code
+          echo "📦 Copying source code..."
+          cp -r src deployment/
 
-          # Copy public folder if exists
+          # 3. Copy config files
+          echo "📦 Copying config files..."
+          cp package.json deployment/
+          cp next.config.js deployment/ || echo "next.config.js not found"
+          cp tsconfig.json deployment/ || echo "tsconfig.json not found"
+
+          # 4. Copy public folder
           if [ -d "public" ]; then
             echo "📦 Copying public folder..."
             cp -r public deployment/
           fi
 
-          # Copy Prisma schema and client
-          echo "📦 Copying Prisma files..."
+          # 5. Copy Prisma
+          echo "📦 Copying Prisma..."
           mkdir -p deployment/prisma
           cp prisma/schema.prisma deployment/prisma/
 
-          # Ensure Prisma client is included
-          if [ -d "node_modules/.prisma" ]; then
-            echo "📦 Copying Prisma client..."
-            mkdir -p deployment/node_modules/.prisma
-            cp -r node_modules/.prisma deployment/node_modules/
-          fi
-          if [ -d "node_modules/@prisma" ]; then
-            mkdir -p deployment/node_modules/@prisma
-            cp -r node_modules/@prisma deployment/node_modules/
-          fi
+          # 6. Prune and copy node_modules (remove only dev deps)
+          echo "📦 Preparing production node_modules..."
+          npm prune --omit=dev --legacy-peer-deps
+          cp -r node_modules deployment/
 
-          # Create startup script for Azure
-          echo "📝 Creating Azure startup script..."
+          # 7. Create simple startup script
+          echo "📝 Creating startup script..."
           cat > deployment/startup.sh << 'SCRIPT_EOF'
           #!/bin/bash
-          echo "🚀 Starting Next.js Standalone Server..."
+          echo "Starting Next.js server..."
           export PORT=${PORT:-8080}
-          node server.js
+          npm start
           SCRIPT_EOF
           chmod +x deployment/startup.sh
 
-          echo "✅ Standalone deployment prepared"
-          echo "📊 Deployment size (should be <100MB):"
+          echo "✅ Simple deployment prepared"
+          echo "📊 Package size:"
           du -sh deployment/
-          echo "📊 Contents:"
-          ls -la deployment/
+          echo "📊 Checking critical files:"
+          ls -la deployment/.next/ | head -10
+          ls -la deployment/node_modules/.bin/next || echo "next binary missing"
 
       # ----------------------------------------
       # Step 8: Create Deployment Archive
@@ -197,7 +196,7 @@ jobs:
           zip -r ../deployment.zip . -q
           cd ..
 
-          echo "📊 Package size (standalone - should be <50MB):"
+          echo "📊 Package size:"
           ls -lh deployment.zip
 
       # ----------------------------------------

@@ -9,8 +9,8 @@ const nextConfig = {
         ignoreBuildErrors: true,
     },
 
-    // Disable standalone - use normal mode for simplicity
-    // output: 'standalone',
+    // Enable standalone for Azure deployment
+    output: 'standalone',
 
     // Image optimization
     images: {

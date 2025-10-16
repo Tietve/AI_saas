@@ -129,62 +129,64 @@ jobs:
           echo "✅ Build completed"
 
       # ----------------------------------------
-      # Step 7: Prepare SIMPLE Deployment
+      # Step 7: Prepare Standalone Deployment CORRECTLY
       # ----------------------------------------
-      # Simple approach - just copy everything needed
-      - name: 📦 Prepare simple deployment
+      - name: 📦 Prepare standalone deployment
         run: |
-          echo "📋 Preparing SIMPLE deployment (no more complex optimizations)..."
+          echo "📋 Preparing standalone deployment..."
 
           # Create deployment directory
           mkdir -p deployment
 
-          # 1. Copy ENTIRE .next folder as-is
-          echo "📦 Copying .next build output..."
-          cp -r .next deployment/
+          # 1. Copy standalone server (contains everything needed)
+          echo "📦 Copying standalone server from .next/standalone..."
+          if [ ! -d ".next/standalone" ]; then
+            echo "❌ ERROR: .next/standalone not found! Check if output: 'standalone' is enabled"
+            exit 1
+          fi
+          cp -r .next/standalone/. deployment/
 
-          # 2. Copy source code
-          echo "📦 Copying source code..."
-          cp -r src deployment/
+          # 2. Copy static files (REQUIRED for standalone)
+          echo "📦 Copying .next/static..."
+          mkdir -p deployment/.next
+          cp -r .next/static deployment/.next/
 
-          # 3. Copy config files
-          echo "📦 Copying config files..."
-          cp package.json deployment/
-          cp next.config.js deployment/ || echo "next.config.js not found"
-          cp tsconfig.json deployment/ || echo "tsconfig.json not found"
-
-          # 4. Copy public folder
+          # 3. Copy public folder
           if [ -d "public" ]; then
             echo "📦 Copying public folder..."
             cp -r public deployment/
           fi
 
-          # 5. Copy Prisma
-          echo "📦 Copying Prisma..."
+          # 4. Copy Prisma schema
+          echo "📦 Copying Prisma schema..."
           mkdir -p deployment/prisma
           cp prisma/schema.prisma deployment/prisma/
 
-          # 6. Prune and copy node_modules (remove only dev deps)
-          echo "📦 Preparing production node_modules..."
-          npm prune --omit=dev --legacy-peer-deps
-          cp -r node_modules deployment/
+          # 5. Copy Prisma binaries (CRITICAL)
+          echo "📦 Copying Prisma binaries..."
+          if [ -d "node_modules/.prisma" ]; then
+            mkdir -p deployment/node_modules/.prisma
+            cp -r node_modules/.prisma/client deployment/node_modules/.prisma/
+          fi
+          if [ -d "node_modules/@prisma/client" ]; then
+            mkdir -p deployment/node_modules/@prisma
+            cp -r node_modules/@prisma/client deployment/node_modules/@prisma/
+          fi
 
-          # 7. Create simple startup script
-          echo "📝 Creating startup script..."
-          cat > deployment/startup.sh << 'SCRIPT_EOF'
-          #!/bin/bash
-          echo "Starting Next.js server..."
-          export PORT=${PORT:-8080}
-          npm start
-          SCRIPT_EOF
-          chmod +x deployment/startup.sh
+          # 6. Verify standalone structure
+          echo "✅ Verifying standalone structure..."
+          ls -la deployment/ | head -15
+          echo ""
+          echo "Checking server.js..."
+          if [ -f "deployment/server.js" ]; then
+            echo "✅ server.js found"
+          else
+            echo "❌ ERROR: server.js not found!"
+            exit 1
+          fi
 
-          echo "✅ Simple deployment prepared"
           echo "📊 Package size:"
           du -sh deployment/
-          echo "📊 Checking critical files:"
-          ls -la deployment/.next/ | head -10
-          ls -la deployment/node_modules/.bin/next || echo "next binary missing"
 
       # ----------------------------------------
       # Step 8: Create Deployment Archive

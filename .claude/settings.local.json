@@ -45,7 +45,8 @@
       "Bash(az webapp stop:*)",
       "Bash(az webapp start:*)",
       "Bash(az webapp config show:*)",
-      "Bash(git rm:*)"
+      "Bash(git rm:*)",
+      "Bash(az webapp config appsettings set:*)"
     ],
     "deny": [],
     "ask": []

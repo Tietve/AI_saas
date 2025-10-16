@@ -9,9 +9,8 @@ const nextConfig = {
         ignoreBuildErrors: true,
     },
 
-    // VERCEL: Disabled standalone output (only for Docker)
-    // Vercel has its own build system and doesn't need standalone mode
-    // output: 'standalone',
+    // Enable standalone for Azure deployment
+    output: 'standalone',
 
     // Image optimization
     images: {

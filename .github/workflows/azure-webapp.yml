@@ -109,11 +109,9 @@ jobs:
       # ----------------------------------------
       # Step 6: Build Application
       # ----------------------------------------
-      # Runs Next.js production build
-      # Creates optimized .next directory
-      # DATABASE_URL available from $GITHUB_ENV (set in Step 3)
-      # IMPORTANT: Build BEFORE pruning dev deps (needs tailwindcss, postcss, etc.)
-      - name: 🏗️ Build Next.js application
+      # Runs Next.js production build in STANDALONE mode
+      # Creates self-contained application
+      - name: 🏗️ Build Next.js application (Standalone)
         env:
           NODE_ENV: production
         run: |
@@ -124,98 +122,73 @@ jobs:
           fi
           echo "✅ DATABASE_URL verified (length: ${#DATABASE_URL} chars)"
 
-          echo "🏗️ Building Next.js application..."
+          echo "🏗️ Building Next.js application in STANDALONE mode..."
           npm run build
 
+          echo "📊 Checking standalone output..."
+          ls -la .next/standalone/
+          echo "📊 Standalone size:"
+          du -sh .next/standalone/
+
       # ----------------------------------------
-      # Step 7: Optimize Dependencies
+      # Step 7: Prepare Standalone Deployment
       # ----------------------------------------
-      # Remove ONLY safe files, keep all JS files intact
-      - name: 🧹 Safe optimization of node_modules
+      # Creates deployment package using Next.js standalone output
+      - name: 📦 Prepare standalone deployment
         run: |
-          echo "🧹 Starting safe node_modules optimization..."
-
-          # Remove dev dependencies
-          npm prune --omit=dev --legacy-peer-deps
-
-          # Remove ONLY documentation and test files - DO NOT remove JS/TS files
-          echo "🗑️ Removing only safe files from node_modules..."
-
-          # Remove documentation files only
-          find node_modules -type f -name "*.md" -delete
-          find node_modules -type f -name "LICENSE*" -delete
-          find node_modules -type f -name "CHANGELOG*" -delete
-          find node_modules -type f -name "README*" -delete
-
-          # Remove config files that are not needed at runtime
-          find node_modules -type f -name ".npmignore" -delete
-          find node_modules -type f -name ".gitignore" -delete
-          find node_modules -type f -name ".eslintrc*" -delete
-          find node_modules -type f -name ".prettierrc*" -delete
-
-          # Remove test directories (but be careful with Next.js)
-          find node_modules -type d -name "__tests__" ! -path "*/next/*" -exec rm -rf {} + 2>/dev/null || true
-          find node_modules -type d -name "test" ! -path "*/next/*" -exec rm -rf {} + 2>/dev/null || true
-          find node_modules -type d -name ".github" -exec rm -rf {} + 2>/dev/null || true
-
-          # DO NOT DELETE: *.js, *.json, *.node, *.wasm files - they are needed!
-
-          echo "📊 Safely optimized node_modules size:"
-          du -sh node_modules/
-
-          # Verify Next.js is intact
-          echo "🔍 Verifying Next.js installation..."
-          ls -la node_modules/.bin/next || echo "⚠️ Next.js binary missing!"
-          ls -la node_modules/next/dist/server/require-hook.js || echo "⚠️ require-hook missing!"
-
-      # ----------------------------------------
-      # Step 8: Prepare Deployment Package
-      # ----------------------------------------
-      # Creates deployment package WITH heavily optimized node_modules
-      - name: 📦 Create deployment package
-        run: |
-          echo "📋 Creating optimized deployment package..."
+          echo "📋 Preparing standalone deployment..."
 
           # Create deployment directory
           mkdir -p deployment
 
-          # Copy essential files
-          echo "📦 Copying package files..."
-          cp package.json deployment/
-          cp next.config.js deployment/ || echo "⚠️ next.config.js not found"
-          cp tsconfig.json deployment/ || echo "⚠️ tsconfig.json not found"
+          # Copy standalone server
+          echo "📦 Copying standalone server..."
+          cp -r .next/standalone/* deployment/
 
-          # Copy source code
-          echo "📦 Copying source code..."
-          cp -r src deployment/
+          # Copy static files (required for standalone)
+          echo "📦 Copying static assets..."
+          cp -r .next/static deployment/.next/
 
-          # Copy built application
-          echo "📦 Copying .next build output..."
-          cp -r .next deployment/
-
-          # Copy Prisma schema
-          echo "📦 Copying Prisma schema..."
-          mkdir -p deployment/prisma
-          cp prisma/schema.prisma deployment/prisma/
-
-          # Copy public assets (if exists)
+          # Copy public folder if exists
           if [ -d "public" ]; then
-            echo "📦 Copying public assets..."
+            echo "📦 Copying public folder..."
             cp -r public deployment/
           fi
 
-          # Copy optimized node_modules
-          echo "📦 Copying optimized node_modules..."
-          cp -r node_modules deployment/
+          # Copy Prisma schema and client
+          echo "📦 Copying Prisma files..."
+          mkdir -p deployment/prisma
+          cp prisma/schema.prisma deployment/prisma/
 
-          echo "✅ Deployment package created"
-          echo "📊 Final package size:"
+          # Ensure Prisma client is included
+          if [ -d "node_modules/.prisma" ]; then
+            echo "📦 Copying Prisma client..."
+            mkdir -p deployment/node_modules/.prisma
+            cp -r node_modules/.prisma deployment/node_modules/
+          fi
+          if [ -d "node_modules/@prisma" ]; then
+            mkdir -p deployment/node_modules/@prisma
+            cp -r node_modules/@prisma deployment/node_modules/
+          fi
+
+          # Create startup script for Azure
+          echo "📝 Creating Azure startup script..."
+          cat > deployment/startup.sh << 'EOF'
+#!/bin/bash
+echo "🚀 Starting Next.js Standalone Server..."
+export PORT=${PORT:-8080}
+node server.js
+EOF
+          chmod +x deployment/startup.sh
+
+          echo "✅ Standalone deployment prepared"
+          echo "📊 Deployment size (should be <100MB):"
           du -sh deployment/
-          echo "📊 Breakdown by folder:"
-          du -sh deployment/* | sort -h
+          echo "📊 Contents:"
+          ls -la deployment/
 
       # ----------------------------------------
-      # Step 9: Create Deployment Archive
+      # Step 8: Create Deployment Archive
       # ----------------------------------------
       # Zips the deployment package for upload
       - name: 📦 Zip deployment package
@@ -224,7 +197,7 @@ jobs:
           zip -r ../deployment.zip . -q
           cd ..
 
-          echo "📊 Package size:"
+          echo "📊 Package size (standalone - should be <50MB):"
           ls -lh deployment.zip
 
       # ----------------------------------------

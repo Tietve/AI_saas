@@ -44,7 +44,17 @@ async function main() {
     name: 'GET /api/health handler executes',
     run: async () => {
       const mod = await import('../src/app/api/health/route')
-      const res: Response = await mod.GET(new Request('http://local/api/health'))
+      // Create a NextRequest-like object for testing
+      const mockRequest = {
+        url: 'http://local/api/health',
+        method: 'GET',
+        headers: new Headers(),
+        nextUrl: new URL('http://local/api/health'),
+        cookies: new Map(),
+        geo: {},
+        ip: '127.0.0.1'
+      } as any
+      const res: Response = await mod.GET(mockRequest)
       const data = await getJson(res)
       if (!('status' in data)) throw new Error('missing status in response')
       // Expect unhealthy/degraded in local env without DB/Redis, but handler should still respond

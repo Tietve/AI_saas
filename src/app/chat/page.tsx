@@ -320,7 +320,7 @@ export default function ChatPage() {
 
     // GIAO DIỆN MỚI - Giống Claude
     return (
-        <div className={styles.chatContainer}>
+        <div className={styles.chatContainer} data-theme-scope="chat">
             {/* Sidebar */}
             <ChatSidebar
                 isOpen={sidebarOpen}

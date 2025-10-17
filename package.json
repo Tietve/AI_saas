@@ -49,6 +49,12 @@
     "verify:production:verbose": "tsx scripts/post-deploy-verifier.ts --verbose",
     "conn:check": "tsx scripts/conn-check.ts",
     "conn:check:verbose": "tsx scripts/conn-check.ts --verbose",
+    "// Monitoring & Alerts (FREE)": "",
+    "monitor:health": "tsx scripts/monitor-health.ts",
+    "backup:db": "bash scripts/backup-database.sh",
+    "backup:setup": "bash scripts/setup-backup-cron.sh",
+    "test:smoke": "tsx scripts/smoke-test.ts",
+    "test:load": "k6 run scripts/load-test.js",
     "storybook": "storybook dev -p 6006",
     "build:storybook": "storybook build",
     "chromatic": "chromatic --project-token=$CHROMATIC_PROJECT_TOKEN"

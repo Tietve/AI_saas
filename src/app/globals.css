@@ -100,8 +100,8 @@
 }
 
 
-.theme-override body,
-html.theme-override body {
+ .theme-override body,
+ html.theme-override body {
     background-color: var(--color-background) !important;
     color: var(--color-text) !important;
 }

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { MultiProviderGateway } from '@/lib/ai-providers/multi-provider-gateway';
-import { SemanticCache } from '@/lib/ai-providers/semantic-cache';
+import { getSemanticCache } from '@/lib/cache/semantic-cache';
 import { requireUserId } from '@/lib/auth/session';
 import { prisma } from '@/lib/prisma';
 import { ModelId } from '@prisma/client';
@@ -11,13 +11,9 @@ export const runtime = 'nodejs'
 const gateway = new MultiProviderGateway({
     openai: process.env.OPENAI_API_KEY!,
     claude: process.env.ANTHROPIC_API_KEY!,
-    gemini: process.env.GEMINI_API_KEY!
+    gemini: process.env.GOOGLE_API_KEY!,
 });
-
-const cache = new SemanticCache(
-    process.env.UPSTASH_REDIS_URL!,
-    process.env.UPSTASH_REDIS_TOKEN!
-);
+const cache = getSemanticCache();
 
 
 function getModelId(provider: string, model: string): ModelId {
@@ -42,14 +38,20 @@ export async function POST(req: NextRequest) {
         const { message, conversationId, useCache = true } = await req.json();
 
         
-        const idempotencyKey = `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-
-        
-        if (useCache) {
-            const cached = await cache.get(message);
+        const idempotencyKey = `${Date.now()}_${Math.random().toString(36).slice(2)}`
+        if (useCache && cache) {
+            const cached = await cache.findSimilar(message, 'gpt-4o-mini');
             if (cached) {
                 return NextResponse.json({
-                    ...cached,
+                    content: cached.response,
+                    usage: {
+                        promptTokens: cached.tokensIn,
+                        completionTokens: cached.tokensOut,
+                        totalCost: 0
+                    },
+                    provider: 'cache',
+                    model: cached.model,
+                    latency: 0,
                     fromCache: true
                 });
             }
@@ -81,14 +83,20 @@ export async function POST(req: NextRequest) {
 
         const response = await gateway.routeRequest(message, {
             systemPrompt,
-            maxTokens: 2000
+            maxTokens: 20
         });
 
-        const latencyMs = Date.now() - startTime;
-
-        
-        if (useCache) {
-            await cache.set(message, response);
+        const startToNow = Date.now();
+        const latencyMs = startToNow - startTime;
+        if (useCache && cache) {
+            await cache.set({
+                query: message,
+                response: response.content,
+                model: response.model,
+                tokensIn: response.usage.promptTokens,
+                tokensOut: response.usage.completionTokens,
+                costUsd: response.usage.totalCost
+            });
         }
 
         

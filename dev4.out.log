@@ -1,0 +1,18 @@
+
+> ai-saas-platform@0.1.0 dev
+> next dev
+
+  ▲ Next.js 14.2.18
+  - Local:        http://localhost:3000
+  - Environments: .env
+
+ ✓ Starting...
+=== Next.js Rewrites Configuration ===
+NEXT_PUBLIC_API_URL: undefined
+Using API URL: https://firbox-api-ddhtc0hfd2brhaa4.southeastasia-01.azurewebsites.net
+NODE_ENV: development
+No rewrites configured (local development)
+ ✓ Ready in 3s
+ ○ Compiling /api/health ...
+{"level":"info","time":"2025-10-16T17:38:28.947Z","env":"development","msg":"Prisma client initialized"}
+ GET /api/health 200 in 1466ms

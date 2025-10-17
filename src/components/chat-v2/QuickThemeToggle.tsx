@@ -6,6 +6,13 @@ import { ThemeManager } from '@/lib/theme/theme-manager'
 export function QuickThemeToggle() {
     const [isDark, setIsDark] = React.useState(false)
 
+    React.useEffect(() => {
+        try {
+            const id = ThemeManager.getCurrentTheme()
+            setIsDark(id === 'dark')
+        } catch {}
+    }, [])
+
     const toggleTheme = () => {
         if (isDark) {
             ThemeManager.setTheme('claude')

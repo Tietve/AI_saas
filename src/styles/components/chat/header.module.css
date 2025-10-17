@@ -469,6 +469,24 @@
     color: var(--color-text-tertiary);
 }
 
+/* Accessibility focus styles */
+.selector:focus-visible,
+.dropdownItem:focus-visible,
+.closeButton:focus-visible {
+    outline: 2px solid var(--color-brand-primary);
+    outline-offset: 2px;
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+    .chevron,
+    .dropdownMenu,
+    .systemPromptPanel {
+        transition: none !important;
+        animation: none !important;
+    }
+}
+
 /* Mobile Responsive */
 @media (max-width: 640px) {
     .headerCenter {

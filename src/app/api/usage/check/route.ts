@@ -133,8 +133,14 @@ export async function GET(req: NextRequest) {
             }
         })
 
-    } catch (error) {
+    } catch (error: any) {
         console.error('[Usage Check] Error:', error)
+        if (error?.message === 'UNAUTHENTICATED') {
+            return NextResponse.json(
+                { error: 'Unauthorized' },
+                { status: 401 }
+            )
+        }
         return NextResponse.json(
             { error: 'Failed to check usage' },
             { status: 500 }
@@ -224,8 +230,14 @@ export async function POST(req: NextRequest) {
             }
         })
 
-    } catch (error) {
+    } catch (error: any) {
         console.error('[Usage Update] Error:', error)
+        if (error?.message === 'UNAUTHENTICATED') {
+            return NextResponse.json(
+                { error: 'Unauthorized' },
+                { status: 401 }
+            )
+        }
         return NextResponse.json(
             { error: 'Failed to update usage' },
             { status: 500 }
@@ -261,8 +273,14 @@ export async function DELETE(req: NextRequest) {
             message: 'Usage reset successfully'
         })
 
-    } catch (error) {
+    } catch (error: any) {
         console.error('[Usage Reset] Error:', error)
+        if (error?.message === 'UNAUTHENTICATED') {
+            return NextResponse.json(
+                { error: 'Unauthorized' },
+                { status: 401 }
+            )
+        }
         return NextResponse.json(
             { error: 'Failed to reset usage' },
             { status: 500 }

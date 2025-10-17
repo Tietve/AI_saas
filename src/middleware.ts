@@ -6,6 +6,7 @@ import { applySecurityHeaders } from '@/middleware/security-headers'
 import { createRateLimiter, getClientIp, toHeaders } from '@/lib/rate-limit'
 import { logger } from '@/lib/logger'
 import { redis } from '@/lib/cache/redis-client'
+import { apiVersionMiddleware } from '@/middleware/api-version'
 
 export const runtime = 'nodejs'
 
@@ -75,6 +76,14 @@ export async function middleware(request: NextRequest) {
     if (pathname.startsWith('/_next/') || pathname.includes('.')) {
         const response = NextResponse.next()
         return applySecurityHeaders(response)
+    }
+
+    // API Versioning (check first, before other API middleware)
+    if (pathname.startsWith('/api/')) {
+        const versionResponse = apiVersionMiddleware(request)
+        if (versionResponse) {
+            return applySecurityHeaders(versionResponse)
+        }
     }
 
     // Rate Limiting for API routes

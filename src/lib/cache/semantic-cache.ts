@@ -142,12 +142,10 @@ export class SemanticCache {
   async findSimilar(query: string, model: string): Promise<CachedResponse | null> {
     try {
       const startTime = Date.now()
-
-      // Normalize query
       const normalizedQuery = query.toLowerCase().trim()
 
       // Generate embedding for the query
-      const queryEmbedding = await generateEmbedding(normalizedQuery)
+      const queryEmbedding = await this.generateEmbedding(normalizedQuery)
 
       // Get all cache keys for this model
       const pattern = `semantic_cache:${model}:*`

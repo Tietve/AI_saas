@@ -1,0 +1,30 @@
+
+> ai-saas-platform@0.1.0 dev
+> next dev
+
+  ▲ Next.js 14.2.18
+  - Local:        http://localhost:3000
+  - Environments: .env
+
+ ✓ Starting...
+=== Next.js Rewrites Configuration ===
+NEXT_PUBLIC_API_URL: undefined
+Using API URL: https://firbox-api-ddhtc0hfd2brhaa4.southeastasia-01.azurewebsites.net
+NODE_ENV: development
+No rewrites configured (local development)
+ ✓ Ready in 3.1s
+ ○ Compiling /api/health ...
+{"level":"info","time":"2025-10-16T17:36:10.203Z","env":"development","msg":"Prisma client initialized"}
+ GET /api/health 200 in 3638ms
+ GET /api/health 200 in 500ms
+[signup] Starting for: tester+1760636171@example.com
+[signup] Created user: cmgtpbksy0000vpbkv5rsk0x5
+[Email] Sending verification to tester+1760636171@example.com
+✅ [Email] MailHog connected
+✅ [Email] Sent to tester+1760636171@example.com
+[signup] Verification email sent
+ POST /api/auth/signup 200 in 5973ms
+[signin] Attempt for: tester+1760636171@example.com
+[signin] Email not verified for: tester+1760636171@example.com
+ POST /api/auth/signin 403 in 4290ms
+ GET /api/usage/check 401 in 820ms

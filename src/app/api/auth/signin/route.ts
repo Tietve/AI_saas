@@ -83,6 +83,7 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import * as bcrypt from 'bcryptjs'
 import { createSessionCookie } from '@/lib/auth/session'
+import { isAccountLocked, recordFailedAttempt, clearFailedAttempts } from '@/lib/security/account-lockout'
 
 
 // Force Node.js runtime (required for Prisma)
@@ -104,6 +105,21 @@ export async function POST(req: Request) {
 
         const emailLower = email.toLowerCase()
 
+        // Check if account is locked
+        const lockStatus = await isAccountLocked(emailLower)
+        if (lockStatus.locked) {
+            const minutesRemaining = Math.ceil((lockStatus.timeRemaining || 0) / 60)
+            console.log('[signin] Account locked:', emailLower, 'for', minutesRemaining, 'minutes')
+            return NextResponse.json(
+                {
+                    error: `Tài khoản tạm thời bị khóa do quá nhiều lần đăng nhập sai. Vui lòng thử lại sau ${minutesRemaining} phút.`,
+                    locked: true,
+                    lockedUntil: lockStatus.lockedUntil,
+                },
+                { status: 429 }
+            )
+        }
+
         
         const user = await prisma.user.findUnique({
             where: { emailLower },
@@ -117,18 +133,37 @@ export async function POST(req: Request) {
 
         if (!user) {
             console.log('[signin] User not found:', emailLower)
+            // Record failed attempt
+            await recordFailedAttempt(emailLower)
             return NextResponse.json(
                 { error: 'Email hoặc mật khẩu không đúng' },
                 { status: 401 }
             )
         }
 
-        
+
         const isValid = await bcrypt.compare(password, user.passwordHash)
         if (!isValid) {
             console.log('[signin] Invalid password for:', emailLower)
+            // Record failed attempt
+            const lockoutStatus = await recordFailedAttempt(emailLower)
+
+            if (lockoutStatus.locked) {
+                return NextResponse.json(
+                    {
+                        error: `Quá nhiều lần đăng nhập sai. Tài khoản đã bị khóa trong 15 phút.`,
+                        locked: true,
+                        lockedUntil: lockoutStatus.lockedUntil,
+                    },
+                    { status: 429 }
+                )
+            }
+
             return NextResponse.json(
-                { error: 'Email hoặc mật khẩu không đúng' },
+                {
+                    error: 'Email hoặc mật khẩu không đúng',
+                    attemptsLeft: lockoutStatus.attemptsLeft,
+                },
                 { status: 401 }
             )
         }
@@ -147,7 +182,9 @@ export async function POST(req: Request) {
             )
         }
 
-        
+        // Clear failed attempts on successful login
+        await clearFailedAttempts(emailLower)
+
         const cookieData = await createSessionCookie(user.id, {
             email: user.email || emailLower
         })

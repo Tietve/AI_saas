@@ -131,8 +131,58 @@ export function ChatHeader(props: ChatHeaderProps) {
         }
 
         document.addEventListener('mousedown', handleClickOutside)
-        return () => document.removeEventListener('mousedown', handleClickOutside)
+        const onKey = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') {
+                setShowBotMenu(false)
+                setShowModelMenu(false)
+                setShowThemeMenu(false)
+            }
+        }
+        document.addEventListener('keydown', onKey)
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside)
+            document.removeEventListener('keydown', onKey)
+        }
     }, [])
+
+    // Focus first item when opening menus for keyboard users
+    useEffect(() => {
+        if (showBotMenu && botMenuRef.current) {
+            const first = botMenuRef.current.querySelector(`.${styles.dropdownItem}`) as HTMLButtonElement | null
+            first?.focus()
+        }
+    }, [showBotMenu])
+
+    useEffect(() => {
+        if (showModelMenu && modelMenuRef.current) {
+            const first = modelMenuRef.current.querySelector(`.${styles.dropdownItem}`) as HTMLButtonElement | null
+            first?.focus()
+        }
+    }, [showModelMenu])
+
+    useEffect(() => {
+        if (showThemeMenu && themeMenuRef.current) {
+            const first = themeMenuRef.current.querySelector(`.${styles.dropdownItem}`) as HTMLButtonElement | null
+            first?.focus()
+        }
+    }, [showThemeMenu])
+
+    function handleMenuKeyDown(e: React.KeyboardEvent, container: React.RefObject<HTMLDivElement>) {
+        const keys = ['ArrowDown', 'ArrowUp', 'Home', 'End']
+        if (!keys.includes(e.key)) return
+        e.preventDefault()
+        const el = container.current
+        if (!el) return
+        const items = Array.from(el.querySelectorAll(`.${styles.dropdownItem}`)) as HTMLButtonElement[]
+        if (items.length === 0) return
+        const active = document.activeElement as HTMLElement | null
+        let index = items.findIndex(i => i === active)
+        if (e.key === 'Home') index = 0
+        else if (e.key === 'End') index = items.length - 1
+        else if (e.key === 'ArrowDown') index = (index + 1 + items.length) % items.length
+        else if (e.key === 'ArrowUp') index = (index - 1 + items.length) % items.length
+        items[Math.max(0, index)].focus()
+    }
 
     const handleThemeChange = (themeId: string) => {
         ThemeManager.setTheme(themeId)
@@ -162,6 +212,9 @@ export function ChatHeader(props: ChatHeaderProps) {
                                         setShowModelMenu(false)
                                     }}
                                     disabled={props.disabled}
+                                    aria-haspopup="menu"
+                                    aria-expanded={showBotMenu}
+                                    aria-controls="bot-menu"
                                 >
                                     <Bot size={16} className={styles.selectorIcon} />
                                     <span className={styles.selectorLabel}>
@@ -171,7 +224,13 @@ export function ChatHeader(props: ChatHeaderProps) {
                                 </button>
 
                                 {showBotMenu && (
-                                    <div className={styles.dropdownMenu}>
+                                    <div
+                                        id="bot-menu"
+                                        className={styles.dropdownMenu}
+                                        role="menu"
+                                        aria-label="Choose Assistant"
+                                        onKeyDown={(e) => handleMenuKeyDown(e, botMenuRef)}
+                                    >
                                         <div className={styles.dropdownHeader}>
                                             Choose Assistant Personality
                                         </div>
@@ -216,6 +275,9 @@ export function ChatHeader(props: ChatHeaderProps) {
                                     setShowBotMenu(false)
                                 }}
                                 disabled={props.disabled}
+                                aria-haspopup="menu"
+                                aria-expanded={showModelMenu}
+                                aria-controls="model-menu"
                             >
                                 <Sparkles size={16} className={styles.selectorIcon} />
                                 <span className={styles.selectorLabel}>
@@ -233,7 +295,13 @@ export function ChatHeader(props: ChatHeaderProps) {
                             </button>
 
                             {showModelMenu && (
-                                <div className={styles.dropdownMenu}>
+                                <div
+                                    id="model-menu"
+                                    className={styles.dropdownMenu}
+                                    role="menu"
+                                    aria-label="Choose AI Model"
+                                    onKeyDown={(e) => handleMenuKeyDown(e, modelMenuRef)}
+                                >
                                     <div className={styles.dropdownHeader}>
                                         Choose AI Model
                                     </div>
@@ -318,10 +386,20 @@ export function ChatHeader(props: ChatHeaderProps) {
                             onClick={() => setShowThemeMenu(!showThemeMenu)}
                             className={showThemeMenu ? styles.activeButton : ''}
                             title="Change Theme"
+                            aria-haspopup="menu"
+                            aria-expanded={showThemeMenu}
+                            aria-controls="theme-menu"
                         />
 
                         {showThemeMenu && (
-                            <div className={styles.dropdownMenu} style={{ right: 0, width: '320px', maxHeight: '400px', overflowY: 'auto' }}>
+                            <div
+                                id="theme-menu"
+                                role="menu"
+                                aria-label="Choose Theme"
+                                className={styles.dropdownMenu}
+                                style={{ right: 0, width: '320px', maxHeight: '400px', overflowY: 'auto' }}
+                                onKeyDown={(e) => handleMenuKeyDown(e, themeMenuRef)}
+                            >
                                 <div className={styles.dropdownHeader}>
                                     <Paintbrush size={16} />
                                     <span>Choose Theme</span>

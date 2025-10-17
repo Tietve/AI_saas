@@ -20,6 +20,9 @@ import pino from 'pino'
 import * as Sentry from '@sentry/nextjs'
 
 const isDevelopment = process.env.NODE_ENV === 'development'
+// Disable pretty-transport by default in Next.js dev to avoid worker/thread issues
+// Opt-in by setting PRETTY_LOGS=1 if you really want pretty logs locally
+const enablePretty = isDevelopment && process.env.PRETTY_LOGS === '1' && !process.env.AZURE_WEBAPP_NAME
 const isTest = process.env.NODE_ENV === 'test'
 
 // Create logger instance
@@ -43,8 +46,8 @@ export const logger = pino({
     res: pino.stdSerializers.res,
   },
 
-  // Pretty printing for development (only if module exists)
-  transport: isDevelopment && !process.env.AZURE_WEBAPP_NAME
+  // Pretty transport is disabled by default to avoid worker thread crashes in Next dev
+  transport: enablePretty
     ? {
         target: 'pino-pretty',
         options: {

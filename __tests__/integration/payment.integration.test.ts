@@ -61,7 +61,7 @@ describe.skip('Payment Integration Tests', () => {
         qrCode: 'mock_qr_code',
         orderCode: expect.any(Number),
     });
-    (PayOS as jest.Mock).mockImplementation(() => ({
+    (PayOS as any).mockImplementation(() => ({
         paymentRequests: {
             create: mockPayOSCreate,
         },

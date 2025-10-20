@@ -20,21 +20,46 @@ export async function GET(
     req: NextRequest,
     ctx: { params: Promise<{ id: string }> }
 ) {
+    // Enhanced logging for debugging production issues
+    const requestId = crypto.randomUUID().slice(0, 8)
+    const startTime = Date.now()
+    
+    console.log(`[${requestId}] GET /api/conversations/[id]/messages - START`, {
+        url: req.url,
+        method: req.method,
+        headers: {
+            cookie: req.headers.get('cookie')?.substring(0, 50) + '...',
+            userAgent: req.headers.get('user-agent'),
+            referer: req.headers.get('referer'),
+        }
+    })
+    
     try {
+        console.log(`[${requestId}] Verifying user authentication...`)
         const userId = await requireUserId()
+        console.log(`[${requestId}] User authenticated: ${userId}`)
+        
         const { id } = await ctx.params
+        console.log(`[${requestId}] Conversation ID: ${id}`)
 
         
         const searchParams = req.nextUrl.searchParams
         const limit = Math.min(parseInt(searchParams.get('limit') || '50'), 100)
-        const cursor = searchParams.get('cursor') 
+        const cursor = searchParams.get('cursor')
+        
+        console.log(`[${requestId}] Query params:`, { limit, cursor })
 
         
+        console.log(`[${requestId}] Checking conversation ownership...`)
         const convo = await prisma.conversation.findFirst({
             where: { id, userId },
             select: { id: true }
         })
-        if (!convo) return json(404, { error: 'NOT_FOUND' })
+        if (!convo) {
+            console.log(`[${requestId}] Conversation not found or unauthorized`)
+            return json(404, { error: 'NOT_FOUND' })
+        }
+        console.log(`[${requestId}] Conversation found and authorized`)
 
         // Handle cursor-based pagination
         let whereClause: any = { conversationId: id }
@@ -49,6 +74,7 @@ export async function GET(
             }
         }
 
+        console.log(`[${requestId}] Fetching messages...`, { whereClause, limit })
         const messages = await prisma.message.findMany({
             where: whereClause,
             select: {
@@ -72,12 +98,17 @@ export async function GET(
             orderBy: { createdAt: 'desc' },
             take: limit + 1 
         })
+        
+        console.log(`[${requestId}] Found ${messages.length} messages`)
 
         const hasMore = messages.length > limit
         const items = hasMore ? messages.slice(0, -1) : messages
 
         
         items.reverse()
+        
+        const duration = Date.now() - startTime
+        console.log(`[${requestId}] Success - returning ${items.length} messages (${duration}ms)`)
 
         return json(200, {
             items,
@@ -86,22 +117,40 @@ export async function GET(
         })
 
     } catch (err: unknown) {
-        const userId = await requireUserId().catch(() => 'anonymous') // Safely get userId for logging
-        const { id } = await ctx.params
+        const duration = Date.now() - startTime
+        const userId = await requireUserId().catch(() => 'anonymous')
+        const { id } = await ctx.params.catch(() => ({ id: 'unknown' }))
         const cursor = req.nextUrl.searchParams.get('cursor')
+        
+        const errorInfo = {
+            requestId,
+            duration,
+            userId,
+            conversationId: id,
+            cursor,
+            url: req.url,
+            errorType: err?.constructor?.name || 'Unknown',
+            errorMessage: err instanceof Error ? err.message : String(err),
+            errorStack: err instanceof Error ? err.stack : undefined,
+        }
 
-        console.error(
-            `[Messages GET] Failed to fetch messages. ` +
-            `User: ${userId}, Convo: ${id}, Cursor: ${cursor}.`,
-            {
-                error: err,
-                errorMessage: err instanceof Error ? err.message : String(err),
-                errorStack: err instanceof Error ? err.stack : undefined
-            }
-        )
+        console.error(`[${requestId}] FAILED (${duration}ms):`, errorInfo)
+        
+        // Check if it's an authentication error
+        if (err instanceof Error && err.message === 'UNAUTHENTICATED') {
+            console.error(`[${requestId}] Authentication failed - no valid session`)
+            return json(401, { 
+                error: 'UNAUTHENTICATED', 
+                message: 'Authentication required. Please sign in again.' 
+            })
+        }
 
         const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred.'
-        return json(500, { error: 'Internal Server Error', details: errorMessage })
+        return json(500, { 
+            error: 'INTERNAL_SERVER_ERROR', 
+            message: errorMessage,
+            requestId 
+        })
     }
 }
 

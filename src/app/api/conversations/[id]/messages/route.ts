@@ -69,12 +69,19 @@ export async function GET(
                     }
                 }
             },
-            orderBy: { createdAt: 'desc' },
-            take: limit + 1 
+            or        const hasMore = messages.length > limit
+        const items = hasMore ? messages.slice(0, -1) : messages
+
+        
+        items.reverse()
+
+        return json(200, {
+            items,
+            hasMore,
+            nextCursor: hasMore ? messages[messages.length - 2]?.id : null
         })
 
-        const hasMore = messages.length > limit
-        const items = hasMore ? messages.slice(0, -1) : messages
+    } catch (err: unknown) {) : messages
 
         
         items.reverse()

@@ -69,7 +69,10 @@ async function verifySessionToken(token: string): Promise<boolean> {
 }
 
 export async function middleware(request: NextRequest) {
-    const     // Skip middleware for static files and Next.js internals
+    const pathname = request.nextUrl.pathname
+    const method = request.method
+
+    // Skip middleware for static files and Next.js internals
     if (pathname.startsWith('/_next/') || pathname.includes('.')) {
         const response = NextResponse.next()
         return applySecurityHeaders(response)
@@ -170,12 +173,7 @@ export async function middleware(request: NextRequest) {
         const apiResponse = NextResponse.next()
         return applySecurityHeaders(apiResponse)
     }
-    */         return applySecurityHeaders(response)
-        }
-
-        const apiResponse = NextResponse.next()
-        return applySecurityHeaders(apiResponse)
-    }
+    */
 
     // Authentication check for page routes
     const sessionCookie = request.cookies.get(COOKIE_NAME)

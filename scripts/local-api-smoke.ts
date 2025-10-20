@@ -112,3 +112,5 @@ main().catch((e) => {
   process.exitCode = 1
 })
 
+// Make this file a module to avoid global scope conflicts
+export {}

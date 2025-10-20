@@ -292,7 +292,7 @@ async function testConversationsAndMessages(cookies: string[]) {
       console.log('\n  🔍 Debugging 400 Error:')
       console.log(`     - Conversation ID: ${conv.id} (length: ${conv.id.length})`)
       console.log(`     - Cookies present: ${cookies.length > 0 ? 'Yes' : 'No'}`)
-      console.log(`     - Request URL: ${API_URL}/api/conversations/${conv.id}/messages?limit=100`)
+      console.log(`     - Request URL: ${API_URL_TEST}/api/conversations/${conv.id}/messages?limit=100`)
     } else if (msgResult.status === 404) {
       console.log(`  ❌ 404 Not Found - Conversation not found`)
     } else if (msgResult.status === 401) {

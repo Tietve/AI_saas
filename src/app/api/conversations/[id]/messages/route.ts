@@ -79,14 +79,23 @@ export async function GET(
         
         items.reverse()
 
-        return json(200, {
-            items,
-            hasMore,
-            nextCursor: hasMore ? items[0]?.id : null
-        })
-    } catch (e: unknown) {
-        const msg = e instanceof Error ? e.message : String(e)
-        return json(400, { error: msg })
+    } catch (err: unknown) {
+        const userId = await requireUserId().catch(() => 'anonymous') // Safely get userId for logging
+        const { id } = await ctx.params
+        const cursor = req.nextUrl.searchParams.get('cursor')
+
+        console.error(
+            `[Messages GET] Failed to fetch messages. ` +
+            `User: ${userId}, Convo: ${id}, Cursor: ${cursor}.`,
+            {
+                error: err,
+                errorMessage: err instanceof Error ? err.message : String(err),
+                errorStack: err instanceof Error ? err.stack : undefined
+            }
+        )
+
+        const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred.'
+        return json(500, { error: 'Internal Server Error', details: errorMessage })
     }
 }
 

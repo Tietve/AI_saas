@@ -10,13 +10,13 @@
  */
 
 // Use built-in fetch (Node 18+)
-// @ts-ignore
-const fetch = globalThis.fetch || require('node-fetch')
+// @ts-ignore - Using global fetch
+const fetchFn = globalThis.fetch || require('node-fetch')
 
 // ========================================
 // Configuration
 // ========================================
-const API_URL = process.env.TEST_API_URL || 'https://firbox-api-ddhtc0hfd2brhaa4.southeastasia-01.azurewebsites.net'
+const API_URL_TEST = process.env.TEST_API_URL || 'https://firbox-api-ddhtc0hfd2brhaa4.southeastasia-01.azurewebsites.net'
 const TEST_EMAIL = process.env.TEST_EMAIL || `test_${Date.now()}@example.com`
 const TEST_PASSWORD = process.env.TEST_PASSWORD || 'Test123456!'
 
@@ -39,7 +39,7 @@ async function request(
     cookies?: string[]
   } = {}
 ): Promise<ApiResponse> {
-  const url = `${API_URL}${path}`
+  const url = `${API_URL_TEST}${path}`
   
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
@@ -61,7 +61,7 @@ async function request(
   }
 
   try {
-    const response = await fetch(url, {
+    const response = await fetchFn(url, {
       method,
       headers,
       body: options.body ? JSON.stringify(options.body) : undefined,
@@ -96,10 +96,11 @@ async function request(
       headers: responseHeaders,
     }
   } catch (error) {
-    console.log(`   ❌ Request failed: ${error.message}`)
+    const err = error as Error
+    console.log(`   ❌ Request failed: ${err.message}`)
     return {
       status: 0,
-      error: error.message,
+      error: err.message,
     }
   }
 }
@@ -340,11 +341,11 @@ async function testChatSend(cookies: string[]) {
 // ========================================
 // Main Test Runner
 // ========================================
-async function main() {
+async function runTests() {
   console.log('=' .repeat(70))
   console.log('🧪 API Error Debugging Script')
   console.log('='.repeat(70))
-  console.log(`Target: ${API_URL}`)
+  console.log(`Target: ${API_URL_TEST}`)
   console.log(`Email: ${TEST_EMAIL}`)
   console.log('')
   
@@ -393,5 +394,5 @@ async function main() {
 }
 
 // Run tests
-main()
+runTests()
 

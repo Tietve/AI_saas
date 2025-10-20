@@ -7,15 +7,15 @@
  * để tìm nguyên nhân lỗi 400/404
  */
 
-// @ts-ignore
-const fetch = globalThis.fetch || require('node-fetch')
+// @ts-ignore - Using global fetch
+const fetchFn = globalThis.fetch || require('node-fetch')
 
-const API_URL = process.env.TEST_API_URL || 'https://firbox-api-ddhtc0hfd2brhaa4.southeastasia-01.azurewebsites.net'
+const API_URL_DIAG = process.env.TEST_API_URL || 'https://firbox-api-ddhtc0hfd2brhaa4.southeastasia-01.azurewebsites.net'
 
 console.log('=' .repeat(70))
 console.log('🔍 Production Diagnostic Tool')
 console.log('='.repeat(70))
-console.log(`Target: ${API_URL}`)
+console.log(`Target: ${API_URL_DIAG}`)
 console.log('')
 
 interface DiagnosticResult {
@@ -46,7 +46,7 @@ async function testHealthEndpoint() {
   console.log('-'.repeat(70))
   
   try {
-    const response = await fetch(`${API_URL}/api/health`, { method: 'GET' })
+    const response = await fetchFn(`${API_URL_DIAG}/api/health`, { method: 'GET' })
     const data = await response.json()
     
     if (response.status === 200) {
@@ -82,7 +82,7 @@ async function testRouteAvailability() {
   
   for (const route of routes) {
     try {
-      const response = await fetch(`${API_URL}${route.path}`, {
+      const response = await fetchFn(`${API_URL_DIAG}${route.path}`, {
         method: 'GET',
         redirect: 'manual'
       })
@@ -114,7 +114,7 @@ async function testCORS() {
   console.log('-'.repeat(70))
   
   try {
-    const response = await fetch(`${API_URL}/api/health`, {
+    const response = await fetchFn(`${API_URL_DIAG}/api/health`, {
       method: 'OPTIONS',
       headers: {
         'Origin': 'https://example.com',
@@ -146,7 +146,7 @@ async function testCookieHandling() {
   try {
     // Test signup to see if cookies are set
     const testEmail = `test_${Date.now()}@example.com`
-    const response = await fetch(`${API_URL}/api/auth/signup`, {
+    const response = await fetchFn(`${API_URL_DIAG}/api/auth/signup`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -180,7 +180,7 @@ async function testCookieHandling() {
       addResult('Cookie Config', 'WARN', 'User exists, trying signin...')
       
       // Try signin
-      const signinResponse = await fetch(`${API_URL}/api/auth/signin`, {
+      const signinResponse = await fetchFn(`${API_URL_DIAG}/api/auth/signin`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -216,7 +216,7 @@ async function testDatabaseEndpoint() {
   
   try {
     // Signup
-    const signupResponse = await fetch(`${API_URL}/api/auth/signup`, {
+    const signupResponse = await fetchFn(`${API_URL_DIAG}/api/auth/signup`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -230,7 +230,7 @@ async function testDatabaseEndpoint() {
     
     if (signupResponse.status === 409) {
       // Try signin
-      const signinResponse = await fetch(`${API_URL}/api/auth/signin`, {
+      const signinResponse = await fetchFn(`${API_URL_DIAG}/api/auth/signin`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -251,7 +251,7 @@ async function testDatabaseEndpoint() {
     const sessionCookie = cookieMatch ? `session=${cookieMatch[1]}` : cookies
     
     // Test conversations endpoint (requires database)
-    const convResponse = await fetch(`${API_URL}/api/conversations`, {
+    const convResponse = await fetchFn(`${API_URL_DIAG}/api/conversations`, {
       method: 'GET',
       headers: {
         'Cookie': sessionCookie
@@ -267,7 +267,7 @@ async function testDatabaseEndpoint() {
       // If there are conversations, test messages endpoint
       if (data.items && data.items.length > 0) {
         const convId = data.items[0].id
-        const msgResponse = await fetch(`${API_URL}/api/conversations/${convId}/messages?limit=10`, {
+        const msgResponse = await fetchFn(`${API_URL_DIAG}/api/conversations/${convId}/messages?limit=10`, {
           method: 'GET',
           headers: {
             'Cookie': sessionCookie
@@ -306,7 +306,7 @@ async function checkResponseHeaders() {
   console.log('-'.repeat(70))
   
   try {
-    const response = await fetch(`${API_URL}/api/health`)
+    const response = await fetchFn(`${API_URL_DIAG}/api/health`)
     
     const importantHeaders = {
       'content-type': response.headers.get('content-type'),
@@ -399,7 +399,7 @@ function printSummary() {
 // Main
 // ========================================
 
-async function main() {
+async function runDiagnostics() {
   const healthOk = await testHealthEndpoint()
   
   if (!healthOk) {
@@ -417,7 +417,7 @@ async function main() {
   printSummary()
 }
 
-main().catch(error => {
+runDiagnostics().catch(error => {
   console.error('\n❌ Diagnostic failed:', error)
   process.exit(1)
 })

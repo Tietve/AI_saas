@@ -69,7 +69,11 @@ export async function GET(
                     }
                 }
             },
-            or        const hasMore = messages.length > limit
+            orderBy: { createdAt: 'desc' },
+            take: limit + 1 
+        })
+
+        const hasMore = messages.length > limit
         const items = hasMore ? messages.slice(0, -1) : messages
 
         
@@ -80,11 +84,6 @@ export async function GET(
             hasMore,
             nextCursor: hasMore ? messages[messages.length - 2]?.id : null
         })
-
-    } catch (err: unknown) {) : messages
-
-        
-        items.reverse()
 
     } catch (err: unknown) {
         const userId = await requireUserId().catch(() => 'anonymous') // Safely get userId for logging

@@ -44,7 +44,11 @@ export async function GET(
 
         
         const searchParams = req.nextUrl.searchParams
-        const limit = Math.min(parseInt(searchParams.get('limit') || '50'), 100)
+        const limitParam = searchParams.get('limit')
+        const limitParsed = parseInt(limitParam || '50', 10)
+        const limit = isNaN(limitParsed) 
+            ? 50  // Default if parse fails
+            : Math.min(Math.max(limitParsed, 1), 100)  // Clamp between 1-100
         const cursor = searchParams.get('cursor')
         
         console.log(`[${requestId}] Query params:`, { limit, cursor })
@@ -118,7 +122,8 @@ export async function GET(
 
     } catch (err: unknown) {
         const duration = Date.now() - startTime
-        const userId = await requireUserId().catch(() => 'anonymous')
+        // Don't re-call requireUserId in catch - it will throw again!
+        let userId = 'unauthenticated'
         const { id } = await ctx.params.catch(() => ({ id: 'unknown' }))
         const cursor = req.nextUrl.searchParams.get('cursor')
         
@@ -231,7 +236,24 @@ export async function POST(
 
         return json(201, { item: message })
     } catch (e: unknown) {
+        // Check if it's an authentication error
+        if (e instanceof Error && e.message === 'UNAUTHENTICATED') {
+            return json(401, { 
+                error: 'UNAUTHENTICATED',
+                message: 'Authentication required'
+            })
+        }
+        
+        // Check if it's a validation error
+        if (e instanceof Error && (e.message.includes('required') || e.message.includes('validation'))) {
+            return json(400, { 
+                error: 'VALIDATION_ERROR',
+                message: e.message
+            })
+        }
+        
+        // Everything else is internal error
         const msg = e instanceof Error ? e.message : String(e)
-        return json(400, { error: msg })
+        return json(500, { error: 'INTERNAL_ERROR', message: msg })
     }
 }

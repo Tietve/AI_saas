@@ -125,8 +125,17 @@ export async function GET(_: NextRequest, ctx: { params: Promise<{ id: string }>
     try {
         const userId = await requireUserId()
         const { id } = await ctx.params
+        
+        // Validate conversationId (don't cast to Number, it's a cuid string)
+        if (!id || typeof id !== 'string' || id.trim().length === 0) {
+            return json(400, { 
+                error: 'INVALID_CONVERSATION_ID',
+                message: 'conversationId must be a valid string'
+            })
+        }
+        
         const convo = await prisma.conversation.findFirst({
-            where: { id, userId },
+            where: { id: id.trim(), userId },
             select: {
                 id: true,
                 title: true,
@@ -137,11 +146,19 @@ export async function GET(_: NextRequest, ctx: { params: Promise<{ id: string }>
                 meta: true
             },
         })
-        if (!convo) return json(404, { error: 'NOT_FOUND' })
+        if (!convo) return json(404, { error: 'NOT_FOUND', message: 'Conversation not found or unauthorized' })
         return json(200, { item: convo })
     } catch (e: unknown) {
+        // Check if it's an authentication error
+        if (e instanceof Error && e.message === 'UNAUTHENTICATED') {
+            return json(401, { 
+                error: 'UNAUTHENTICATED',
+                message: 'Authentication required'
+            })
+        }
+        
         const msg = e instanceof Error ? e.message : String(e)
-        return json(400, { error: msg })
+        return json(500, { error: 'INTERNAL_ERROR', message: msg })
     }
 }
 
@@ -150,29 +167,53 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
     try {
         const userId = await requireUserId()
         const { id } = await ctx.params
+        
+        // Validate conversationId (don't cast to Number, it's a cuid string)
+        if (!id || typeof id !== 'string' || id.trim().length === 0) {
+            return json(400, { 
+                error: 'INVALID_CONVERSATION_ID',
+                message: 'conversationId must be a valid string'
+            })
+        }
+        
         const body = await req.json().catch(() => ({}))
 
-        const title = typeof body?.title === 'string' ? body.title.trim() : undefined
+        // Accept both {title} and {name} for compatibility
+        const titleField = typeof body?.title === 'string' ? body.title.trim() : 
+                          typeof body?.name === 'string' ? body.name.trim() : 
+                          undefined
         const systemPrompt = typeof body?.systemPrompt === 'string' ? body.systemPrompt : undefined
         const model = typeof body?.model === 'string' ? body.model : undefined
         const meta = body?.meta !== undefined ? body.meta : undefined
 
         if (model !== undefined && !isAllowedModel(model)) {
-            return json(400, { error: 'INVALID_MODEL' })
+            return json(400, { 
+                error: 'INVALID_MODEL',
+                message: `Model '${model}' is not allowed`
+            })
         }
-        if (title === undefined && systemPrompt === undefined && model === undefined && meta === undefined) {
-            return json(400, { error: 'NO_UPDATE_FIELDS' })
+        if (titleField === undefined && systemPrompt === undefined && model === undefined && meta === undefined) {
+            return json(400, { 
+                error: 'NO_UPDATE_FIELDS',
+                message: 'At least one field (title/name, systemPrompt, model, or meta) must be provided'
+            })
         }
 
         
-        const owned = await prisma.conversation.findFirst({ where: { id, userId }, select: { id: true } })
-        if (!owned) return json(404, { error: 'NOT_FOUND' })
+        const owned = await prisma.conversation.findFirst({ 
+            where: { id: id.trim(), userId }, 
+            select: { id: true } 
+        })
+        if (!owned) return json(404, { 
+            error: 'NOT_FOUND',
+            message: 'Conversation not found or unauthorized'
+        })
 
         
         const updated = await prisma.conversation.update({
-            where: { id },
+            where: { id: id.trim() },
             data: {
-                ...(title !== undefined ? { title: title || 'Untitled' } : {}),
+                ...(titleField !== undefined ? { title: titleField || 'Untitled' } : {}),
                 ...(systemPrompt !== undefined ? { systemPrompt } : {}),
                 ...(model !== undefined ? { model } : {}),
                 ...(meta !== undefined ? { meta } : {}),
@@ -188,8 +229,16 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
         })
         return json(200, { item: updated })
     } catch (e: unknown) {
+        // Check if it's an authentication error
+        if (e instanceof Error && e.message === 'UNAUTHENTICATED') {
+            return json(401, { 
+                error: 'UNAUTHENTICATED',
+                message: 'Authentication required'
+            })
+        }
+        
         const msg = e instanceof Error ? e.message : String(e)
-        return json(400, { error: msg })
+        return json(500, { error: 'INTERNAL_ERROR', message: msg })
     }
 }
 
@@ -198,16 +247,38 @@ export async function DELETE(_: NextRequest, ctx: { params: Promise<{ id: string
     try {
         const userId = await requireUserId()
         const { id } = await ctx.params
+        
+        // Validate conversationId (don't cast to Number, it's a cuid string)
+        if (!id || typeof id !== 'string' || id.trim().length === 0) {
+            return json(400, { 
+                error: 'INVALID_CONVERSATION_ID',
+                message: 'conversationId must be a valid string'
+            })
+        }
 
         
-        const owned = await prisma.conversation.findFirst({ where: { id, userId }, select: { id: true } })
-        if (!owned) return json(404, { error: 'NOT_FOUND' })
+        const owned = await prisma.conversation.findFirst({ 
+            where: { id: id.trim(), userId }, 
+            select: { id: true } 
+        })
+        if (!owned) return json(404, { 
+            error: 'NOT_FOUND',
+            message: 'Conversation not found or unauthorized'
+        })
 
         
-        await prisma.conversation.delete({ where: { id } })
-        return json(200, { ok: true })
+        await prisma.conversation.delete({ where: { id: id.trim() } })
+        return json(200, { ok: true, message: 'Conversation deleted successfully' })
     } catch (e: unknown) {
+        // Check if it's an authentication error
+        if (e instanceof Error && e.message === 'UNAUTHENTICATED') {
+            return json(401, { 
+                error: 'UNAUTHENTICATED',
+                message: 'Authentication required'
+            })
+        }
+        
         const msg = e instanceof Error ? e.message : String(e)
-        return json(400, { error: msg })
+        return json(500, { error: 'INTERNAL_ERROR', message: msg })
     }
 }

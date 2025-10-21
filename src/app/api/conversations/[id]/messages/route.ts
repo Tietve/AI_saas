@@ -5,6 +5,8 @@ import { requireUserId } from '@/lib/auth/session'
 
 // Force Node.js runtime (required for Prisma)
 export const runtime = 'nodejs'
+export const dynamic = 'force-dynamic'
+
 function json(status: number, data: unknown) {
     return new NextResponse(JSON.stringify(data), {
         status,

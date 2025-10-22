@@ -20,7 +20,7 @@ function json(status: number, data: unknown) {
 
 export async function GET(
     req: NextRequest,
-    ctx: { params: Promise<{ id: string }> }
+    ctx: { params: { id: string } | Promise<{ id: string }> }
 ) {
     // CRITICAL: Add logging at the VERY START to confirm route is reached
     console.log('========== ROUTE HANDLER ENTERED ==========')
@@ -47,7 +47,9 @@ export async function GET(
         const userId = await requireUserId()
         console.log(`[${requestId}] User authenticated: ${userId}`)
         
-        const { id } = await ctx.params
+        // Handle both Next.js 14 and 15 params format
+        const params = ctx.params instanceof Promise ? await ctx.params : ctx.params
+        const { id } = params
         console.log(`[${requestId}] Conversation ID: ${id}`)
 
         
@@ -132,7 +134,15 @@ export async function GET(
         const duration = Date.now() - startTime
         // Don't re-call requireUserId in catch - it will throw again!
         let userId = 'unauthenticated'
-        const { id } = await ctx.params.catch(() => ({ id: 'unknown' }))
+        
+        // Handle both Next.js 14 and 15 params format
+        let id = 'unknown'
+        try {
+            const params = ctx.params instanceof Promise ? await ctx.params : ctx.params
+            id = params.id
+        } catch {
+            id = 'unknown'
+        }
         const cursor = req.nextUrl.searchParams.get('cursor')
         
         const errorInfo = {
@@ -170,11 +180,14 @@ export async function GET(
 
 export async function POST(
     req: NextRequest,
-    ctx: { params: Promise<{ id: string }> }
+    ctx: { params: { id: string } | Promise<{ id: string }> }
 ) {
     try {
         const userId = await requireUserId()
-        const { id } = await ctx.params
+        
+        // Handle both Next.js 14 and 15 params format
+        const params = ctx.params instanceof Promise ? await ctx.params : ctx.params
+        const { id } = params
         const body = await req.json()
 
         const { role, content, model, promptTokens, completionTokens, latencyMs, idempotencyKey } = body

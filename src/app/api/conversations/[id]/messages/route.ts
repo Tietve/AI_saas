@@ -23,16 +23,16 @@ export async function GET(
     ctx: { params: { id: string } | Promise<{ id: string }> }
 ) {
     // CRITICAL: Add logging at the VERY START to confirm route is reached
-    console.log('========== ROUTE HANDLER ENTERED ==========')
-    console.log('Time:', new Date().toISOString())
-    console.log('URL:', req.url)
-    console.log('Method:', req.method)
+    console.error('========== ROUTE HANDLER ENTERED ==========')
+    console.error('Time:', new Date().toISOString())
+    console.error('URL:', req.url)
+    console.error('Method:', req.method)
     
     // Enhanced logging for debugging production issues
     const requestId = crypto.randomUUID().slice(0, 8)
     const startTime = Date.now()
     
-    console.log(`[${requestId}] GET /api/conversations/[id]/messages - START`, {
+    console.error(`[${requestId}] GET /api/conversations/[id]/messages - START`, {
         url: req.url,
         method: req.method,
         headers: {
@@ -43,14 +43,14 @@ export async function GET(
     })
     
     try {
-        console.log(`[${requestId}] Verifying user authentication...`)
+        console.error(`[${requestId}] Verifying user authentication...`)
         const userId = await requireUserId()
-        console.log(`[${requestId}] User authenticated: ${userId}`)
+        console.error(`[${requestId}] User authenticated: ${userId}`)
         
         // Handle both Next.js 14 and 15 params format
         const params = ctx.params instanceof Promise ? await ctx.params : ctx.params
         const { id } = params
-        console.log(`[${requestId}] Conversation ID: ${id}`)
+        console.error(`[${requestId}] Conversation ID: ${id}`)
 
         
         const searchParams = req.nextUrl.searchParams

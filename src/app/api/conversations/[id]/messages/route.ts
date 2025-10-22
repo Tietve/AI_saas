@@ -20,37 +20,44 @@ function json(status: number, data: unknown) {
 
 export async function GET(
     req: NextRequest,
-    ctx: { params: { id: string } | Promise<{ id: string }> }
+    context: any
 ) {
-    // CRITICAL: Add logging at the VERY START to confirm route is reached
-    console.error('========== ROUTE HANDLER ENTERED ==========')
-    console.error('Time:', new Date().toISOString())
-    console.error('URL:', req.url)
-    console.error('Method:', req.method)
-    
-    // Enhanced logging for debugging production issues
     const requestId = crypto.randomUUID().slice(0, 8)
     const startTime = Date.now()
     
-    console.error(`[${requestId}] GET /api/conversations/[id]/messages - START`, {
-        url: req.url,
-        method: req.method,
-        headers: {
-            cookie: req.headers.get('cookie')?.substring(0, 50) + '...',
-            userAgent: req.headers.get('user-agent'),
-            referer: req.headers.get('referer'),
-        }
-    })
-    
     try {
-        console.error(`[${requestId}] Verifying user authentication...`)
+        // CRITICAL: Log FIRST before anything else
+        console.error('========== ROUTE HANDLER ENTERED ==========')
+        console.error('RequestID:', requestId, 'Time:', new Date().toISOString())
+        
+        // Get params safely
+        let id: string
+        try {
+            // Next.js 15 format (Promise)
+            if (context.params && typeof context.params.then === 'function') {
+                const params = await context.params
+                id = params.id
+                console.error(`[${requestId}] Got ID from Promise params:`, id)
+            }
+            // Next.js 14 format (object)
+            else if (context.params && context.params.id) {
+                id = context.params.id
+                console.error(`[${requestId}] Got ID from object params:`, id)
+            }
+            // Fallback
+            else {
+                console.error(`[${requestId}] ERROR: No params found!`, context)
+                return json(400, { error: 'MISSING_PARAMS', message: 'conversationId parameter missing' })
+            }
+        } catch (paramError) {
+            console.error(`[${requestId}] Params extraction error:`, paramError)
+            return json(500, { error: 'PARAMS_ERROR', message: String(paramError) })
+        }
+        
+        console.error(`[${requestId}] Conversation ID: ${id}`)
+        console.error(`[${requestId}] Verifying authentication...`)
         const userId = await requireUserId()
         console.error(`[${requestId}] User authenticated: ${userId}`)
-        
-        // Handle both Next.js 14 and 15 params format
-        const params = ctx.params instanceof Promise ? await ctx.params : ctx.params
-        const { id } = params
-        console.error(`[${requestId}] Conversation ID: ${id}`)
 
         
         const searchParams = req.nextUrl.searchParams

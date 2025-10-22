@@ -22,6 +22,12 @@ export async function GET(
     req: NextRequest,
     ctx: { params: Promise<{ id: string }> }
 ) {
+    // CRITICAL: Add logging at the VERY START to confirm route is reached
+    console.log('========== ROUTE HANDLER ENTERED ==========')
+    console.log('Time:', new Date().toISOString())
+    console.log('URL:', req.url)
+    console.log('Method:', req.method)
+    
     // Enhanced logging for debugging production issues
     const requestId = crypto.randomUUID().slice(0, 8)
     const startTime = Date.now()

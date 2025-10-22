@@ -145,7 +145,7 @@ export async function GET(
         // Handle both Next.js 14 and 15 params format
         let id = 'unknown'
         try {
-            const params = ctx.params instanceof Promise ? await ctx.params : ctx.params
+            const params = context.params instanceof Promise ? await context.params : context.params
             id = params.id
         } catch {
             id = 'unknown'
@@ -187,14 +187,21 @@ export async function GET(
 
 export async function POST(
     req: NextRequest,
-    ctx: { params: { id: string } | Promise<{ id: string }> }
+    context: any
 ) {
     try {
         const userId = await requireUserId()
         
-        // Handle both Next.js 14 and 15 params format
-        const params = ctx.params instanceof Promise ? await ctx.params : ctx.params
-        const { id } = params
+        // Handle both Next.js 14 and 15 params format safely
+        let id: string
+        if (context.params && typeof context.params.then === 'function') {
+            const params = await context.params
+            id = params.id
+        } else if (context.params && context.params.id) {
+            id = context.params.id
+        } else {
+            return json(400, { error: 'MISSING_PARAMS', message: 'conversationId missing' })
+        }
         const body = await req.json()
 
         const { role, content, model, promptTokens, completionTokens, latencyMs, idempotencyKey } = body

@@ -55,32 +55,8 @@ const nextConfig = {
         return config
     },
 
-    // API Rewrites - Proxy all /api/* to Azure backend
-    async rewrites() {
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL ||
-                      'https://firbox-api-ddhtc0hfd2brhaa4.southeastasia-01.azurewebsites.net'
-
-        // Log để debug
-        console.log('=== Next.js Rewrites Configuration ===')
-        console.log('NEXT_PUBLIC_API_URL:', process.env.NEXT_PUBLIC_API_URL)
-        console.log('Using API URL:', apiUrl)
-        console.log('NODE_ENV:', process.env.NODE_ENV)
-
-        // Always use rewrites in production
-        if (process.env.NODE_ENV === 'production' || process.env.NEXT_PUBLIC_API_URL) {
-            const rewrites = [
-                {
-                    source: '/api/:path*',
-                    destination: `${apiUrl}/api/:path*`,
-                }
-            ]
-            console.log('Rewrites configured:', rewrites)
-            return rewrites
-        }
-
-        console.log('No rewrites configured (local development)')
-        return []
-    },
+    // REMOVED: API Rewrites that caused infinite loop on Azure
+    // The app should serve its own API routes, not proxy to itself
 
     // Security headers
     async headers() {

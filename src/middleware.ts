@@ -78,13 +78,6 @@ export async function middleware(request: NextRequest) {
         return applySecurityHeaders(response)
     }
 
-    // TEMPORARY: Bypass all API middleware for debugging
-    if (pathname.startsWith('/api/')) {
-        logger.info({ pathname, method }, '[DEBUG] Bypassing API middleware')
-        const apiResponse = NextResponse.next()
-        return applySecurityHeaders(apiResponse)
-    }
-
     // COMMENTED OUT FOR DEBUGGING - Will restore after testing
     /*
     // API Versioning (check first, before other API middleware)
@@ -213,6 +206,11 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
     matcher: [
-        '/((?!api|_next/static|_next/image|favicon.ico|public).*)',
+        '/',
+        '/chat/:path*',
+        '/dashboard/:path*',
+        '/settings/:path*',
+        '/admin/:path*',
+        '/auth/:path*',
     ],
 }

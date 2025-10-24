@@ -84,6 +84,11 @@ export async function cacheGet<T>(key: string): Promise<T | null> {
  * @param key Cache key
  */
 export async function cacheDel(key: string): Promise<void> {
+  if (!redis) {
+    console.warn(`[Cache] Redis not available, skipping delete for key: ${key}`)
+    return
+  }
+
   try {
     await redis.del(key)
     console.log(`[Cache] Deleted key: ${key}`)
@@ -98,6 +103,11 @@ export async function cacheDel(key: string): Promise<void> {
  * @returns true if key exists
  */
 export async function cacheExists(key: string): Promise<boolean> {
+  if (!redis) {
+    console.warn(`[Cache] Redis not available, returning false for key existence: ${key}`)
+    return false
+  }
+
   try {
     const result = await redis.exists(key)
     return result === 1
@@ -113,6 +123,11 @@ export async function cacheExists(key: string): Promise<boolean> {
  * @returns TTL in seconds, -1 if no TTL, -2 if key doesn't exist
  */
 export async function cacheTTL(key: string): Promise<number> {
+  if (!redis) {
+    console.warn(`[Cache] Redis not available, returning -2 for TTL: ${key}`)
+    return -2
+  }
+
   try {
     return await redis.ttl(key)
   } catch (error) {
@@ -128,6 +143,11 @@ export async function cacheTTL(key: string): Promise<number> {
  * @returns New value after increment
  */
 export async function cacheIncr(key: string, increment = 1): Promise<number> {
+  if (!redis) {
+    console.warn(`[Cache] Redis not available, returning 0 for increment: ${key}`)
+    return 0
+  }
+
   try {
     const result = await redis.incrby(key, increment)
     console.log(`[Cache] Incremented ${key} by ${increment}, new value: ${result}`)
@@ -144,15 +164,20 @@ export async function cacheIncr(key: string, increment = 1): Promise<number> {
  * @param ttlSec TTL in seconds for all keys
  */
 export async function cacheMSet(keyValuePairs: Record<string, any>, ttlSec?: number): Promise<void> {
+  if (!redis) {
+    console.warn(`[Cache] Redis not available, skipping mset for ${Object.keys(keyValuePairs).length} keys`)
+    return
+  }
+
   try {
     const promises = Object.entries(keyValuePairs).map(([key, value]) =>
-      ttlSec ? redis.setex(key, ttlSec, JSON.stringify(value)) : redis.set(key, JSON.stringify(value))
+      ttlSec ? redis!.setex(key, ttlSec, JSON.stringify(value)) : redis!.set(key, JSON.stringify(value))
     )
     await Promise.all(promises)
     console.log(`[Cache] Set ${Object.keys(keyValuePairs).length} keys`)
   } catch (error) {
     console.error(`[Cache] Error setting multiple keys:`, error)
-    throw error
+    // Don't throw error - graceful degradation
   }
 }
 
@@ -162,6 +187,11 @@ export async function cacheMSet(keyValuePairs: Record<string, any>, ttlSec?: num
  * @returns Array of values (null for missing keys)
  */
 export async function cacheMGet<T = any>(keys: string[]): Promise<(T | null)[]> {
+  if (!redis) {
+    console.warn(`[Cache] Redis not available, returning null for ${keys.length} keys`)
+    return keys.map(() => null)
+  }
+
   try {
     const values = await redis.mget(...keys) as (string | null)[]
     return values.map((v) => v ? JSON.parse(v) as T : null)

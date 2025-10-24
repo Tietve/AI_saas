@@ -139,7 +139,7 @@ export async function cacheDeleteMany(keys: string[]): Promise<void> {
 }
 
 /**
- * Check Redis health
+ * Check Redis health with Azure-optimized logic
  */
 export async function checkRedisHealth(): Promise<{
     healthy: boolean
@@ -148,31 +148,43 @@ export async function checkRedisHealth(): Promise<{
 }> {
     const redis = getRedisClient()
 
+    // Redis is optional - if not configured, return warning status
     if (!redis) {
+        logger.info('Redis not configured - treating as optional service')
         return {
-            healthy: false,
+            healthy: false, // Will be treated as 'warn' in health check
             latency: 0,
-            error: 'Redis not configured',
+            error: 'Redis not configured (optional service)',
         }
     }
 
     const startTime = Date.now()
 
     try {
-        await redis.ping()
+        // Use ping with timeout for Azure environment
+        const pingPromise = redis.ping()
+        const timeoutPromise = new Promise<never>((_, reject) => {
+            setTimeout(() => reject(new Error('Redis ping timeout')), 3000)
+        })
+
+        await Promise.race([pingPromise, timeoutPromise])
         const latency = Date.now() - startTime
 
+        logger.debug(`Redis health check passed (${latency}ms)`)
         return {
             healthy: true,
             latency,
         }
     } catch (error) {
         const latency = Date.now() - startTime
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+
+        logger.warn({ error: errorMessage, latency }, 'Redis health check failed')
 
         return {
             healthy: false,
             latency,
-            error: error instanceof Error ? error.message : 'Unknown error',
+            error: errorMessage,
         }
     }
 }

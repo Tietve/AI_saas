@@ -169,7 +169,7 @@ export async function disconnectDatabase(): Promise<void> {
 }
 
 /**
- * Database Health Check (for /api/health)
+ * Database Health Check (Azure-optimized for /api/health)
  */
 export async function checkDatabaseHealth(): Promise<{
     healthy: boolean
@@ -179,22 +179,40 @@ export async function checkDatabaseHealth(): Promise<{
     const startTime = Date.now()
 
     try {
-        await prisma.$queryRaw`SELECT 1`
+        // Use a simple query with timeout for Azure environment
+        const queryPromise = prisma.$queryRaw`SELECT 1 as health_check`
+        const timeoutPromise = new Promise<never>((_, reject) => {
+            setTimeout(() => reject(new Error('Database query timeout')), 3000)
+        })
+
+        await Promise.race([queryPromise, timeoutPromise])
         const latency = Date.now() - startTime
 
+        logger.debug(`Database health check passed (${latency}ms)`)
         return {
             healthy: true,
             latency,
         }
     } catch (error) {
         const latency = Date.now() - startTime
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error'
 
-        logger.error({ err: error }, 'Database health check failed')
+        logger.error({ error: errorMessage, latency }, 'Database health check failed')
+
+        // Check if it's a connection issue vs query issue
+        let detailedError = errorMessage
+        if (errorMessage.includes('connect')) {
+            detailedError = 'Database connection failed'
+        } else if (errorMessage.includes('timeout')) {
+            detailedError = 'Database query timeout'
+        } else if (errorMessage.includes('ENOTFOUND')) {
+            detailedError = 'Database host not found'
+        }
 
         return {
             healthy: false,
             latency,
-            error: error instanceof Error ? error.message : 'Unknown error',
+            error: detailedError,
         }
     }
 }

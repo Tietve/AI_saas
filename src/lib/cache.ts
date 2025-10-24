@@ -11,20 +11,27 @@ import { Redis } from '@upstash/redis'
 const REDIS_URL = process.env.UPSTASH_REDIS_REST_URL
 const REDIS_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN
 
-// Check Redis configuration at startup
-if (!REDIS_URL || !REDIS_TOKEN) {
-  console.error('[Cache] ERROR: Redis not configured properly!')
-  console.error('[Cache] Please set the following environment variables:')
-  console.error('  - UPSTASH_REDIS_REST_URL')
-  console.error('  - UPSTASH_REDIS_REST_TOKEN')
-  throw new Error('Redis configuration missing. Cannot start application without proper cache setup.')
-}
+// Create Redis client with graceful fallback (Azure-compatible)
+export const redis = REDIS_URL && REDIS_TOKEN
+  ? new Redis({
+      url: REDIS_URL,
+      token: REDIS_TOKEN,
+      retry: {
+        retries: 3,
+        backoff: (retryCount) => Math.min(retryCount * 50, 500),
+      },
+    })
+  : null
 
-// Create Redis client
-export const redis = new Redis({
-  url: REDIS_URL,
-  token: REDIS_TOKEN,
-})
+// Log Redis configuration status
+if (!redis) {
+  console.warn('[Cache] Redis not configured - caching disabled')
+  console.warn('[Cache] To enable caching, set:')
+  console.warn('  - UPSTASH_REDIS_REST_URL')
+  console.warn('  - UPSTASH_REDIS_REST_TOKEN')
+} else {
+  console.log('[Cache] Redis client initialized')
+}
 
 /**
  * Set a value in cache with TTL
@@ -33,12 +40,17 @@ export const redis = new Redis({
  * @param ttlSec Time to live in seconds (default: 600)
  */
 export async function cacheSet(key: string, value: unknown, ttlSec = 600): Promise<void> {
+  if (!redis) {
+    console.warn(`[Cache] Redis not available, skipping set for key: ${key}`)
+    return
+  }
+
   try {
     await redis.setex(key, ttlSec, JSON.stringify(value))
     console.log(`[Cache] Set key: ${key} (TTL: ${ttlSec}s)`)
   } catch (error) {
     console.error(`[Cache] Error setting key ${key}:`, error)
-    throw error
+    // Don't throw error - graceful degradation
   }
 }
 
@@ -48,6 +60,11 @@ export async function cacheSet(key: string, value: unknown, ttlSec = 600): Promi
  * @returns Parsed value or null if not found
  */
 export async function cacheGet<T>(key: string): Promise<T | null> {
+  if (!redis) {
+    console.warn(`[Cache] Redis not available, returning null for key: ${key}`)
+    return null
+  }
+
   try {
     const raw = await redis.get<string>(key)
     if (!raw) {
@@ -205,6 +222,11 @@ export const CacheTTL = {
  * @returns true if Redis is healthy
  */
 export async function testRedisConnection(): Promise<boolean> {
+  if (!redis) {
+    console.warn('[Cache] Redis not configured - skipping connection test')
+    return false
+  }
+
   try {
     const result = await redis.ping()
     if (result !== 'PONG') {
@@ -219,7 +241,5 @@ export async function testRedisConnection(): Promise<boolean> {
   }
 }
 
-// Test connection on module load
-testRedisConnection().catch(error => {
-  console.error('[Cache] Initial Redis connection test failed:', error)
-})
+// Note: Redis connection test is performed on-demand in health checks
+// to avoid blocking application startup

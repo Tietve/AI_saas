@@ -38,6 +38,8 @@
     "test:email": "node src/app/api/auth/scripts/test-mail.js",
     "test:api": "tsx scripts/test-api-detailed.ts",
     "test:api:azure": "TEST_API_URL=https://firbox-api-ddhtc0hfd2brhaa4.southeastasia-01.azurewebsites.net tsx scripts/test-api-detailed.ts",
+    "test:health": "tsx test-health-endpoints.ts",
+    "test:health:azure": "TEST_URL=https://firbox-api-ddhtc0hfd2brhaa4.southeastasia-01.azurewebsites.net tsx test-health-endpoints.ts",
     "test:api:user": "node scripts/test-existing-user.js",
     "diagnose": "tsx scripts/diagnose-production.ts",
     "diagnose:azure": "TEST_API_URL=https://firbox-api-ddhtc0hfd2brhaa4.southeastasia-01.azurewebsites.net tsx scripts/diagnose-production.ts",

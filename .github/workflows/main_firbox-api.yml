@@ -43,34 +43,95 @@ jobs:
         run: npm run type-check
 
       - name: Build application
-        run: npm run build
+        run: |
+          echo "Starting Next.js build..."
+          npm run build
+          echo "Build completed. Checking output..."
+          if [ -d ".next" ]; then
+            echo "✅ .next directory created successfully"
+            echo "Contents of .next:"
+            ls -la .next/
+            if [ -f ".next/BUILD_ID" ]; then
+              echo "✅ BUILD_ID found: $(cat .next/BUILD_ID)"
+            else
+              echo "❌ BUILD_ID missing!"
+            fi
+          else
+            echo "❌ .next directory was not created!"
+            exit 1
+          fi
         env:
           NODE_ENV: production
           SKIP_ENV_VALIDATION: 1
           NEXT_TELEMETRY_DISABLED: 1
 
+      - name: List build output for debugging
+        run: |
+          echo "=== Checking if .next exists ==="
+          ls -la
+          if [ -d ".next" ]; then
+            echo "✅ .next directory found"
+            ls -la .next/
+          else
+            echo "❌ .next directory NOT found"
+            exit 1
+          fi
+
       - name: Create deployment package
         run: |
-          mkdir deploy-package
-          cp -r .next deploy-package/
-          cp -r src deploy-package/
-          cp -r prisma deploy-package/
-          cp -r public deploy-package/
-          cp -r node_modules deploy-package/
-          cp package.json deploy-package/
-          cp package-lock.json deploy-package/
-          cp next.config.js deploy-package/
-          cp tsconfig.json deploy-package/
-          cp tailwind.config.ts deploy-package/
-          cp postcss.config.js deploy-package/
-          cp server.js deploy-package/
-          cp web.config deploy-package/
+          echo "Creating deployment package..."
+          mkdir -p deploy-package
+
+          # Copy .next (most important)
+          if [ -d ".next" ]; then
+            cp -r .next deploy-package/
+            echo "✅ Copied .next"
+          else
+            echo "❌ .next not found!"
+            exit 1
+          fi
+
+          # Copy other required files/folders
+          cp -r src deploy-package/ && echo "✅ Copied src"
+          cp -r prisma deploy-package/ && echo "✅ Copied prisma"
+          cp -r public deploy-package/ && echo "✅ Copied public"
+          cp -r node_modules deploy-package/ && echo "✅ Copied node_modules"
+          cp package.json deploy-package/ && echo "✅ Copied package.json"
+          cp package-lock.json deploy-package/ && echo "✅ Copied package-lock.json"
+          cp next.config.js deploy-package/ && echo "✅ Copied next.config.js"
+          cp tsconfig.json deploy-package/ && echo "✅ Copied tsconfig.json"
+          cp tailwind.config.ts deploy-package/ && echo "✅ Copied tailwind.config.ts"
+          cp postcss.config.js deploy-package/ && echo "✅ Copied postcss.config.js"
+          cp server.js deploy-package/ && echo "✅ Copied server.js"
+          cp web.config deploy-package/ && echo "✅ Copied web.config"
+
+          echo "=== Deployment package contents ==="
+          ls -la deploy-package/
+
+          echo "=== Verifying .next in package ==="
+          if [ -d "deploy-package/.next" ]; then
+            echo "✅ .next exists in deployment package"
+            ls -la deploy-package/.next/
+          else
+            echo "❌ .next missing from deployment package!"
+            exit 1
+          fi
+
+      - name: Create ZIP package for Azure
+        run: |
+          echo "Creating ZIP package..."
+          cd deploy-package
+          zip -r ../azure-deploy.zip .
+          cd ..
+          echo "ZIP package created: azure-deploy.zip"
+          echo "ZIP contents:"
+          unzip -l azure-deploy.zip | head -20
 
       - name: Upload artifact for deployment job
         uses: actions/upload-artifact@v4
         with:
           name: node-app
-          path: deploy-package/
+          path: azure-deploy.zip
 
   deploy:
     runs-on: ubuntu-latest
@@ -83,6 +144,25 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: node-app
+
+      - name: Extract deployment package
+        run: |
+          echo "Extracting deployment package..."
+          if [ -f "azure-deploy.zip" ]; then
+            unzip azure-deploy.zip
+            echo "✅ Package extracted"
+            echo "Extracted contents:"
+            ls -la
+            if [ -d ".next" ]; then
+              echo "✅ .next directory found in extracted package"
+            else
+              echo "❌ .next directory missing in extracted package!"
+            fi
+          else
+            echo "❌ azure-deploy.zip not found!"
+            ls -la
+            exit 1
+          fi
 
       - name: 'Deploy to Azure Web App'
         id: deploy-to-webapp

@@ -1,0 +1,53 @@
+# Test Azure Built-in Build Process
+name: Azure Build Test
+
+on:
+  workflow_dispatch:  # Manual trigger only
+  
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          
+      - name: Create source package (no build)
+        run: |
+          echo "Creating source package for Azure to build..."
+          mkdir source-package
+          
+          # Copy source files only (let Azure build)
+          cp -r src source-package/
+          cp -r prisma source-package/
+          cp -r public source-package/
+          cp package.json source-package/
+          cp package-lock.json source-package/
+          cp next.config.js source-package/
+          cp tsconfig.json source-package/
+          cp tailwind.config.ts source-package/
+          cp postcss.config.js source-package/
+          cp server.js source-package/
+          cp web.config source-package/
+          cp .deployment source-package/
+          
+          echo "Source package contents:"
+          ls -la source-package/
+          
+      - name: Upload source package
+        uses: actions/upload-artifact@v4
+        with:
+          name: source-app
+          path: source-package/
+          
+      - name: Deploy to Azure (let Azure build)
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: 'firbox-api'
+          slot-name: 'Production'
+          package: source-package/
+          publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_F19C44F5317C4578AB6D735AF06174B2 }}

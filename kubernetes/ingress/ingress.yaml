@@ -1,0 +1,86 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: my-saas-ingress
+  namespace: production
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /$2
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+    nginx.ingress.kubernetes.io/use-regex: "true"
+  labels:
+    app: my-saas-chat
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: api.mysaas.local
+    http:
+      paths:
+      # Auth Service
+      - path: /auth(/|$)(.*)
+        pathType: ImplementationSpecific
+        backend:
+          service:
+            name: auth-service
+            port:
+              number: 80
+      # Chat Service
+      - path: /chat(/|$)(.*)
+        pathType: ImplementationSpecific
+        backend:
+          service:
+            name: chat-service
+            port:
+              number: 80
+      # Billing Service
+      - path: /billing(/|$)(.*)
+        pathType: ImplementationSpecific
+        backend:
+          service:
+            name: billing-service
+            port:
+              number: 80
+      # Jaeger UI
+      - path: /jaeger(/|$)(.*)
+        pathType: ImplementationSpecific
+        backend:
+          service:
+            name: jaeger-service
+            port:
+              number: 16686
+---
+# Alternative: Simple path-based routing (easier to debug)
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: my-saas-ingress-simple
+  namespace: production
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+  labels:
+    app: my-saas-chat
+spec:
+  ingressClassName: nginx
+  rules:
+  - http:
+      paths:
+      - path: /api/auth
+        pathType: Prefix
+        backend:
+          service:
+            name: auth-service
+            port:
+              number: 80
+      - path: /api/chat
+        pathType: Prefix
+        backend:
+          service:
+            name: chat-service
+            port:
+              number: 80
+      - path: /api/billing
+        pathType: Prefix
+        backend:
+          service:
+            name: billing-service
+            port:
+              number: 80

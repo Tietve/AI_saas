@@ -2,10 +2,11 @@
 
 **Last Updated**: 2025-10-26
 **Project**: My-SaaS-Chat - AI Chat Platform với Microservices Architecture
-**Current Phase**: Phase 8 Complete (100%) 🐳 → Phase 9 Next
-**Overall Progress**: 80% Complete
+**Current Phase**: Phase 10 - Kubernetes Deployment (IN PROGRESS) 🚢
+**Overall Progress**: 85% Complete
 **Security Status**: ✅ PRODUCTION READY
 **Container Status**: ✅ FULLY CONTAINERIZED
+**K8s Manifests**: ✅ READY FOR DEPLOYMENT
 
 ---
 
@@ -14,10 +15,11 @@
 Đây là **master document duy nhất** bạn cần đọc để hiểu toàn bộ project. Tất cả thông tin quan trọng đều được tổ chức ở đây hoặc có link đến docs chi tiết.
 
 **Quick Start cho Claude mới**:
-1. Đọc file này để hiểu overview
-2. Đọc `docs/phases/CURRENT_PHASE.md` để biết đang làm gì
-3. Đọc `docs/reports/CRITICAL_ISSUES.md` nếu có issues cần fix
-4. Bắt đầu làm việc!
+1. **🚨 ĐỌC NGAY**: `CURRENT_DEPLOYMENT_STATUS.md` - Biết đang làm gì, ở đâu, làm tiếp thế nào
+2. **⚡ Quick Ref**: `QUICK_START_DEPLOYMENT.md` - Steps nhanh để deploy
+3. **📖 Overview**: Đọc file này để hiểu toàn bộ project
+4. **📋 Roadmap**: `docs/PROJECT_ROADMAP.md` - 12 phases chi tiết
+5. Bắt đầu làm việc!
 
 ---
 

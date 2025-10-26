@@ -312,3 +312,63 @@ Hoặc re-run với verbose logging:
 ```bash
 DEBUG=* node automation/auto-migrate.js auth-service
 ```
+
+## Auto Quality Guard
+
+### What is it?
+
+Self-healing system that automatically:
+- ✅ Tests all code
+- ✅ Finds bugs
+- ✅ Fixes issues
+- ✅ Ensures quality
+
+### Quick Start
+
+```bash
+# Test all services
+node automation/auto-quality-guard.js
+
+# Test specific service
+node automation/auto-quality-guard.js --service auth-service
+
+# Continuous monitoring
+node automation/auto-quality-guard.js --continuous
+```
+
+### For Claude
+
+Read `CLAUDE_INSTRUCTIONS.md` for detailed workflow.
+
+### Output
+
+- Console: Real-time progress
+- File: `QUALITY_REPORT.json`
+
+### Features
+
+1. **Type Check** - TypeScript validation
+2. **Lint Check** - Code style
+3. **Unit Tests** - Test coverage
+4. **Build** - Compilation
+5. **Health Check** - Service status
+6. **API Tests** - Endpoint validation
+7. **Integration Tests** - Service interaction
+8. **Load Test** - Performance validation
+
+### Auto-Fix
+
+Automatically fixes:
+- Import errors
+- Lint issues
+- Type mismatches
+- Simple bugs
+
+### When to Use
+
+- After coding
+- Before committing
+- When fixing bugs
+- During development
+
+See `CLAUDE_INSTRUCTIONS.md` for complete guide.

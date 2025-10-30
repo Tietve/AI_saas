@@ -14,12 +14,22 @@ import {
   sentryTracingHandler,
   sentryErrorHandler
 } from './config/sentry';
+import { EventPublisher } from './shared/events';
 
 // Initialize Sentry FIRST
 initSentry({ serviceName: 'chat-service' });
 
 const app = express();
 const logger = pino({ level: config.LOG_LEVEL });
+
+// Initialize Event Publisher for Analytics
+EventPublisher.getInstance().initialize(config.RABBITMQ_URL, config.ANALYTICS_EXCHANGE)
+  .then(() => {
+    logger.info('Event publisher initialized for analytics');
+  })
+  .catch((error) => {
+    logger.error('Failed to initialize event publisher', error);
+  });
 
 // Initialize Prometheus metrics
 collectDefaultMetrics({ register });

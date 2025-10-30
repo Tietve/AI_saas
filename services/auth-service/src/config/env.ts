@@ -9,7 +9,8 @@ const envSchema = z.object({
   LOG_LEVEL: z.enum(['debug', 'info', 'warn', 'error']).default('info'),
   DATABASE_URL: z.string().optional(),
   REDIS_URL: z.string().optional(),
-  RABBITMQ_URL: z.string().optional(),
+  RABBITMQ_URL: z.string().default('amqp://admin:admin@localhost:5672'),
+  ANALYTICS_EXCHANGE: z.string().default('analytics.events'),
   AUTH_SECRET: z.string().optional(),
   REQUIRE_EMAIL_VERIFICATION: z.string().optional(),
 });

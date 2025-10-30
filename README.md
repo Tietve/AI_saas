@@ -11,6 +11,21 @@
 
 Nền tảng chat AI đa năng với khả năng tích hợp nhiều AI providers, quản lý người dùng, thanh toán và tổ chức conversations theo dự án.
 
+---
+
+> **🚀 MICROSERVICES MIGRATION IN PROGRESS**
+>
+> Project đang trong quá trình migration từ Next.js monolith → Microservices architecture.
+>
+> - 📖 **[Microservices Migration Guide](docs/MICROSERVICES_MIGRATION_GUIDE.md)** - Hướng dẫn chi tiết
+> - 📘 **[Quick Start - Microservices](docs/README-MICROSERVICES.md)** - Bắt đầu nhanh
+> - ✅ **[Phase 1 Complete](docs/PHASE_1_COMPLETE.md)** - Infrastructure setup done
+> - 📁 **[Phase Overview](docs/phases/README.md)** - Tổng quan các phases
+>
+> **Current Phase**: Phase 2 - Auth Service Migration
+
+---
+
 🎉 **[Release Notes v1.0.0-beta](docs/RELEASE_NOTES_v1.0.0-beta.md)** | 📋 **[Changelog](CHANGELOG.md)**
 
 ## ✨ Tính năng chính

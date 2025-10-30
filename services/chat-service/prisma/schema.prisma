@@ -1,0 +1,108 @@
+// Chat Service Database Schema
+// Note: Sharing database with auth-service, so we include auth tables to prevent drops
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ===== AUTH SERVICE TABLES (Keep existing) =====
+enum PlanTier {
+  FREE
+  PLUS
+  PRO
+}
+
+model User {
+  id                   String    @id @default(cuid())
+  email                String
+  emailLower           String    @unique
+  passwordHash         String
+  emailVerifiedAt      DateTime?
+  planTier             PlanTier  @default(FREE)
+  monthlyTokenUsed     Int       @default(0)
+  failedLoginAttempts  Int       @default(0)
+  lastFailedLoginAt    DateTime?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  @@index([emailLower])
+  @@index([email])
+  @@map("User")
+}
+
+model VerificationToken {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([token])
+  @@map("VerificationToken")
+}
+
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([token])
+  @@map("PasswordResetToken")
+}
+
+// ===== CHAT SERVICE TABLES (New) =====
+
+// Conversations
+model Conversation {
+  id        String    @id @default(cuid())
+  userId    String
+  title     String    @default("New Chat")
+  model     String    @default("gpt-4")
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  messages  Message[]
+
+  @@index([userId])
+  @@index([createdAt])
+  @@map("conversations")
+}
+
+// Messages in conversations
+model Message {
+  id             String       @id @default(cuid())
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  role           String       // "user" or "assistant"
+  content        String       @db.Text
+  tokenCount     Int          @default(0)
+  model          String?      // AI model used
+  createdAt      DateTime     @default(now())
+
+  @@index([conversationId])
+  @@index([createdAt])
+  @@map("messages")
+}
+
+// Token usage tracking
+model TokenUsage {
+  id          String   @id @default(cuid())
+  userId      String
+  messageId   String?
+  model       String
+  promptTokens      Int
+  completionTokens  Int
+  totalTokens       Int
+  cost        Float    @default(0) // Cost in USD
+  createdAt   DateTime @default(now())
+
+  @@index([userId])
+  @@index([createdAt])
+  @@map("token_usage")
+}

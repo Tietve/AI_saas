@@ -1,0 +1,163 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model PasswordResetToken {
+  id        String   @id
+  userId    String   @unique
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([token])
+}
+
+model User {
+  id                  String          @id
+  email               String
+  emailLower          String          @unique
+  passwordHash        String
+  emailVerifiedAt     DateTime?
+  planTier            PlanTier        @default(FREE)
+  monthlyTokenUsed    Int             @default(0)
+  failedLoginAttempts Int             @default(0)
+  lastFailedLoginAt   DateTime?
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime
+  payments            payments[]
+  subscriptions       subscriptions[]
+
+  @@index([emailLower])
+  @@index([email])
+}
+
+model VerificationToken {
+  id        String   @id
+  userId    String   @unique
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([token])
+}
+
+model conversations {
+  id        String     @id
+  userId    String
+  title     String     @default("New Chat")
+  model     String     @default("gpt-4")
+  createdAt DateTime   @default(now())
+  updatedAt DateTime
+  messages  messages[]
+
+  @@index([createdAt])
+  @@index([userId])
+}
+
+model messages {
+  id             String        @id
+  conversationId String
+  role           String
+  content        String
+  tokenCount     Int           @default(0)
+  model          String?
+  createdAt      DateTime      @default(now())
+  conversations  conversations @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId])
+  @@index([createdAt])
+}
+
+model payments {
+  id              String        @id
+  userId          String
+  stripePaymentId String?       @unique
+  stripeInvoiceId String?
+  amount          Int
+  currency        String        @default("usd")
+  status          PaymentStatus @default(PENDING)
+  planTier        PlanTier
+  description     String?
+  failureMessage  String?
+  paidAt          DateTime?
+  createdAt       DateTime      @default(now())
+  User            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([createdAt])
+  @@index([status])
+  @@index([stripePaymentId])
+  @@index([userId])
+}
+
+model subscriptions {
+  id                   String             @id
+  userId               String
+  stripeSubscriptionId String?            @unique
+  stripeCustomerId     String?
+  planTier             PlanTier
+  status               SubscriptionStatus @default(ACTIVE)
+  currentPeriodStart   DateTime
+  currentPeriodEnd     DateTime
+  cancelAtPeriodEnd    Boolean            @default(false)
+  canceledAt           DateTime?
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime
+  User                 User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+  @@index([stripeSubscriptionId])
+  @@index([userId])
+}
+
+model token_usage {
+  id               String   @id
+  userId           String
+  messageId        String?
+  model            String
+  promptTokens     Int
+  completionTokens Int
+  totalTokens      Int
+  cost             Float    @default(0)
+  createdAt        DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([userId])
+}
+
+model usage_alerts {
+  id          String    @id
+  userId      String
+  threshold   Int
+  triggered   Boolean   @default(false)
+  triggeredAt DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@index([triggered])
+  @@index([userId])
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCEEDED
+  FAILED
+  REFUNDED
+}
+
+enum PlanTier {
+  FREE
+  PLUS
+  PRO
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  CANCELED
+  PAST_DUE
+  UNPAID
+  TRIALING
+}

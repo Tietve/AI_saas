@@ -1,0 +1,61 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: jaeger-service
+  namespace: my-saas-chat
+  labels:
+    app: jaeger
+    component: tracing
+spec:
+  type: ClusterIP
+  ports:
+  - port: 5775
+    targetPort: 5775
+    protocol: UDP
+    name: zipkin-compact
+  - port: 6831
+    targetPort: 6831
+    protocol: UDP
+    name: jaeger-compact
+  - port: 6832
+    targetPort: 6832
+    protocol: UDP
+    name: jaeger-binary
+  - port: 5778
+    targetPort: 5778
+    protocol: TCP
+    name: config
+  - port: 16686
+    targetPort: 16686
+    protocol: TCP
+    name: ui
+  - port: 14268
+    targetPort: 14268
+    protocol: TCP
+    name: collector
+  - port: 14250
+    targetPort: 14250
+    protocol: TCP
+    name: grpc
+  selector:
+    app: jaeger
+
+---
+# Expose Jaeger UI externally (optional for dev/testing)
+apiVersion: v1
+kind: Service
+metadata:
+  name: jaeger-ui
+  namespace: my-saas-chat
+  labels:
+    app: jaeger
+    component: tracing
+spec:
+  type: LoadBalancer  # Change to NodePort for Minikube
+  ports:
+  - port: 80
+    targetPort: 16686
+    protocol: TCP
+    name: ui
+  selector:
+    app: jaeger

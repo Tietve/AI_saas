@@ -24,10 +24,11 @@ export const authRateLimiter = rateLimit({
 
 /**
  * Signup rate limiter - very strict
+ * NOTE: Increased for testing/development. Set back to 5 for production!
  */
 export const signupRateLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hour
-  max: 5, // 5 signups per hour per IP
+  max: process.env.NODE_ENV === 'production' ? 5 : 50, // 50 in dev, 5 in prod
   message: 'Quá nhiều yêu cầu đăng ký từ IP này, vui lòng thử lại sau 1 giờ',
   standardHeaders: true,
   legacyHeaders: false,
@@ -35,10 +36,11 @@ export const signupRateLimiter = rateLimit({
 
 /**
  * Signin rate limiter - moderate
+ * NOTE: Increased for testing/development. Set back to 10 for production!
  */
 export const signinRateLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 10, // 10 login attempts per 15 minutes
+  max: process.env.NODE_ENV === 'production' ? 10 : 100, // 100 in dev, 10 in prod
   message: 'Quá nhiều yêu cầu đăng nhập, vui lòng thử lại sau 15 phút',
   standardHeaders: true,
   legacyHeaders: false,

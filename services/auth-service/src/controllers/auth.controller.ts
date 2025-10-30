@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { authService } from '../services/auth.service';
+import { publishAnalyticsEvent, EventCategory, UserEventType } from '../shared/events';
 
 export class AuthController {
   /**
@@ -11,6 +12,26 @@ export class AuthController {
       const { email, password } = req.body;
 
       const result = await authService.signup(email, password);
+
+      // Publish analytics event for signup
+      if (result.userId) {
+        try {
+          await publishAnalyticsEvent({
+            event_type: UserEventType.SIGNUP,
+            event_category: EventCategory.USER,
+            service_name: 'auth-service',
+            user_id: result.userId,
+            user_email: result.email || email,
+            plan_tier: result.planTier || 'FREE',
+            ip_address: req.ip || req.socket.remoteAddress || '',
+            user_agent: req.headers['user-agent'] || '',
+          });
+          console.log(`[analytics] Published user.signup event for ${result.email}`);
+        } catch (analyticsError) {
+          // Don't fail the request if analytics publishing fails
+          console.error('[analytics] Failed to publish signup event:', analyticsError);
+        }
+      }
 
       if (result.needsVerification) {
         res.status(200).json({
@@ -70,6 +91,26 @@ export class AuthController {
 
         res.status(401).json({ error: result.message });
         return;
+      }
+
+      // Publish analytics event for signin
+      if (result.userId) {
+        try {
+          await publishAnalyticsEvent({
+            event_type: UserEventType.SIGNIN,
+            event_category: EventCategory.USER,
+            service_name: 'auth-service',
+            user_id: result.userId,
+            user_email: result.email || email,
+            plan_tier: result.planTier || 'FREE',
+            ip_address: req.ip || req.socket.remoteAddress || '',
+            user_agent: req.headers['user-agent'] || '',
+          });
+          console.log(`[analytics] Published user.signin event for ${result.email}`);
+        } catch (analyticsError) {
+          // Don't fail the request if analytics publishing fails
+          console.error('[analytics] Failed to publish signin event:', analyticsError);
+        }
       }
 
       // Set session cookie
@@ -167,6 +208,24 @@ export class AuthController {
       }
 
       const result = await authService.verifyEmail(token);
+
+      // Publish analytics event for email verification
+      if (result.userId) {
+        try {
+          await publishAnalyticsEvent({
+            event_type: UserEventType.EMAIL_VERIFIED,
+            event_category: EventCategory.USER,
+            service_name: 'auth-service',
+            user_id: result.userId,
+            user_email: result.email || '',
+            plan_tier: result.planTier || 'FREE',
+          });
+          console.log(`[analytics] Published user.email_verified event for ${result.email}`);
+        } catch (analyticsError) {
+          // Don't fail the request if analytics publishing fails
+          console.error('[analytics] Failed to publish email_verified event:', analyticsError);
+        }
+      }
 
       res.status(200).json({
         ok: true,

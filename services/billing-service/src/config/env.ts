@@ -26,4 +26,8 @@ export const config = {
   QUOTA_FREE: parseInt(process.env.QUOTA_FREE || '100000', 10),
   QUOTA_PLUS: parseInt(process.env.QUOTA_PLUS || '1000000', 10),
   QUOTA_PRO: parseInt(process.env.QUOTA_PRO || '5000000', 10),
+
+  // Analytics Events
+  RABBITMQ_URL: process.env.RABBITMQ_URL || 'amqp://admin:admin@localhost:5672',
+  ANALYTICS_EXCHANGE: process.env.ANALYTICS_EXCHANGE || 'analytics.events'
 };

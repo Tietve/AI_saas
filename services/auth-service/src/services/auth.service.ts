@@ -14,6 +14,7 @@ export interface SignupResult {
   needsVerification: boolean;
   userId?: string;
   email?: string;
+  planTier?: string;
   message: string;
   sessionToken?: string;
 }
@@ -22,6 +23,7 @@ export interface SigninResult {
   success: boolean;
   userId?: string;
   email?: string;
+  planTier?: string;
   sessionToken?: string;
   message: string;
   needsVerification?: boolean;
@@ -81,6 +83,7 @@ export class AuthService {
         needsVerification: true,
         userId: user.id,
         email: user.email,
+        planTier: user.planTier,
         message: 'Đăng ký thành công! Vui lòng kiểm tra email để xác thực tài khoản.'
       };
     } else {
@@ -91,6 +94,7 @@ export class AuthService {
         needsVerification: false,
         userId: user.id,
         email: user.email,
+        planTier: user.planTier,
         sessionToken,
         message: 'Đăng ký thành công'
       };
@@ -149,6 +153,7 @@ export class AuthService {
       success: true,
       userId: user.id,
       email: user.email,
+      planTier: user.planTier,
       sessionToken,
       message: 'Đăng nhập thành công'
     };
@@ -157,7 +162,7 @@ export class AuthService {
   /**
    * Verify email with token
    */
-  async verifyEmail(token: string): Promise<{ success: boolean; message: string }> {
+  async verifyEmail(token: string): Promise<{ success: boolean; message: string; userId?: string; email?: string; planTier?: string }> {
     const userId = await verificationRepository.verifyEmailToken(token);
 
     if (!userId) {
@@ -179,7 +184,10 @@ export class AuthService {
 
     return {
       success: true,
-      message: 'Email đã được xác thực thành công'
+      message: 'Email đã được xác thực thành công',
+      userId: user?.id,
+      email: user?.email,
+      planTier: user?.planTier
     };
   }
 

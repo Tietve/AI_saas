@@ -1,6 +1,8 @@
 import { Response } from 'express';
 import { AuthRequest } from '../middleware/auth';
 import { billingService } from '../services/billing.service';
+import { EventPublisher } from '../shared/events';
+import { config } from '../config/env';
 
 export class BillingController {
   /**
@@ -31,6 +33,34 @@ export class BillingController {
         paymentMethodId
       });
 
+      // Publish billing events to analytics (non-blocking)
+      try {
+        const amount = planTier === 'PLUS' ? config.PLAN_PLUS_PRICE : config.PLAN_PRO_PRICE;
+
+        // Subscription created event
+        await EventPublisher.getInstance().publishBillingEvent({
+          event_type: 'billing.subscription_created',
+          user_id: req.userId!,
+          plan_tier: planTier,
+          amount: amount,
+          currency: 'VND',
+          subscription_id: result.subscription.id
+        });
+
+        // Payment success event
+        await EventPublisher.getInstance().publishBillingEvent({
+          event_type: 'billing.payment_success',
+          user_id: req.userId!,
+          plan_tier: planTier,
+          amount: amount,
+          currency: 'VND',
+          subscription_id: result.subscription.id
+        });
+      } catch (eventError) {
+        console.error('[createSubscription] Failed to publish event:', eventError);
+        // Don't fail the request if event publishing fails
+      }
+
       return res.json({
         ok: true,
         subscription: result.subscription,
@@ -54,6 +84,18 @@ export class BillingController {
       const { immediate } = req.body;
 
       await billingService.cancelSubscription(req.userId!, immediate === true);
+
+      // Publish cancellation event to analytics (non-blocking)
+      try {
+        await EventPublisher.getInstance().publishBillingEvent({
+          event_type: 'billing.subscription_canceled',
+          user_id: req.userId!,
+          cancel_immediately: immediate === true
+        });
+      } catch (eventError) {
+        console.error('[cancelSubscription] Failed to publish event:', eventError);
+        // Don't fail the request if event publishing fails
+      }
 
       return res.json({
         ok: true,

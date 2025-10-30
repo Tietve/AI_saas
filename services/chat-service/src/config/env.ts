@@ -17,5 +17,9 @@ export const config = {
   AUTH_SECRET: process.env.AUTH_SECRET || '',
 
   // Frontend
-  FRONTEND_URL: process.env.FRONTEND_URL || 'http://localhost:3000'
+  FRONTEND_URL: process.env.FRONTEND_URL || 'http://localhost:3000',
+
+  // Analytics Events
+  RABBITMQ_URL: process.env.RABBITMQ_URL || 'amqp://admin:admin@localhost:5672',
+  ANALYTICS_EXCHANGE: process.env.ANALYTICS_EXCHANGE || 'analytics.events'
 } as const;

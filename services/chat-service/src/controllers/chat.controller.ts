@@ -1,6 +1,7 @@
 import { Response } from 'express';
 import { AuthRequest } from '../middleware/auth';
 import { chatService } from '../services/chat.service';
+import { EventPublisher } from '../shared/events';
 
 export class ChatController {
   /**
@@ -19,6 +20,35 @@ export class ChatController {
       }
 
       const result = await chatService.sendMessage(userId, conversationId, message, sessionCookie, model);
+
+      // Publish chat event to analytics (non-blocking)
+      try {
+        const isNewConversation = !conversationId;
+
+        if (isNewConversation) {
+          await EventPublisher.getInstance().publishChatEvent({
+            event_type: 'chat.conversation_started',
+            user_id: userId,
+            conversation_id: result.conversationId,
+            ai_provider: model.startsWith('gpt') ? 'openai' : 'unknown',
+            ai_model: model
+          });
+        }
+
+        await EventPublisher.getInstance().publishChatEvent({
+          event_type: 'chat.message_sent',
+          user_id: userId,
+          conversation_id: result.conversationId,
+          message_id: result.messageId,
+          ai_provider: model.startsWith('gpt') ? 'openai' : 'unknown',
+          ai_model: model,
+          tokens_used: result.tokenCount,
+          response_time_ms: 0 // Could be calculated if we track start time
+        });
+      } catch (eventError) {
+        console.error('[sendMessage] Failed to publish event:', eventError);
+        // Don't fail the request if event publishing fails
+      }
 
       res.status(200).json({
         ok: true,

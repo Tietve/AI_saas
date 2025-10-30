@@ -17,9 +17,16 @@ import {
   sentryErrorHandler
 } from './config/sentry';
 import { setupSwagger } from './config/swagger';
+import { initEventPublisher } from './shared/events';
 
 // Initialize Sentry FIRST (before Express app)
 initSentry({ serviceName: 'auth-service' });
+
+// Initialize Event Publisher for Analytics
+initEventPublisher({
+  rabbitmqUrl: config.RABBITMQ_URL,
+  exchange: config.ANALYTICS_EXCHANGE,
+});
 
 const app = express();
 const logger = pino({ level: config.LOG_LEVEL || 'info' });
@@ -98,6 +105,7 @@ if (require.main === module) {
   const PORT = config.PORT || 3001;
   app.listen(PORT, () => {
     logger.info(`auth-service listening on port ${PORT}`);
+    logger.info('Event publisher initialized for analytics');
   });
 
   // Graceful shutdown

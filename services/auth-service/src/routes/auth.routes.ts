@@ -56,7 +56,7 @@ const router = Router();
  *             schema:
  *               $ref: '#/components/schemas/Error'
  *       429:
- *         description: Too many requests (rate limit: 5 per hour)
+ *         description: "Too many requests (rate limit: 5 per hour)"
  */
 router.post('/signup', signupRateLimiter, (req, res) => authController.signup(req, res));
 
@@ -106,7 +106,7 @@ router.post('/signup', signupRateLimiter, (req, res) => authController.signup(re
  *       400:
  *         description: Invalid credentials
  *       429:
- *         description: Too many attempts (rate limit: 10 per 15 minutes)
+ *         description: "Too many attempts (rate limit: 10 per 15 minutes)"
  */
 router.post('/signin', signinRateLimiter, (req, res) => authController.signin(req, res));
 

@@ -1,0 +1,14 @@
+{
+  "name": "@my-saas/tracing",
+  "version": "1.0.0",
+  "description": "Shared Jaeger distributed tracing library",
+  "main": "jaeger.ts",
+  "dependencies": {
+    "jaeger-client": "^3.19.0",
+    "opentracing": "^0.14.7"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/node": "^20.10.6"
+  }
+}

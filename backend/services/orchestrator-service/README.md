@@ -85,27 +85,43 @@ The Orchestrator Service is the core of the **Enterprise Prompt Upgrader System*
 ```
 orchestrator-service/
 ├── src/
-│   ├── agents/              # AI Agents (TODO: Phase 3)
-│   ├── services/            # Core Services (TODO: Phase 2)
-│   ├── controllers/         # HTTP Controllers
-│   │   └── health.controller.ts
-│   ├── middleware/          # Middleware (TODO: Phase 6)
-│   ├── prompts/             # Prompt Templates (TODO: Phase 3)
-│   ├── config/              # Configuration
+│   ├── agents/              # ✅ AI Agents (Phase 3)
+│   │   ├── summarizer.agent.ts
+│   │   ├── rag-retriever.agent.ts
+│   │   └── prompt-upgrader.agent.ts
+│   ├── services/            # ✅ Core Services (Phase 2)
+│   │   ├── pii-redaction.service.ts
+│   │   ├── embedding.service.ts
+│   │   ├── vector-store.service.ts
+│   │   └── orchestrator.service.ts ✅ (Phase 4)
+│   ├── controllers/         # ✅ HTTP Controllers
+│   │   ├── health.controller.ts
+│   │   └── orchestrator.controller.ts ✅
+│   ├── middleware/          # Middleware (Phase 6)
+│   ├── prompts/             # ✅ Prompt Templates (Phase 3)
+│   │   ├── summarizer.prompt.ts
+│   │   └── upgrader.prompt.ts
+│   ├── config/              # ✅ Configuration
 │   │   ├── env.config.ts
 │   │   ├── database.config.ts
 │   │   ├── redis.config.ts
 │   │   ├── pinecone.config.ts
 │   │   └── logger.config.ts
-│   ├── routes/              # Route definitions
-│   │   └── health.routes.ts
-│   ├── types/               # TypeScript types (TODO)
-│   └── app.ts               # Express app
+│   ├── routes/              # ✅ Route definitions
+│   │   ├── health.routes.ts
+│   │   └── orchestrator.routes.ts ✅
+│   ├── types/               # ✅ TypeScript types
+│   │   ├── pii.types.ts
+│   │   ├── embedding.types.ts
+│   │   ├── vector.types.ts
+│   │   └── orchestrator.types.ts
+│   └── app.ts               # ✅ Express app
 ├── prisma/
-│   └── schema.prisma        # 12 models
-├── tests/                   # Tests (TODO)
+│   └── schema.prisma        # ✅ 12 models
+├── tests/                   # Tests (Phase 8)
 ├── .env                     # Environment variables
 ├── .env.example             # Env template
+├── API_EXAMPLES.md          # ✅ API documentation (Phase 5)
 ├── package.json
 ├── tsconfig.json
 └── README.md
@@ -164,11 +180,36 @@ See `.env.example` for all available configuration options.
 - `GET /health/pinecone` - Pinecone connection check
 - `GET /health/all` - All services check
 
-### Coming Soon (Phase 2-10)
-- `POST /api/upgrade` - Upgrade prompt
-- `POST /api/summarize` - Summarize conversation
+### Orchestrator APIs ✅ (Phase 4 Complete)
+- `POST /api/upgrade` - **Upgrade prompt** (full pipeline with PII, summarization, RAG, upgrading)
+- `GET /api/stats` - Usage statistics (coming in Phase 6)
+
+### Example Usage
+
+```bash
+# Upgrade a prompt
+curl -X POST http://localhost:3006/api/upgrade \
+  -H "Content-Type: application/json" \
+  -d '{
+    "userPrompt": "Help me write code",
+    "conversationHistory": [
+      {"role": "user", "content": "I am learning JavaScript"},
+      {"role": "assistant", "content": "Great choice!"}
+    ],
+    "userId": "user_123",
+    "options": {
+      "enableSummarization": true,
+      "enableRAG": true,
+      "enablePIIRedaction": true
+    }
+  }'
+```
+
+**See `API_EXAMPLES.md` for comprehensive examples!**
+
+### Coming Soon (Phase 6-10)
 - `POST /api/knowledge` - Add knowledge base documents
-- `GET /api/analytics` - Usage analytics
+- `GET /api/analytics` - Usage analytics with filters
 - `POST /api/eval/run` - Run evaluations
 
 ---
@@ -206,20 +247,30 @@ npm run format           # Format code
 
 ### ✅ Phase 1 Complete (Days 1-2)
 - [x] Core Infrastructure
-- [x] Database Schema
-- [x] Configuration
+- [x] Database Schema (12 models)
+- [x] Configuration (env, DB, Redis, Pinecone)
 - [x] Health Checks
 - [x] Prisma Setup
 
-### ⏳ Phase 2 Pending (Days 3-4)
-- [ ] Core Services (PII, Embedding, Vector Store)
-- [ ] Service layer implementation
-- [ ] Redis caching helpers
+### ✅ Phase 2 Complete (Days 3-4)
+- [x] PII Redaction Service (regex + AES-256 encryption)
+- [x] Embedding Service (OpenAI + Redis caching)
+- [x] Vector Store Service (Pinecone operations)
 
-### ⏳ Phase 3 Pending (Days 5-6)
-- [ ] AI Agents (Summarizer, RAG Retriever, Prompt Upgrader)
-- [ ] Prompt templates
-- [ ] Agent orchestration
+### ✅ Phase 3 Complete (Days 5-6)
+- [x] Summarizer Agent (GPT-4o-mini + caching)
+- [x] RAG Retriever Agent (vector search + formatting)
+- [x] Prompt Upgrader Agent (JSON structured upgrades)
+
+### ✅ Phase 4 Complete (Days 7-8)
+- [x] Orchestrator Pipeline (full integration)
+- [x] API Controllers (upgrade, stats)
+- [x] Error handling & fallbacks
+
+### ✅ Phase 5 Complete (Day 9)
+- [x] API documentation (API_EXAMPLES.md)
+- [x] Integration examples
+- [x] Health check endpoints
 
 ### ⏳ Phases 4-10 (Days 7-24)
 - See `.claude/PROMPT_UPGRADER_PROJECT.md` for full roadmap

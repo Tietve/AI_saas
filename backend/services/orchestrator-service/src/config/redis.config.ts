@@ -2,14 +2,16 @@ import Redis from 'ioredis';
 import { env } from './env.config';
 
 // Create Redis client
+// For Upstash Redis with full URL (rediss://), don't pass separate password/db options
 export const redis = new Redis(env.redisUrl, {
-  password: env.redisPassword,
-  db: env.redisDb,
   retryStrategy: (times) => {
     const delay = Math.min(times * 50, 2000);
     return delay;
   },
   maxRetriesPerRequest: 3,
+  tls: {
+    rejectUnauthorized: false, // Required for Upstash Redis SSL
+  },
 });
 
 // Connection events

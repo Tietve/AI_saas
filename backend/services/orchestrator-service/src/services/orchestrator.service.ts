@@ -3,6 +3,7 @@ import { piiRedactionService } from './pii-redaction.service';
 import { summarizerAgent } from '../agents/summarizer.agent';
 import { ragRetrieverAgent } from '../agents/rag-retriever.agent';
 import { promptUpgraderAgent } from '../agents/prompt-upgrader.agent';
+import { usageTrackingService } from './usage-tracking.service';
 import {
   OrchestrationRequest,
   OrchestrationResult,
@@ -78,6 +79,19 @@ export class OrchestratorService {
 
         logger.info(`[Orchestrator] Generated summary (${summaryResult.messageCount} messages)`);
 
+        // Track usage
+        if (userId) {
+          await usageTrackingService.track(userId, {
+            component: 'summarizer',
+            operation: 'summarize',
+            tokensIn: 0,
+            tokensOut: summaryResult.tokensUsed,
+            costUsd: summaryResult.tokensUsed * 0.0000006, // GPT-4o-mini cost
+            latencyMs: summaryResult.latencyMs,
+            cacheHit: summaryResult.cached || false,
+          });
+        }
+
         this.endStep(step, true);
         steps.push(step);
       } catch (error) {
@@ -106,6 +120,19 @@ export class OrchestratorService {
 
         logger.info(`[Orchestrator] Retrieved ${ragDocuments.length} RAG documents`);
 
+        // Track usage
+        if (userId) {
+          await usageTrackingService.track(userId, {
+            component: 'embedding',
+            operation: 'query',
+            tokensIn: 0,
+            tokensOut: ragResult.metadata.queryEmbeddingTokens,
+            costUsd: ragResult.metadata.queryEmbeddingTokens * 0.00000002, // text-embedding-3-small cost
+            latencyMs: ragResult.metadata.latencyMs,
+            cacheHit: ragResult.metadata.cached || false,
+          });
+        }
+
         this.endStep(step, true);
         steps.push(step);
       } catch (error) {
@@ -129,6 +156,19 @@ export class OrchestratorService {
       metrics.upgradeLatencyMs = upgradeResult.latencyMs;
       metrics.upgradeTokens = upgradeResult.tokensUsed;
       metrics.totalTokensUsed += upgradeResult.tokensUsed;
+
+      // Track usage
+      if (userId) {
+        await usageTrackingService.track(userId, {
+          component: 'upgrader',
+          operation: 'upgrade',
+          tokensIn: 0,
+          tokensOut: upgradeResult.tokensUsed,
+          costUsd: upgradeResult.tokensUsed * 0.0000006, // GPT-4o-mini cost
+          latencyMs: upgradeResult.latencyMs,
+          cacheHit: false,
+        });
+      }
 
       // STEP 5: PII Restoration
       const finalPrompt = piiRedactionService.restore(upgradedPromptText, piiRedactionMap);

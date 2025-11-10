@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { orchestratorService } from '../services/orchestrator.service';
+import { usageTrackingService } from '../services/usage-tracking.service';
 import logger from '../config/logger.config';
 
 /**
@@ -57,13 +58,38 @@ export async function upgradePrompt(req: Request, res: Response) {
  */
 export async function getStats(req: Request, res: Response) {
   try {
-    // TODO: Implement stats from UsageMeter
+    const userId = req.query.userId as string || req.headers['x-user-id'] as string;
+
+    if (!userId) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: 'USER_ID_REQUIRED',
+          message: 'userId is required as query parameter or x-user-id header',
+        },
+      });
+    }
+
+    // Get date range from query params
+    const startDate = req.query.startDate ? new Date(req.query.startDate as string) : undefined;
+    const endDate = req.query.endDate ? new Date(req.query.endDate as string) : undefined;
+
+    // Get stats from usage tracking service
+    const stats = await usageTrackingService.getStats(userId, startDate, endDate);
+
+    if (!stats) {
+      return res.status(404).json({
+        success: false,
+        error: {
+          code: 'USER_NOT_FOUND',
+          message: 'No usage stats found for this user',
+        },
+      });
+    }
 
     res.json({
       success: true,
-      data: {
-        message: 'Stats endpoint - coming soon in Phase 6',
-      },
+      data: stats,
     });
   } catch (error) {
     logger.error('[Controller] Get stats failed:', error);

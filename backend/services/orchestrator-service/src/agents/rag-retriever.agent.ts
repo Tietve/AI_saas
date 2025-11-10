@@ -16,6 +16,7 @@ export interface RAGRetrievalResult {
   totalRetrieved: number;
   queryEmbeddingTokens: number;
   latencyMs: number;
+  cached: boolean;
 }
 
 export interface RAGRetrievalOptions {
@@ -77,6 +78,7 @@ export class RAGRetrieverAgent {
         totalRetrieved: documents.length,
         queryEmbeddingTokens: embeddingResult.tokens,
         latencyMs,
+        cached: embeddingResult.cached,
       };
     } catch (error) {
       logger.error('[RAG] Retrieval failed:', error);

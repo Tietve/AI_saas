@@ -1,0 +1,383 @@
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// Multi-Tenancy & RBAC Models
+// ============================================
+
+model TenantPlan {
+  id                     String   @id @default(cuid())
+  userId                 String   @unique
+  planTier               PlanTier @default(FREE)
+
+  // Quotas
+  monthlyTokenQuota      Int      @default(100000)  // 100k tokens for FREE
+  monthlyUpgradeQuota    Int      @default(1000)    // 1k prompt upgrades for FREE
+  monthlyEmbeddingQuota  Int      @default(10000)   // 10k embeddings for FREE
+
+  // Current Usage (reset monthly)
+  tokensUsed             Int      @default(0)
+  upgradesUsed           Int      @default(0)
+  embeddingsUsed         Int      @default(0)
+
+  // Period tracking
+  currentPeriodStart     DateTime @default(now())
+  currentPeriodEnd       DateTime
+
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+
+  usageMeters            UsageMeter[]
+  tenantRoles            TenantRole[]
+
+  @@index([userId])
+  @@index([planTier])
+  @@index([currentPeriodEnd])
+}
+
+model UsageMeter {
+  id              String   @id @default(cuid())
+  tenantPlanId    String
+  component       String   // 'summarizer', 'upgrader', 'embedding', 'rag_retrieval'
+  operation       String   // 'call', 'cache_hit', 'cache_miss'
+  tokensIn        Int      @default(0)
+  tokensOut       Int      @default(0)
+  costUsd         Float    @default(0)
+  latencyMs       Int?
+  cacheHit        Boolean  @default(false)
+  metadata        Json?    // Additional tracking data
+  createdAt       DateTime @default(now())
+
+  tenantPlan      TenantPlan @relation(fields: [tenantPlanId], references: [id], onDelete: Cascade)
+
+  @@index([tenantPlanId, createdAt(sort: Desc)])
+  @@index([component, createdAt(sort: Desc)])
+  @@index([cacheHit, component])
+}
+
+model TenantRole {
+  id             String     @id @default(cuid())
+  tenantPlanId   String
+  userId         String
+  role           RoleType   @default(MEMBER)
+  permissions    Json?      // Custom permissions override
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+
+  tenantPlan     TenantPlan @relation(fields: [tenantPlanId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantPlanId, userId])
+  @@index([tenantPlanId, role])
+  @@index([userId])
+}
+
+// ============================================
+// Prompt Versioning & AB Testing Models
+// ============================================
+
+model PromptTemplate {
+  id                String         @id @default(cuid())
+  name              String         @db.VarChar(100)
+  description       String?        @db.VarChar(500)
+  version           Int            @default(1)
+  content           String         // The actual prompt template
+  variables         Json?          // List of variables used in template
+  isActive          Boolean        @default(false)
+  promptType        PromptType     // 'SUMMARIZER', 'UPGRADER', 'RAG_QUERY'
+
+  // Performance metrics
+  avgLatencyMs      Int?
+  avgRelevance      Float?         // 0.0 - 1.0
+  avgFaithfulness   Float?         // 0.0 - 1.0
+  totalRuns         Int            @default(0)
+
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+
+  promptRuns        PromptRun[]
+
+  @@unique([name, version])
+  @@index([promptType, isActive])
+  @@index([name])
+}
+
+model PromptRun {
+  id                String         @id @default(cuid())
+  promptTemplateId  String
+  userId            String
+
+  // Canary rollout tracking
+  rolloutStage      RolloutStage   @default(CANARY_5)
+
+  // Input/Output
+  inputVariables    Json           // Variables passed to template
+  finalPrompt       String         // Rendered prompt
+  llmResponse       String?        // LLM response
+
+  // Performance
+  latencyMs         Int?
+  tokensIn          Int?
+  tokensOut         Int?
+  costUsd           Float?
+
+  // Quality scores
+  relevanceScore    Float?         // 0.0 - 1.0
+  faithfulnessScore Float?         // 0.0 - 1.0
+  helpfulnessScore  Float?         // 0.0 - 1.0
+
+  // Error tracking
+  success           Boolean        @default(true)
+  errorMessage      String?
+
+  createdAt         DateTime       @default(now())
+
+  promptTemplate    PromptTemplate @relation(fields: [promptTemplateId], references: [id], onDelete: Cascade)
+
+  @@index([promptTemplateId, createdAt(sort: Desc)])
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([rolloutStage, success])
+  @@index([createdAt(sort: Desc)])
+}
+
+// ============================================
+// Evaluation & Red-teaming Models
+// ============================================
+
+model EvalDataset {
+  id              String          @id @default(cuid())
+  name            String          @db.VarChar(100)
+  description     String?         @db.VarChar(500)
+  category        String?         // 'general', 'adversarial', 'pii', 'injection'
+  isActive        Boolean         @default(true)
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  questions       EvalQuestion[]
+  evalRuns        EvalRun[]
+
+  @@index([category, isActive])
+}
+
+model EvalQuestion {
+  id               String        @id @default(cuid())
+  evalDatasetId    String
+  question         String
+  expectedAnswer   String?       // Optional: for automated grading
+  category         String?       // 'pii_leak', 'prompt_injection', 'faithfulness'
+  metadata         Json?         // Additional test metadata
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  evalDataset      EvalDataset   @relation(fields: [evalDatasetId], references: [id], onDelete: Cascade)
+  evalResults      EvalResult[]
+
+  @@index([evalDatasetId])
+  @@index([category])
+}
+
+model EvalRun {
+  id              String        @id @default(cuid())
+  evalDatasetId   String
+  runType         RunType       @default(NIGHTLY) // 'NIGHTLY', 'ON_DEMAND', 'PRE_DEPLOY'
+  status          EvalStatus    @default(PENDING)
+
+  // Results summary
+  totalQuestions  Int           @default(0)
+  passed          Int           @default(0)
+  failed          Int           @default(0)
+  avgRelevance    Float?
+  avgFaithfulness Float?
+  avgHelpfulness  Float?
+
+  // Performance
+  startedAt       DateTime?
+  completedAt     DateTime?
+  durationMs      Int?
+
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  evalDataset     EvalDataset   @relation(fields: [evalDatasetId], references: [id], onDelete: Cascade)
+  evalResults     EvalResult[]
+
+  @@index([evalDatasetId, createdAt(sort: Desc)])
+  @@index([status])
+  @@index([runType, createdAt(sort: Desc)])
+}
+
+model EvalResult {
+  id               String        @id @default(cuid())
+  evalRunId        String
+  evalQuestionId   String
+
+  // Actual output
+  actualAnswer     String?
+  upgradePrompt    String?       // The upgraded prompt
+  llmResponse      String?
+
+  // Scores
+  relevanceScore   Float?        // 0.0 - 1.0
+  faithfulnessScore Float?       // 0.0 - 1.0
+  helpfulnessScore Float?        // 0.0 - 1.0
+  passed           Boolean       @default(false)
+
+  // Red-team checks
+  piiLeakDetected  Boolean       @default(false)
+  injectionDetected Boolean      @default(false)
+
+  // Performance
+  latencyMs        Int?
+  tokensIn         Int?
+  tokensOut        Int?
+
+  errorMessage     String?
+  createdAt        DateTime      @default(now())
+
+  evalRun          EvalRun       @relation(fields: [evalRunId], references: [id], onDelete: Cascade)
+  evalQuestion     EvalQuestion  @relation(fields: [evalQuestionId], references: [id], onDelete: Cascade)
+
+  @@index([evalRunId])
+  @@index([evalQuestionId])
+  @@index([passed])
+  @@index([piiLeakDetected])
+  @@index([injectionDetected])
+}
+
+// ============================================
+// Knowledge Base (RAG) Models
+// ============================================
+
+model KnowledgeBase {
+  id               String        @id @default(cuid())
+  userId           String
+  title            String        @db.VarChar(200)
+  content          String        // Original document content
+
+  // Vector embeddings metadata
+  embeddingModel   String        @default("text-embedding-3-small")
+  pineconeId       String?       @unique  // Pinecone vector ID
+  chunkCount       Int           @default(1)
+
+  // Metadata
+  category         String?       // 'documentation', 'conversation', 'knowledge'
+  tags             Json?         // Array of tags
+  source           String?       // 'upload', 'conversation', 'api'
+
+  // Stats
+  retrievalCount   Int           @default(0)
+  lastRetrievedAt  DateTime?
+
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([category])
+  @@index([pineconeId])
+  @@index([userId, retrievalCount(sort: Desc)])
+}
+
+// ============================================
+// Conversation Summary Cache
+// ============================================
+
+model ConversationSummary {
+  id                  String   @id @default(cuid())
+  conversationId      String   @unique
+  userId              String
+
+  summary             String   // The cached summary
+  messageCount        Int      // Number of messages summarized
+  lastMessageId       String   // Last message included in summary
+
+  // Embedding for similarity search
+  embeddingModel      String   @default("text-embedding-3-small")
+  pineconeId          String?  @unique  // Pinecone vector ID
+
+  // Cache stats
+  hitCount            Int      @default(0)
+  lastHitAt           DateTime?
+
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+  expiresAt           DateTime // Cache expiry (7 days)
+
+  @@index([conversationId])
+  @@index([userId])
+  @@index([expiresAt])
+  @@index([userId, lastHitAt(sort: Desc)])
+}
+
+// ============================================
+// PII Redaction Records
+// ============================================
+
+model PIIRedaction {
+  id              String   @id @default(cuid())
+  userId          String
+  originalText    String   // Encrypted original text with PII
+  redactedText    String   // Text with PII masked
+  piiType         Json     // Array of detected PII types ['email', 'phone', 'ssn']
+  redactionMap    Json     // Mapping of placeholders to original values (encrypted)
+  requestId       String?  // Link to specific request for debugging
+
+  createdAt       DateTime @default(now())
+  expiresAt       DateTime // Auto-delete after 30 days
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([expiresAt])
+  @@index([requestId])
+}
+
+// ============================================
+// Enums
+// ============================================
+
+enum PlanTier {
+  FREE
+  PLUS
+  PRO
+  ENTERPRISE
+}
+
+enum RoleType {
+  OWNER
+  ADMIN
+  MEMBER
+  VIEWER
+}
+
+enum PromptType {
+  SUMMARIZER
+  UPGRADER
+  RAG_QUERY
+  CUSTOM
+}
+
+enum RolloutStage {
+  CANARY_5      // 5% traffic
+  CANARY_25     // 25% traffic
+  CANARY_50     // 50% traffic
+  FULL_100      // 100% traffic
+}
+
+enum RunType {
+  NIGHTLY       // Automated nightly runs
+  ON_DEMAND     // Manual trigger
+  PRE_DEPLOY    // Before deployment
+  CONTINUOUS    // CI/CD integration
+}
+
+enum EvalStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+  CANCELLED
+}

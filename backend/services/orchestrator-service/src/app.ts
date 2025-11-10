@@ -8,6 +8,7 @@ import { connectDatabase, disconnectDatabase } from './config/database.config';
 import { disconnectRedis } from './config/redis.config';
 import { initPinecone } from './config/pinecone.config';
 import healthRoutes from './routes/health.routes';
+import orchestratorRoutes from './routes/orchestrator.routes';
 
 // Initialize Express app
 const app: Application = express();
@@ -41,6 +42,7 @@ app.use((req: Request, res: Response, next: NextFunction) => {
 
 // Routes
 app.use('/health', healthRoutes);
+app.use('/api', orchestratorRoutes);
 
 // Root endpoint
 app.get('/', (req: Request, res: Response) => {

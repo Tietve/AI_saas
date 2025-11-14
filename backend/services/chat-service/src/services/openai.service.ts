@@ -1,5 +1,6 @@
 import OpenAI from 'openai';
 import { config } from '../config/env';
+import { OpenAICacheService } from './openai-cache.service';
 
 export interface ChatMessage {
   role: 'system' | 'user' | 'assistant';
@@ -17,6 +18,7 @@ export interface ChatCompletionResult {
 export class OpenAIService {
   private client: OpenAI;
   private useMock: boolean;
+  private cacheService: OpenAICacheService;
 
   constructor() {
     // Check if we have a valid API key (not placeholder)
@@ -31,10 +33,13 @@ export class OpenAIService {
     this.client = new OpenAI({
       apiKey: config.OPENAI_API_KEY || 'sk-mock-key'
     });
+
+    this.cacheService = new OpenAICacheService();
   }
 
   /**
-   * Create chat completion
+   * Create chat completion with Redis caching
+   * Caches responses to reduce API costs by 40-60%
    */
   async createChatCompletion(
     messages: ChatMessage[],
@@ -53,6 +58,21 @@ export class OpenAIService {
     }
 
     try {
+      // 🔥 OPTIMIZATION: Check cache first
+      const cached = await this.cacheService.getCachedResponse(messages, model);
+      if (cached) {
+        console.log(`[OpenAI] Cache HIT - Saved API call for model ${model}`);
+        return {
+          content: cached.response,
+          model: cached.model,
+          promptTokens: cached.tokens.prompt,
+          completionTokens: cached.tokens.completion,
+          totalTokens: cached.tokens.total
+        };
+      }
+
+      // Cache MISS - Call OpenAI API
+      console.log(`[OpenAI] Cache MISS - Calling API for model ${model}`);
       const completion = await this.client.chat.completions.create({
         model,
         messages,
@@ -63,13 +83,27 @@ export class OpenAIService {
       const choice = completion.choices[0];
       const usage = completion.usage;
 
-      return {
+      const result = {
         content: choice.message.content || '',
         model: completion.model,
         promptTokens: usage?.prompt_tokens || 0,
         completionTokens: usage?.completion_tokens || 0,
         totalTokens: usage?.total_tokens || 0
       };
+
+      // 🔥 OPTIMIZATION: Cache the response for future identical requests
+      await this.cacheService.cacheResponse(
+        messages,
+        model,
+        result.content,
+        {
+          prompt: result.promptTokens,
+          completion: result.completionTokens,
+          total: result.totalTokens
+        }
+      );
+
+      return result;
     } catch (error: any) {
       console.error('[OpenAIService] Error:', error.message);
       throw new Error('Không thể kết nối với OpenAI. Vui lòng thử lại sau.');

@@ -31,18 +31,35 @@ export class ConversationRepository {
   }
 
   /**
-   * Get all conversations for user
+   * Get all conversations for user with pagination
    */
-  async findByUserId(userId: string): Promise<Conversation[]> {
+  async findByUserId(
+    userId: string,
+    options?: {
+      take?: number;
+      skip?: number;
+    }
+  ): Promise<Conversation[]> {
     return prisma.conversation.findMany({
       where: { userId },
       orderBy: { updatedAt: 'desc' },
+      take: options?.take || 50, // Default limit to 50 conversations
+      skip: options?.skip || 0,
       include: {
         messages: {
           take: 1,
           orderBy: { createdAt: 'desc' }
         }
       }
+    });
+  }
+
+  /**
+   * Get total count of conversations for user
+   */
+  async countByUserId(userId: string): Promise<number> {
+    return prisma.conversation.count({
+      where: { userId }
     });
   }
 

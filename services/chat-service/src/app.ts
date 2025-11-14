@@ -15,6 +15,7 @@ import {
   sentryErrorHandler
 } from './config/sentry';
 import { EventPublisher } from './shared/events';
+import { performanceMonitoring } from '../../../shared/monitoring/performance.middleware';
 
 // Initialize Sentry FIRST
 initSentry({ serviceName: 'chat-service' });
@@ -52,6 +53,9 @@ app.use(sentryRequestHandler());
 app.use(sentryTracingHandler());
 
 app.use(pinoHttp({ logger }));
+
+// Performance monitoring
+app.use(performanceMonitoring());
 
 // Distributed tracing
 app.use(tracingMiddleware(tracer));

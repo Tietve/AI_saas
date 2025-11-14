@@ -4,6 +4,7 @@ import { messageRepository } from '../repositories/message.repository';
 import { tokenUsageRepository } from '../repositories/token-usage.repository';
 import { openaiService, ChatMessage } from './openai.service';
 import { billingClientService } from './billing-client.service';
+import { costTracker } from '../../../../shared/monitoring/cost-tracker.service';
 
 const prisma = new PrismaClient();
 
@@ -62,11 +63,15 @@ export class ChatService {
       tokenCount: userTokenCount
     });
 
-    // Get conversation history
-    const messages = await messageRepository.findByConversationId(conversation.id);
-
     // Build chat history for OpenAI
-    const chatHistory: ChatMessage[] = messages.map(msg => ({
+    // NOTE: conversation.messages already includes all messages from findById
+    // We need to add the new user message to the history
+    const allMessages = [
+      ...(conversation.messages || []),
+      userMessageRecord
+    ];
+
+    const chatHistory: ChatMessage[] = allMessages.map(msg => ({
       role: msg.role as 'user' | 'assistant',
       content: msg.content
     }));
@@ -93,7 +98,7 @@ export class ChatService {
       totalTokens: aiResponse.totalTokens
     });
 
-    // Update user's monthly token usage
+    // Update user's monthly token usage and invalidate quota cache
     await prisma.user.update({
       where: { id: userId },
       data: {
@@ -102,6 +107,25 @@ export class ChatService {
         }
       }
     });
+
+    // Invalidate quota cache after usage update
+    await billingClientService.invalidateQuotaCache(userId);
+
+    // Track OpenAI cost (only if not from cache)
+    if (!aiResponse.cached) {
+      const cost = this.calculateOpenAICost(aiResponse.totalTokens, aiResponse.model);
+      await costTracker.recordCost({
+        service: 'openai',
+        amount: cost,
+        timestamp: Date.now(),
+        metadata: {
+          userId,
+          model: aiResponse.model,
+          tokens: aiResponse.totalTokens,
+          conversationId: conversation.id,
+        },
+      });
+    }
 
     return {
       messageId: assistantMessage.id,
@@ -139,9 +163,14 @@ export class ChatService {
    * Delete conversation
    */
   async deleteConversation(userId: string, conversationId: string) {
-    const isOwner = await conversationRepository.isOwner(conversationId, userId);
+    // Optimize: Check ownership using existing conversation fetch
+    const conversation = await conversationRepository.findById(conversationId);
 
-    if (!isOwner) {
+    if (!conversation) {
+      throw new Error('Conversation không tồn tại');
+    }
+
+    if (conversation.userId !== userId) {
       throw new Error('Bạn không có quyền xóa conversation này');
     }
 
@@ -153,6 +182,24 @@ export class ChatService {
    */
   async getMonthlyUsage(userId: string): Promise<number> {
     return tokenUsageRepository.getMonthlyUsage(userId);
+  }
+
+  /**
+   * Calculate OpenAI cost based on model and tokens
+   */
+  private calculateOpenAICost(tokens: number, model: string): number {
+    const pricing: Record<string, { input: number; output: number }> = {
+      'gpt-4': { input: 0.03, output: 0.06 },
+      'gpt-4-turbo': { input: 0.01, output: 0.03 },
+      'gpt-4o': { input: 0.005, output: 0.015 },
+      'gpt-4o-mini': { input: 0.00015, output: 0.0006 },
+      'gpt-3.5-turbo': { input: 0.0015, output: 0.002 },
+    };
+
+    const modelPricing = pricing[model] || pricing['gpt-4'];
+    const avgPrice = (modelPricing.input + modelPricing.output) / 2;
+
+    return (tokens / 1000) * avgPrice;
   }
 }
 

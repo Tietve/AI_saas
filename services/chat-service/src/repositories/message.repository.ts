@@ -27,12 +27,33 @@ export class MessageRepository {
   }
 
   /**
-   * Get messages for conversation
+   * Get messages for conversation with pagination
    */
-  async findByConversationId(conversationId: string): Promise<Message[]> {
+  async findByConversationId(
+    conversationId: string,
+    options?: {
+      take?: number;
+      skip?: number;
+      cursor?: string;
+    }
+  ): Promise<Message[]> {
     return prisma.message.findMany({
       where: { conversationId },
-      orderBy: { createdAt: 'asc' }
+      orderBy: { createdAt: 'asc' },
+      take: options?.take || 100, // Default limit to 100 messages
+      skip: options?.skip || 0,
+      ...(options?.cursor && {
+        cursor: { id: options.cursor },
+      }),
+    });
+  }
+
+  /**
+   * Get total count of messages in conversation
+   */
+  async countByConversationId(conversationId: string): Promise<number> {
+    return prisma.message.count({
+      where: { conversationId }
     });
   }
 

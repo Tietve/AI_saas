@@ -1,0 +1,111 @@
+{
+  "$schema": "https://modelcontextprotocol.io/schemas/2024-11-05/client-settings.json",
+  "description": "Autonomous mode settings - Maximum productivity with safety guards",
+
+  "permissions": {
+    "mode": "acceptEdits",
+
+    "allow": [
+      "// File Operations - Auto-approve",
+      "Edit(*)",
+      "Write(*)",
+      "Read(*)",
+      "Glob(*)",
+      "Grep(*)",
+
+      "// Development Commands - Auto-approve",
+      "Bash(npm run dev:*)",
+      "Bash(npm start:*)",
+      "Bash(npm run build:*)",
+      "Bash(node:*)",
+      "Bash(npx:*)",
+
+      "// Testing Commands - Auto-approve",
+      "Bash(npm test:*)",
+      "Bash(npm run test:*)",
+      "Bash(jest:*)",
+      "Bash(npm run coverage:*)",
+
+      "// Database Commands (safe) - Auto-approve",
+      "Bash(npx prisma generate:*)",
+      "Bash(npx prisma migrate dev:*)",
+      "Bash(npx prisma studio:*)",
+      "Bash(npm run db:generate:*)",
+      "Bash(npm run db:migrate:*)",
+
+      "// Linting/Formatting - Auto-approve",
+      "Bash(npm run lint:*)",
+      "Bash(npm run format:*)",
+      "Bash(npx eslint:*)",
+      "Bash(npx prettier:*)",
+
+      "// Git (read-only) - Auto-approve",
+      "Bash(git status:*)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Bash(git show:*)",
+
+      "// Info Commands - Auto-approve",
+      "Bash(dir:*)",
+      "Bash(ls:*)",
+      "Bash(cat:*)",
+      "Bash(echo:*)",
+
+      "// Kill processes (safe) - Auto-approve",
+      "Bash(taskkill:*)",
+      "Bash(pkill:*)",
+
+      "// Web Fetch (specific domains)",
+      "WebFetch(domain:code.claude.com)",
+      "WebFetch(domain:docs.claude.com)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:npmjs.com)",
+      "WebFetch(domain:stackoverflow.com)"
+    ],
+
+    "deny": [
+      "// Dangerous Operations - Block",
+      "Bash(rm -rf:*)",
+      "Bash(rmdir /s:*)",
+      "Bash(del /f:*)",
+      "Bash(format:*)",
+
+      "// Git (write operations) - Block for safety",
+      "Bash(git push:*)",
+      "Bash(git force:*)",
+      "Bash(git reset --hard:*)",
+
+      "// Database Destructive - Block",
+      "Bash(npx prisma migrate reset:*)",
+      "Bash(npx prisma db push --force:*)",
+      "Bash(npm run db:reset:*)",
+      "Bash(npm run db:drop:*)",
+
+      "// Package Management - Block",
+      "Bash(npm publish:*)",
+      "Bash(npm unpublish:*)",
+      "Bash(yarn publish:*)",
+
+      "// Docker Destructive - Block",
+      "Bash(docker rm:*)",
+      "Bash(docker rmi:*)",
+      "Bash(docker system prune:*)",
+
+      "// System Commands - Block",
+      "Bash(shutdown:*)",
+      "Bash(reboot:*)",
+      "Bash(systemctl:*)"
+    ],
+
+    "ask": [
+      "// These will still require approval",
+      "Bash(git commit:*)",
+      "Bash(git add:*)",
+      "Bash(npm install:*)",
+      "Bash(npm uninstall:*)"
+    ]
+  },
+
+  "verbose": true,
+  "showToolExecutionTime": true
+}

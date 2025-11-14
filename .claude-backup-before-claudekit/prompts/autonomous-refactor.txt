@@ -1,0 +1,36 @@
+# Autonomous Refactoring Template
+
+Use this for autonomous refactoring tasks:
+
+---
+
+Refactor [COMPONENT/SERVICE] autonomously to [GOAL]:
+
+## Current State:
+[Describe current implementation]
+
+## Desired State:
+[Describe target architecture/pattern]
+
+## Refactoring Steps:
+1. Analyze current code structure
+2. Create refactoring plan
+3. Make changes incrementally:
+   - Refactor one function/file at a time
+   - Run tests after each change
+   - If tests fail: revert, adjust approach, retry
+   - If tests pass: commit mentally and continue
+4. Update all usages/references
+5. Update tests if needed
+6. Run full test suite
+7. Clean up (remove old code, unused imports)
+
+## Autonomous Mode Rules:
+- Work systematically
+- Test after each significant change
+- Fix issues immediately when found
+- Don't skip steps
+- Be thorough
+- Report progress every 10 changes
+
+Continue autonomously until refactoring is complete!

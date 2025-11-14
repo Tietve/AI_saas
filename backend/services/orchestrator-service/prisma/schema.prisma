@@ -91,6 +91,7 @@ model PromptTemplate {
   variables         Json?          // List of variables used in template
   isActive          Boolean        @default(false)
   promptType        PromptType     // 'SUMMARIZER', 'UPGRADER', 'RAG_QUERY'
+  rolloutStage      RolloutStage  @default(DEVELOPMENT) // Canary rollout stage
 
   // Performance metrics
   avgLatencyMs      Int?
@@ -117,14 +118,17 @@ model PromptRun {
   rolloutStage      RolloutStage   @default(CANARY_5)
 
   // Input/Output
-  inputVariables    Json           // Variables passed to template
-  finalPrompt       String         // Rendered prompt
+  inputVariables    Json?          // Variables passed to template
+  userPrompt        String?        // Original user prompt
+  upgradedPrompt    String?        // Upgraded prompt
+  finalPrompt       String?        // Rendered prompt
   llmResponse       String?        // LLM response
 
   // Performance
   latencyMs         Int?
   tokensIn          Int?
   tokensOut         Int?
+  tokensUsed        Int?          // Total tokens used
   costUsd           Float?
 
   // Quality scores
@@ -315,6 +319,44 @@ model ConversationSummary {
 }
 
 // ============================================
+// Multi-Turn Conversation State (for RAG)
+// ============================================
+
+model ConversationState {
+  id                  String   @id @default(cuid())
+  conversationId      String   @unique
+  userId              String
+
+  // Turn tracking
+  turnNumber          Int      @default(0)
+
+  // Extracted context from first turn
+  currentRole         String?  @db.VarChar(500)  // "experienced backend developer..."
+  currentTask         String?  @db.VarChar(500)  // "create REST API..."
+  currentDomain       String?  @db.VarChar(200)  // "backend", "frontend", "data science"
+
+  // Context summary (compressed)
+  contextSummary      String   @default("") @db.Text
+
+  // Knowledge tracking (to avoid repetition)
+  usedKnowledgeIds    String[] // Array of KnowledgeBase IDs already used
+
+  // Message history (last 10 messages)
+  messageHistory      Json     @default("[]")  // Array of {role, content, upgradedPrompt, timestamp}
+
+  // Metadata
+  lastActivity        DateTime @default(now())
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+  expiresAt           DateTime // Auto-expire after 1 hour of inactivity
+
+  @@index([conversationId])
+  @@index([userId])
+  @@index([expiresAt])
+  @@index([lastActivity])
+}
+
+// ============================================
 // PII Redaction Records
 // ============================================
 
@@ -361,10 +403,12 @@ enum PromptType {
 }
 
 enum RolloutStage {
+  DEVELOPMENT   // Development/testing stage
   CANARY_5      // 5% traffic
   CANARY_25     // 25% traffic
   CANARY_50     // 50% traffic
-  FULL_100      // 100% traffic
+  PRODUCTION    // 100% traffic (full rollout)
+  FULL_100      // Alias for PRODUCTION
 }
 
 enum RunType {
@@ -380,4 +424,35 @@ enum EvalStatus {
   COMPLETED
   FAILED
   CANCELLED
+}
+
+// ============================================
+// Document Management Models (Phase 3)
+// ============================================
+
+model Document {
+  id           String         @id @default(uuid())
+  userId       String
+  title        String         @db.VarChar(500)
+  fileName     String         @db.VarChar(500)
+  contentType  String         @db.VarChar(100) // application/pdf
+  fileSize     Int            // bytes
+  filePath     String?        // local storage path (optional if using cloud)
+  pageCount    Int?
+  status       DocumentStatus @default(PROCESSING)
+  uploadedAt   DateTime       @default(now())
+  processedAt  DateTime?
+  errorMessage String?        @db.Text
+  chunksCount  Int?           // number of chunks in Pinecone
+  pineconeIds  String[]       // array of Pinecone vector IDs
+
+  @@index([userId])
+  @@index([status])
+  @@index([userId, uploadedAt(sort: Desc)])
+}
+
+enum DocumentStatus {
+  PROCESSING
+  COMPLETED
+  FAILED
 }

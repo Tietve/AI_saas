@@ -1,0 +1,40 @@
+# Parallel Service Fix Template
+
+Use this to fix multiple services in parallel:
+
+---
+
+Launch [N] service-fixer agents in parallel to fix all microservices:
+
+## Services to fix:
+- Agent 1: backend/services/auth-service
+- Agent 2: backend/services/chat-service
+- Agent 3: backend/services/billing-service
+- Agent 4: backend/services/analytics-service
+- Agent 5: backend/services/email-worker
+
+## Each agent must:
+1. Scan their assigned service for all errors
+2. Fix all TypeScript/ESLint errors
+3. Run service tests: `cd [service] && npm test`
+4. Fix any test failures
+5. Report results with:
+   - Number of errors fixed
+   - Test pass/fail status
+   - Time taken
+   - Any issues encountered
+
+## Coordination rules:
+- Each agent works ONLY on their assigned service
+- No cross-service dependencies
+- Agents work simultaneously
+- Main coordinator collects results
+
+## Final report:
+After all agents complete, provide:
+- Total errors fixed across all services
+- All services test status
+- Total time saved vs sequential
+- Any remaining issues
+
+Launch all agents NOW and work in parallel!

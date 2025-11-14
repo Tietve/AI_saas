@@ -1,0 +1,39 @@
+# Autonomous TDD (Test-Driven Development) Template
+
+Use this for TDD autonomous implementation:
+
+---
+
+Implement [FEATURE] using Test-Driven Development autonomously:
+
+## TDD Cycle (repeat for each requirement):
+
+### Red Phase:
+1. Write a failing test for one requirement
+2. Run test to confirm it fails
+3. Document what the test expects
+
+### Green Phase:
+1. Write minimal code to make test pass
+2. Run test
+3. If fails: adjust code and retry
+4. If passes: proceed to refactor
+
+### Refactor Phase:
+1. Improve code quality
+2. Remove duplication
+3. Apply best practices
+4. Run tests again to ensure still passing
+
+## Autonomous Rules:
+- Follow TDD strictly (Red → Green → Refactor)
+- Do NOT skip writing tests first
+- Do NOT ask for approval between cycles
+- Run tests after EVERY code change
+- Fix immediately if tests break
+- Continue until ALL requirements implemented
+
+## Requirements to implement:
+[List specific requirements/user stories]
+
+Start the TDD cycle autonomously and work until all requirements are implemented with passing tests!

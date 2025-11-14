@@ -1,0 +1,33 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "commonjs",
+    "lib": ["ES2020"],
+    "declaration": true,
+    "outDir": "./dist",
+    "rootDir": ".",
+    "removeComments": true,
+    "strict": false,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "moduleResolution": "node"
+  },
+  "include": [
+    "utils/**/*",
+    "types/**/*",
+    "errors/**/*",
+    "events/**/*",
+    "monitoring/**/*",
+    "queue/**/*",
+    "tracing/**/*",
+    "validators/**/*",
+    "database/**/*"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "../services/**/*"
+  ]
+}

@@ -28,6 +28,10 @@ initSentry({ serviceName: 'auth-service' });
 
 const app = express();
 
+// Trust proxy - REQUIRED when behind API Gateway/reverse proxy
+// This allows Express to trust X-Forwarded-* headers from the proxy
+app.set('trust proxy', true);
+
 // Initialize Event Publisher for Analytics (skip in development if RabbitMQ not available)
 if (config.NODE_ENV === 'production' || process.env.ENABLE_RABBITMQ === 'true') {
   initEventPublisher({

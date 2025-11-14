@@ -1,0 +1,24 @@
+{
+  "mcpServers": {
+    "playwright": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@playwright/mcp@latest",
+        "--browser",
+        "chromium"
+      ],
+      "description": "Playwright MCP server - allows Claude to control browser for UI debugging and testing"
+    },
+    "playwright-headed": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@playwright/mcp@latest",
+        "--browser",
+        "chromium"
+      ],
+      "description": "Playwright MCP (headed mode) - browser window visible for debugging"
+    }
+  }
+}

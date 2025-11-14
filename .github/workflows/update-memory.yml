@@ -1,0 +1,116 @@
+# GitHub Action để tự động update memory files
+# Trigger khi có PR hoặc push vào main
+
+name: Update Memory Files
+
+on:
+  pull_request:
+    paths:
+      - 'backend/services/**/src/**/*.ts'
+      - 'backend/services/**/src/**/*.js'
+      - 'backend/services/**/prisma/**'
+      - 'package.json'
+  push:
+    branches: [main]
+    paths:
+      - 'backend/services/**/src/**/*.ts'
+      - 'backend/services/**/src/**/*.js'
+      - 'backend/services/**/prisma/**'
+
+jobs:
+  check-memory-files:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 2  # Cần để compare với commit trước
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+
+      - name: Check if memory files need update
+        id: check
+        run: |
+          echo "Checking for changes..."
+
+          # Get changed files
+          CHANGED_FILES=$(git diff --name-only HEAD~1 HEAD)
+
+          # Check for structural changes
+          if echo "$CHANGED_FILES" | grep -qE "src/(controllers|services|routes)/.*\.(ts|js)$"; then
+            echo "needs_index_update=true" >> $GITHUB_OUTPUT
+          fi
+
+          if echo "$CHANGED_FILES" | grep -q "package.json"; then
+            echo "needs_claude_md_check=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Regenerate CODEBASE_INDEX.md
+        if: steps.check.outputs.needs_index_update == 'true'
+        run: |
+          echo "Regenerating index..."
+          node .claude/regenerate-index.js
+
+      - name: Check if index changed
+        if: steps.check.outputs.needs_index_update == 'true'
+        id: index_diff
+        run: |
+          if git diff --quiet .claude/CODEBASE_INDEX.md; then
+            echo "Index is up to date"
+            echo "index_changed=false" >> $GITHUB_OUTPUT
+          else
+            echo "Index needs to be updated"
+            echo "index_changed=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create Pull Request comment
+        if: steps.index_diff.outputs.index_changed == 'true' && github.event_name == 'pull_request'
+        uses: actions/github-script@v6
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: '## 🔄 Memory Files Update Needed\n\n' +
+                    '⚠️ Your changes require updating CODEBASE_INDEX.md\n\n' +
+                    '**Action required:**\n' +
+                    '```bash\n' +
+                    'node .claude/regenerate-index.js\n' +
+                    'git add .claude/CODEBASE_INDEX.md\n' +
+                    'git commit -m "docs: update CODEBASE_INDEX.md"\n' +
+                    '```\n\n' +
+                    'Or run: `npm run update-memory`'
+            })
+
+      - name: Auto-commit index (only on main branch)
+        if: steps.index_diff.outputs.index_changed == 'true' && github.ref == 'refs/heads/main'
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add .claude/CODEBASE_INDEX.md
+          git commit -m "docs: auto-update CODEBASE_INDEX.md [skip ci]"
+          git push
+
+      - name: Check CLAUDE.md review needed
+        if: steps.check.outputs.needs_claude_md_check == 'true'
+        uses: actions/github-script@v6
+        with:
+          script: |
+            if (context.eventName === 'pull_request') {
+              github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: '## 📝 CLAUDE.md Review Recommended\n\n' +
+                      'Your changes might require updating CLAUDE.md:\n' +
+                      '- New dependencies? Update tech stack section\n' +
+                      '- New commands? Add to common commands\n' +
+                      '- New conventions? Document them\n\n' +
+                      'Use `/memory` command trong Claude Code to update.'
+              })
+            }

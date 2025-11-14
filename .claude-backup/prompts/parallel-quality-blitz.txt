@@ -1,0 +1,67 @@
+# Parallel Quality Blitz Template
+
+Use this for comprehensive code quality improvement:
+
+---
+
+Launch 6 specialized agents in parallel for complete quality overhaul:
+
+## Agent Assignment:
+
+### Agent 1 (error-hunter + service-fixer):
+- Find all TypeScript errors
+- Fix all TypeScript errors
+- Report: errors fixed
+
+### Agent 2 (test-writer):
+- Identify files without tests
+- Write unit tests (>80% coverage)
+- Write integration tests
+- Report: test coverage increase
+
+### Agent 3 (security-auditor):
+- Scan for security vulnerabilities
+- Check for SQL injection risks
+- Verify input validation
+- Check authentication/authorization
+- Report: vulnerabilities found & severity
+
+### Agent 4 (performance-optimizer):
+- Identify N+1 queries
+- Add database indexes
+- Optimize slow queries
+- Add caching opportunities
+- Report: performance improvements
+
+### Agent 5 (refactorer):
+- Find code duplication
+- Extract reusable functions
+- Improve naming
+- Apply SOLID principles
+- Report: code quality metrics
+
+### Agent 6 (doc-writer):
+- Add missing JSDoc comments
+- Update README files
+- Document API endpoints
+- Create usage examples
+- Report: documentation coverage
+
+## Coordination:
+- All agents work simultaneously
+- No file conflicts (each focuses on different aspects)
+- Main coordinator collects reports
+- Generate aggregate quality report
+
+## Success Criteria:
+- Zero TypeScript errors
+- >80% test coverage
+- Zero critical security issues
+- 20%+ performance improvement
+- <10% code duplication
+- 100% public APIs documented
+
+Launch all 6 agents NOW!
+Work in parallel until ALL criteria met!
+
+Report aggregate results when complete.

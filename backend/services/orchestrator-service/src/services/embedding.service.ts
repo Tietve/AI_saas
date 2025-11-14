@@ -8,10 +8,17 @@ import {
   EmbeddingOptions,
 } from '../types/embedding.types';
 import crypto from 'crypto';
+import { cloudflareAIService } from './cloudflare-ai.service';
+
+export enum EmbeddingProvider {
+  OPENAI = 'openai',
+  CLOUDFLARE = 'cloudflare',
+}
 
 export class EmbeddingService {
   private openai: OpenAI;
   private defaultModel: string;
+  private provider: EmbeddingProvider;
 
   constructor() {
     this.openai = new OpenAI({
@@ -20,6 +27,29 @@ export class EmbeddingService {
     });
 
     this.defaultModel = env.models.embedding;
+
+    // Auto-select provider based on configuration
+    // Prefer Cloudflare if configured (FREE, faster)
+    this.provider = cloudflareAIService.isConfigured()
+      ? EmbeddingProvider.CLOUDFLARE
+      : EmbeddingProvider.OPENAI;
+
+    logger.info(`[Embedding] Using provider: ${this.provider}`);
+  }
+
+  /**
+   * Set embedding provider
+   */
+  public setProvider(provider: EmbeddingProvider): void {
+    this.provider = provider;
+    logger.info(`[Embedding] Switched to provider: ${this.provider}`);
+  }
+
+  /**
+   * Get current provider
+   */
+  public getProvider(): EmbeddingProvider {
+    return this.provider;
   }
 
   /**
@@ -35,7 +65,7 @@ export class EmbeddingService {
 
     // Check cache first
     if (useCache) {
-      const cacheKey = this.getCacheKey(text, model);
+      const cacheKey = this.getCacheKey(text, model, this.provider);
       const cached = await cache.get<EmbeddingResult>(cacheKey);
 
       if (cached) {
@@ -47,7 +77,23 @@ export class EmbeddingService {
       }
     }
 
-    // Generate embedding
+    // Route to appropriate provider
+    if (this.provider === EmbeddingProvider.CLOUDFLARE) {
+      return await this.embedWithCloudflare(text, useCache, cacheTTL);
+    } else {
+      return await this.embedWithOpenAI(text, model, useCache, cacheTTL);
+    }
+  }
+
+  /**
+   * Generate embedding with OpenAI
+   */
+  private async embedWithOpenAI(
+    text: string,
+    model: string,
+    useCache: boolean,
+    cacheTTL: number
+  ): Promise<EmbeddingResult> {
     try {
       const startTime = Date.now();
 
@@ -67,15 +113,52 @@ export class EmbeddingService {
 
       // Cache the result
       if (useCache) {
-        const cacheKey = this.getCacheKey(text, model);
+        const cacheKey = this.getCacheKey(text, model, this.provider);
         await cache.set(cacheKey, result, cacheTTL);
       }
 
-      logger.info(`[Embedding] Generated embedding in ${latency}ms (${result.tokens} tokens)`);
+      logger.info(`[Embedding] OpenAI generated embedding in ${latency}ms (${result.tokens} tokens)`);
 
       return result;
     } catch (error) {
-      logger.error('[Embedding] Failed to generate embedding:', error);
+      logger.error('[Embedding] OpenAI embedding failed:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Generate embedding with Cloudflare Workers AI
+   */
+  private async embedWithCloudflare(
+    text: string,
+    useCache: boolean,
+    cacheTTL: number
+  ): Promise<EmbeddingResult> {
+    try {
+      const startTime = Date.now();
+
+      const cfResult = await cloudflareAIService.generateEmbedding(text);
+
+      const latency = Date.now() - startTime;
+
+      const result: EmbeddingResult = {
+        embedding: cfResult.embedding,
+        tokens: cfResult.tokens,
+        model: cfResult.model,
+        cached: false,
+      };
+
+      // Cache the result
+      if (useCache) {
+        const cacheKey = this.getCacheKey(text, cfResult.model, this.provider);
+        await cache.set(cacheKey, result, cacheTTL);
+      }
+
+      logger.info(`[Embedding] Cloudflare generated embedding in ${latency}ms (${result.tokens} tokens)`);
+
+      return result;
+    } catch (error) {
+      logger.error('[Embedding] Cloudflare embedding failed:', error);
       throw error;
     }
   }
@@ -100,7 +183,7 @@ export class EmbeddingService {
     // Check cache for each text
     if (useCache) {
       for (const text of texts) {
-        const cacheKey = this.getCacheKey(text, model);
+        const cacheKey = this.getCacheKey(text, model, this.provider);
         const cached = await cache.get<EmbeddingResult>(cacheKey);
 
         if (cached) {
@@ -119,39 +202,11 @@ export class EmbeddingService {
 
     // Generate embeddings for cache misses
     if (textsToEmbed.length > 0) {
-      try {
-        const startTime = Date.now();
-
-        const response = await this.openai.embeddings.create({
-          model,
-          input: textsToEmbed,
-        });
-
-        const latency = Date.now() - startTime;
-
-        // Process results
-        for (let i = 0; i < response.data.length; i++) {
-          const result: EmbeddingResult = {
-            embedding: response.data[i].embedding,
-            tokens: response.usage.total_tokens / textsToEmbed.length, // Approximate
-            model,
-            cached: false,
-          };
-
-          results.push(result);
-
-          // Cache individual result
-          if (useCache) {
-            await cache.set(cacheKeys[i], result, cacheTTL);
-          }
-        }
-
-        logger.info(
-          `[Embedding] Batch generated ${textsToEmbed.length} embeddings in ${latency}ms`
-        );
-      } catch (error) {
-        logger.error('[Embedding] Batch embedding failed:', error);
-        throw error;
+      // Route to appropriate provider
+      if (this.provider === EmbeddingProvider.CLOUDFLARE) {
+        await this.embedBatchWithCloudflare(textsToEmbed, results, cacheKeys, useCache, cacheTTL);
+      } else {
+        await this.embedBatchWithOpenAI(textsToEmbed, model, results, cacheKeys, useCache, cacheTTL);
       }
     }
 
@@ -163,6 +218,96 @@ export class EmbeddingService {
       cacheHits,
       cacheMisses,
     };
+  }
+
+  /**
+   * Batch embed with OpenAI
+   */
+  private async embedBatchWithOpenAI(
+    texts: string[],
+    model: string,
+    results: EmbeddingResult[],
+    cacheKeys: string[],
+    useCache: boolean,
+    cacheTTL: number
+  ): Promise<void> {
+    try {
+      const startTime = Date.now();
+
+      const response = await this.openai.embeddings.create({
+        model,
+        input: texts,
+      });
+
+      const latency = Date.now() - startTime;
+
+      // Process results
+      for (let i = 0; i < response.data.length; i++) {
+        const result: EmbeddingResult = {
+          embedding: response.data[i].embedding,
+          tokens: response.usage.total_tokens / texts.length, // Approximate
+          model,
+          cached: false,
+        };
+
+        results.push(result);
+
+        // Cache individual result
+        if (useCache) {
+          await cache.set(cacheKeys[i], result, cacheTTL);
+        }
+      }
+
+      logger.info(
+        `[Embedding] OpenAI batch generated ${texts.length} embeddings in ${latency}ms`
+      );
+    } catch (error) {
+      logger.error('[Embedding] OpenAI batch embedding failed:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Batch embed with Cloudflare
+   */
+  private async embedBatchWithCloudflare(
+    texts: string[],
+    results: EmbeddingResult[],
+    cacheKeys: string[],
+    useCache: boolean,
+    cacheTTL: number
+  ): Promise<void> {
+    try {
+      const startTime = Date.now();
+
+      const cfResults = await cloudflareAIService.generateEmbeddingsBatch(texts);
+
+      const latency = Date.now() - startTime;
+
+      // Process results
+      for (let i = 0; i < cfResults.length; i++) {
+        const result: EmbeddingResult = {
+          embedding: cfResults[i].embedding,
+          tokens: cfResults[i].tokens,
+          model: cfResults[i].model,
+          cached: false,
+        };
+
+        results.push(result);
+
+        // Cache individual result
+        if (useCache) {
+          await cache.set(cacheKeys[i], result, cacheTTL);
+        }
+      }
+
+      logger.info(
+        `[Embedding] Cloudflare batch generated ${texts.length} embeddings in ${latency}ms`
+      );
+    } catch (error) {
+      logger.error('[Embedding] Cloudflare batch embedding failed:', error);
+      throw error;
+    }
   }
 
   /**
@@ -189,13 +334,13 @@ export class EmbeddingService {
   /**
    * Generate cache key for embedding
    */
-  private getCacheKey(text: string, model: string): string {
+  private getCacheKey(text: string, model: string, provider: EmbeddingProvider): string {
     const hash = crypto
       .createHash('sha256')
-      .update(`${model}:${text}`)
+      .update(`${provider}:${model}:${text}`)
       .digest('hex');
 
-    return `embedding:${hash}`;
+    return `embedding:${provider}:${hash}`;
   }
 }
 

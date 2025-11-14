@@ -1,0 +1,105 @@
+# Safe Parallel Execution Template
+
+## 🎯 FOR YOUR PROJECT (5 Microservices)
+
+Copy and customize this template:
+
+---
+
+Launch 5 agents in parallel with FOLDER ISOLATION:
+
+Agent 1 (Auth Service):
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Scope: backend/services/auth-service/ ONLY
+Task: [CUSTOMIZE YOUR TASK]
+Examples:
+  - Fix all TypeScript errors, run tests
+  - Write unit tests for all controllers
+  - Refactor duplicate code
+  - Add JSDoc comments
+Rules:
+  ✅ CAN edit files in auth-service/
+  ✅ CAN read files anywhere
+  ❌ CANNOT edit files outside auth-service/
+  ❌ CANNOT edit shared files
+
+Agent 2 (Chat Service):
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Scope: backend/services/chat-service/ ONLY
+Task: [SAME OR DIFFERENT TASK]
+Rules:
+  ✅ CAN edit files in chat-service/
+  ✅ CAN read files anywhere
+  ❌ CANNOT edit files outside chat-service/
+  ❌ CANNOT edit shared files
+
+Agent 3 (Billing Service):
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Scope: backend/services/billing-service/ ONLY
+Task: [SAME OR DIFFERENT TASK]
+Rules:
+  ✅ CAN edit files in billing-service/
+  ✅ CAN read files anywhere
+  ❌ CANNOT edit files outside billing-service/
+  ❌ CANNOT edit shared files
+
+Agent 4 (Analytics Service):
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Scope: backend/services/analytics-service/ ONLY
+Task: [SAME OR DIFFERENT TASK]
+Rules:
+  ✅ CAN edit files in analytics-service/
+  ✅ CAN read files anywhere
+  ❌ CANNOT edit files outside analytics-service/
+  ❌ CANNOT edit shared files
+
+Agent 5 (Email Worker):
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Scope: backend/services/email-worker/ ONLY
+Task: [SAME OR DIFFERENT TASK]
+Rules:
+  ✅ CAN edit files in email-worker/
+  ✅ CAN read files anywhere
+  ❌ CANNOT edit files outside email-worker/
+  ❌ CANNOT edit shared files
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+GLOBAL RULES FOR ALL AGENTS:
+════════════════════════════
+
+✅ ALLOWED:
+  - Edit files in assigned folder ONLY
+  - Create new files in assigned folder
+  - Read files anywhere
+  - Run tests in assigned folder
+  - Report findings
+
+❌ FORBIDDEN:
+  - Edit files outside assigned folder
+  - Edit shared configuration files
+  - Edit root-level files
+  - Cross-folder dependencies
+  - Modifying other agent's work
+
+COORDINATION:
+═════════════
+
+If conflicts detected:
+1. Main Claude pauses conflicting agent
+2. Resolve conflict (usually by waiting)
+3. Resume when safe
+
+Each agent reports:
+- Tasks completed
+- Files modified
+- Tests status
+- Issues encountered
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Work in parallel. This design GUARANTEES zero conflicts! 🛡️
+
+Report when ALL agents complete with summary.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

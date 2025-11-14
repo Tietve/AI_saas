@@ -1,0 +1,99 @@
+/* Import Google Fonts */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Playfair+Display:wght@600;700;800&family=DM+Sans:wght@400;500;600;700&display=swap');
+
+/* Import Theme Variables */
+@import './themeVariables.css';
+
+/* Import Animations */
+@import './animations.css';
+
+/* Tailwind directives */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+
+  body {
+    /* Use CSS variables for theming */
+    background: var(--bg-main);
+    font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    min-height: 100vh;
+    color: var(--text-primary);
+    margin: 0;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    transition: background 0.3s ease, color 0.3s ease;
+  }
+
+  /* MUI integration */
+  #root {
+    min-height: 100vh;
+  }
+
+  /* Smooth transitions for theme changes */
+  body,
+  body * {
+    transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+  }
+
+  /* Prevent transitions on initial load */
+  body.no-transition,
+  body.no-transition * {
+    transition: none !important;
+  }
+
+  /* Custom scrollbar styling */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: var(--bg-card);
+    border-radius: var(--radius-small);
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: var(--primary-300);
+    border-radius: var(--radius-small);
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--primary-500);
+  }
+
+  /* Firefox scrollbar - Static colors for compatibility */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: #86efac #1e293b; /* Static fallback - Firefox doesn't support CSS vars here */
+  }
+
+  /* Light theme scrollbar for Firefox */
+  html:not(.dark) * {
+    scrollbar-color: #86efac #f1f5f9;
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    word-wrap: break-word; /* Fallback for older browsers */
+    text-wrap: balance;
+  }
+
+  /* Font family utilities */
+  .font-display {
+    font-family: 'Playfair Display', serif;
+  }
+
+  /* Gradient text */
+  .text-gradient {
+    background: var(--gradient-button);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+}

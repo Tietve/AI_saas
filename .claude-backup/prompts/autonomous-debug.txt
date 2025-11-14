@@ -1,0 +1,57 @@
+# Autonomous Debugging Template
+
+Use this for autonomous bug fixing:
+
+---
+
+Debug and fix [BUG/ISSUE] autonomously:
+
+## Bug Description:
+[Describe the bug]
+
+## Expected Behavior:
+[What should happen]
+
+## Actual Behavior:
+[What actually happens]
+
+## Debugging Process (autonomous):
+
+1. **Reproduce the Bug:**
+   - Set up test case
+   - Run code to confirm bug exists
+   - Document exact steps to reproduce
+
+2. **Investigate Root Cause:**
+   - Add logging/console statements
+   - Trace execution flow
+   - Identify where things go wrong
+   - Analyze stack traces if available
+
+3. **Develop Fix:**
+   - Implement solution
+   - Test the fix
+   - If still broken: go back to step 2
+   - If fixed: proceed to step 4
+
+4. **Verify Fix:**
+   - Run original test case
+   - Run related test cases
+   - Test edge cases
+   - Ensure no regressions
+
+5. **Clean Up:**
+   - Remove debug logging
+   - Add proper error handling
+   - Add test case for this bug
+   - Update documentation if needed
+
+## Autonomous Rules:
+- Work until bug is COMPLETELY fixed
+- Don't give up after first attempt
+- Add logging liberally during debug
+- Clean up all debug code when done
+- Document the root cause in commit message
+- Add regression test
+
+Continue debugging autonomously until issue is resolved and verified!

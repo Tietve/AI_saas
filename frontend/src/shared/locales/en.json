@@ -1,0 +1,154 @@
+{
+  "auth": {
+    "login": {
+      "title": "Login",
+      "email": "Username",
+      "emailPlaceholder": "Enter your username",
+      "password": "Password",
+      "passwordPlaceholder": "Enter your password",
+      "forgotPassword": "Forgot password",
+      "signup": "Sign up",
+      "loginButton": "Login",
+      "loggingIn": "Logging in...",
+      "loginError": "Login failed. Please check your credentials.",
+      "termsPrefix": "By continuing, you agree to our",
+      "terms": "Terms",
+      "and": "and",
+      "privacy": "Privacy Policy",
+      "termsSuffix": "."
+    },
+    "signup": {
+      "title": "Sign Up",
+      "email": "Email",
+      "emailPlaceholder": "Enter your email",
+      "username": "Username",
+      "usernamePlaceholder": "Enter your username",
+      "password": "Password",
+      "passwordPlaceholder": "Enter password (min. 8 characters)",
+      "confirmPassword": "Confirm Password",
+      "confirmPasswordPlaceholder": "Re-enter password",
+      "signupButton": "Sign Up",
+      "signingUp": "Signing up...",
+      "haveAccount": "Already have an account?",
+      "loginLink": "Login"
+    },
+    "validation": {
+      "emailInvalid": "Invalid email",
+      "passwordMinLength": "Password must be at least 8 characters",
+      "passwordMismatch": "Passwords do not match",
+      "required": "This field is required"
+    }
+  },
+  "chat": {
+    "welcome": {
+      "greeting": "Hello {{userName}}! 👋",
+      "subtitle": "I'm Fir Box AI - your intelligent assistant.",
+      "cta": "Choose a suggestion or start a conversation!"
+    },
+    "features": {
+      "write": {
+        "title": "Write Content",
+        "description": "Create professional and creative text"
+      },
+      "image": {
+        "title": "Generate Images",
+        "description": "Design images with AI"
+      },
+      "research": {
+        "title": "Research",
+        "description": "Search and analyze information"
+      }
+    },
+    "sidebar": {
+      "newChat": "New chat",
+      "settings": "Settings",
+      "logout": "Log out",
+      "openSidebar": "Open sidebar"
+    },
+    "input": {
+      "placeholder": "Enter your message...",
+      "send": "Send"
+    },
+    "messages": {
+      "typing": "Typing...",
+      "ai": "AI",
+      "you": "You"
+    },
+    "conversation": {
+      "rename": "Rename",
+      "delete": "Delete",
+      "pin": "Pin",
+      "unpin": "Unpin",
+      "confirmDelete": "Are you sure you want to delete this conversation?",
+      "today": "Today",
+      "yesterday": "Yesterday",
+      "lastWeek": "Last week",
+      "older": "Older"
+    },
+    "search": {
+      "placeholder": "Search conversations...",
+      "noResults": "No results found"
+    },
+    "export": {
+      "title": "Export conversation",
+      "markdown": "Export as Markdown",
+      "json": "Export as JSON",
+      "text": "Export as Text"
+    }
+  },
+  "settings": {
+    "title": "Settings",
+    "language": {
+      "title": "Language",
+      "vietnamese": "Tiếng Việt",
+      "english": "English"
+    },
+    "theme": {
+      "title": "Theme",
+      "light": "Light",
+      "dark": "Dark",
+      "auto": "Auto"
+    },
+    "profile": {
+      "title": "Profile",
+      "name": "Name",
+      "email": "Email",
+      "save": "Save changes"
+    }
+  },
+  "billing": {
+    "title": "Subscription Plans",
+    "plans": {
+      "free": "Free",
+      "plus": "Plus",
+      "pro": "Pro"
+    },
+    "features": {
+      "messagesPerMonth": "{{count}} messages/month",
+      "unlimited": "Unlimited",
+      "support": "{{type}} support",
+      "priority": "Priority",
+      "standard": "Standard"
+    },
+    "subscribe": "Subscribe to {{plan}}",
+    "currentPlan": "Current plan",
+    "upgrade": "Upgrade",
+    "cancel": "Cancel subscription"
+  },
+  "common": {
+    "loading": "Loading...",
+    "error": "An error occurred",
+    "success": "Success",
+    "cancel": "Cancel",
+    "save": "Save",
+    "delete": "Delete",
+    "edit": "Edit",
+    "close": "Close",
+    "confirm": "Confirm",
+    "back": "Back",
+    "next": "Next",
+    "search": "Search",
+    "filter": "Filter",
+    "sort": "Sort"
+  }
+}

@@ -4,6 +4,8 @@ import { summarizerAgent } from '../agents/summarizer.agent';
 import { ragRetrieverAgent } from '../agents/rag-retriever.agent';
 import { promptUpgraderAgent } from '../agents/prompt-upgrader.agent';
 import { usageTrackingService } from './usage-tracking.service';
+import { metricsService } from './metrics.service';
+import { sentryService } from './sentry.service';
 import {
   OrchestrationRequest,
   OrchestrationResult,
@@ -47,11 +49,17 @@ export class OrchestratorService {
     // STEP 1: PII Redaction
     if (options.enablePIIRedaction !== false) {
       const step = this.startStep('PII Redaction');
+      const piiStartTime = Date.now();
 
       try {
         const redactionResult = piiRedactionService.redact(currentPrompt);
         currentPrompt = redactionResult.redactedText;
         piiRedactionMap = redactionResult.redactionMap;
+
+        const piiLatency = Date.now() - piiStartTime;
+
+        // Record PII redaction metrics
+        metricsService.recordComponentLatency('piiRedaction', piiLatency);
 
         if (redactionResult.piiFound.length > 0) {
           logger.info(`[Orchestrator] Redacted PII: ${redactionResult.piiFound.join(', ')}`);
@@ -62,6 +70,15 @@ export class OrchestratorService {
       } catch (error) {
         this.endStep(step, false, error);
         steps.push(step);
+
+        // Record error
+        metricsService.recordError('pii_redaction_failed', 'pii-redaction');
+        sentryService.captureException(error as Error, {
+          component: 'orchestrator',
+          operation: 'pii_redaction',
+          userId,
+        });
+
         logger.error('[Orchestrator] PII redaction failed:', error);
       }
     }
@@ -76,6 +93,10 @@ export class OrchestratorService {
         metrics.summaryLatencyMs = summaryResult.latencyMs;
         metrics.summaryTokens = summaryResult.tokensUsed;
         metrics.totalTokensUsed += summaryResult.tokensUsed;
+
+        // Record summarizer metrics
+        metricsService.recordComponentLatency('summarizer', summaryResult.latencyMs, summaryResult.cached || false);
+        metricsService.recordCacheEvent('summary', summaryResult.cached || false);
 
         logger.info(`[Orchestrator] Generated summary (${summaryResult.messageCount} messages)`);
 
@@ -97,6 +118,15 @@ export class OrchestratorService {
       } catch (error) {
         this.endStep(step, false, error);
         steps.push(step);
+
+        // Record error
+        metricsService.recordError('summarization_failed', 'summarizer');
+        sentryService.captureException(error as Error, {
+          component: 'orchestrator',
+          operation: 'summarization',
+          userId,
+        });
+
         logger.error('[Orchestrator] Summarization failed:', error);
       }
     }
@@ -118,6 +148,12 @@ export class OrchestratorService {
         metrics.ragTokens = ragResult.metadata.queryEmbeddingTokens;
         metrics.totalTokensUsed += ragResult.metadata.queryEmbeddingTokens;
 
+        // Record RAG metrics
+        metricsService.recordComponentLatency('rag', ragResult.metadata.latencyMs, ragResult.metadata.cached || false);
+        metricsService.recordComponentLatency('embedding', ragResult.metadata.latencyMs, ragResult.metadata.cached || false);
+        metricsService.recordCacheEvent('rag', ragResult.metadata.cached || false);
+        metricsService.recordCacheEvent('embedding', ragResult.metadata.cached || false);
+
         logger.info(`[Orchestrator] Retrieved ${ragDocuments.length} RAG documents`);
 
         // Track usage
@@ -138,6 +174,15 @@ export class OrchestratorService {
       } catch (error) {
         this.endStep(step, false, error);
         steps.push(step);
+
+        // Record error
+        metricsService.recordError('rag_retrieval_failed', 'rag-retriever');
+        sentryService.captureException(error as Error, {
+          component: 'orchestrator',
+          operation: 'rag_retrieval',
+          userId,
+        });
+
         logger.error('[Orchestrator] RAG retrieval failed:', error);
       }
     }
@@ -175,6 +220,10 @@ export class OrchestratorService {
 
       metrics.totalLatencyMs = Date.now() - startTime;
 
+      // Record successful upgrade metrics
+      metricsService.recordUpgradeRequest('success', userId);
+      metricsService.recordUpgradeLatency(metrics.totalLatencyMs / 1000, 'success', userId);
+
       logger.info('[Orchestrator] Pipeline complete', {
         totalLatencyMs: metrics.totalLatencyMs,
         totalTokens: metrics.totalTokensUsed,
@@ -197,6 +246,20 @@ export class OrchestratorService {
     } catch (error) {
       this.endStep(step, false, error);
       steps.push(step);
+
+      // Record error metrics
+      metricsService.recordUpgradeRequest('error', userId);
+      metricsService.recordError('prompt_upgrade_failed', 'prompt-upgrader');
+      sentryService.captureException(error as Error, {
+        component: 'orchestrator',
+        operation: 'prompt_upgrade',
+        userId,
+        metadata: {
+          promptLength: userPrompt.length,
+          hadSummary: !!summary,
+          hadRagContext: !!ragContext,
+        },
+      });
 
       logger.error('[Orchestrator] Prompt upgrading failed:', error);
 

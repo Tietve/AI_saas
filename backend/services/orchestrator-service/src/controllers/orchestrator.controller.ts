@@ -4,7 +4,92 @@ import { usageTrackingService } from '../services/usage-tracking.service';
 import logger from '../config/logger.config';
 
 /**
- * Upgrade a prompt using the full pipeline
+ * @swagger
+ * /api/upgrade:
+ *   post:
+ *     tags:
+ *       - Orchestrator
+ *     summary: Upgrade a user prompt using AI
+ *     description: |
+ *       Upgrades a user prompt through the full orchestration pipeline:
+ *       1. PII Redaction (optional)
+ *       2. Conversation Summarization (optional)
+ *       3. RAG Retrieval (optional)
+ *       4. Prompt Upgrading with GPT-4o-mini
+ *       5. PII Restoration
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/UpgradePromptRequest'
+ *           examples:
+ *             simple:
+ *               summary: Simple prompt upgrade
+ *               value:
+ *                 userPrompt: "Write an email to apply for a job"
+ *                 userId: "user-123"
+ *             withHistory:
+ *               summary: With conversation history
+ *               value:
+ *                 userPrompt: "Make it more formal"
+ *                 conversationHistory:
+ *                   - role: "user"
+ *                     content: "Write an email"
+ *                   - role: "assistant"
+ *                     content: "Here's a draft email..."
+ *                 userId: "user-123"
+ *                 options:
+ *                   enableSummarization: true
+ *                   enableRAG: false
+ *     responses:
+ *       200:
+ *         description: Successful upgrade
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     upgradedPrompt:
+ *                       type: string
+ *                       example: "ROLE: Job Applicant; TASK: Write a professional job application email..."
+ *                     originalPrompt:
+ *                       type: string
+ *                     ragDocuments:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                     piiRedacted:
+ *                       type: boolean
+ *                     metrics:
+ *                       type: object
+ *                       properties:
+ *                         totalLatencyMs:
+ *                           type: integer
+ *                         totalTokensUsed:
+ *                           type: integer
+ *                         upgradeLatencyMs:
+ *                           type: integer
+ *                     confidence:
+ *                       type: number
+ *                     reasoning:
+ *                       type: string
+ *                     missingQuestions:
+ *                       type: array
+ *                       items:
+ *                         type: string
+ *       400:
+ *         $ref: '#/components/responses/ValidationError'
+ *       429:
+ *         $ref: '#/components/responses/QuotaExceeded'
+ *       500:
+ *         description: Internal server error
  */
 export async function upgradePrompt(req: Request, res: Response) {
   try {
@@ -54,7 +139,64 @@ export async function upgradePrompt(req: Request, res: Response) {
 }
 
 /**
- * Get orchestrator stats
+ * @swagger
+ * /api/stats:
+ *   get:
+ *     tags:
+ *       - Stats
+ *     summary: Get usage statistics for a user
+ *     description: Returns usage statistics including tokens, costs, and component breakdown
+ *     parameters:
+ *       - in: query
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: User ID to get stats for
+ *       - in: query
+ *         name: startDate
+ *         schema:
+ *           type: string
+ *           format: date-time
+ *         description: Start date for filtering (ISO 8601)
+ *       - in: query
+ *         name: endDate
+ *         schema:
+ *           type: string
+ *           format: date-time
+ *         description: End date for filtering (ISO 8601)
+ *     responses:
+ *       200:
+ *         description: Usage statistics
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     currentPeriod:
+ *                       type: object
+ *                       properties:
+ *                         tokensUsed:
+ *                           type: integer
+ *                         tokensQuota:
+ *                           type: integer
+ *                         upgradesUsed:
+ *                           type: integer
+ *                         upgradesQuota:
+ *                           type: integer
+ *                     byComponent:
+ *                       type: object
+ *                     totalCost:
+ *                       type: number
+ *                     cacheHitRate:
+ *                       type: number
+ *       400:
+ *         $ref: '#/components/responses/ValidationError'
  */
 export async function getStats(req: Request, res: Response) {
   try {

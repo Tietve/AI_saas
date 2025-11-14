@@ -1,0 +1,154 @@
+{
+  "auth": {
+    "login": {
+      "title": "Đăng nhập",
+      "email": "Tên đăng nhập",
+      "emailPlaceholder": "Nhập tên đăng nhập của bạn",
+      "password": "Mật khẩu",
+      "passwordPlaceholder": "Nhập mật khẩu của bạn",
+      "forgotPassword": "Quên mật khẩu",
+      "signup": "Đăng ký",
+      "loginButton": "Đăng nhập",
+      "loggingIn": "Đang đăng nhập...",
+      "loginError": "Đăng nhập thất bại. Vui lòng kiểm tra lại thông tin.",
+      "termsPrefix": "Bằng cách tiếp tục, bạn đồng ý với",
+      "terms": "Điều khoản",
+      "and": "và",
+      "privacy": "Chính sách bảo mật",
+      "termsSuffix": "của chúng tôi."
+    },
+    "signup": {
+      "title": "Đăng ký",
+      "email": "Email",
+      "emailPlaceholder": "Nhập email của bạn",
+      "username": "Tên người dùng",
+      "usernamePlaceholder": "Nhập tên người dùng",
+      "password": "Mật khẩu",
+      "passwordPlaceholder": "Nhập mật khẩu (ít nhất 8 ký tự)",
+      "confirmPassword": "Xác nhận mật khẩu",
+      "confirmPasswordPlaceholder": "Nhập lại mật khẩu",
+      "signupButton": "Đăng ký",
+      "signingUp": "Đang đăng ký...",
+      "haveAccount": "Đã có tài khoản?",
+      "loginLink": "Đăng nhập"
+    },
+    "validation": {
+      "emailInvalid": "Email không hợp lệ",
+      "passwordMinLength": "Mật khẩu phải có ít nhất 8 ký tự",
+      "passwordMismatch": "Mật khẩu không khớp",
+      "required": "Trường này là bắt buộc"
+    }
+  },
+  "chat": {
+    "welcome": {
+      "greeting": "Chào {{userName}}! 👋",
+      "subtitle": "Tôi là Fir Box AI - trợ lý thông minh của bạn.",
+      "cta": "Hãy chọn một gợi ý hoặc bắt đầu cuộc trò chuyện!"
+    },
+    "features": {
+      "write": {
+        "title": "Viết nội dung",
+        "description": "Tạo văn bản chuyên nghiệp và sáng tạo"
+      },
+      "image": {
+        "title": "Tạo hình ảnh",
+        "description": "Thiết kế hình ảnh với AI"
+      },
+      "research": {
+        "title": "Nghiên cứu",
+        "description": "Tìm kiếm và phân tích thông tin"
+      }
+    },
+    "sidebar": {
+      "newChat": "Cuộc trò chuyện mới",
+      "settings": "Cài đặt",
+      "logout": "Đăng xuất",
+      "openSidebar": "Mở thanh bên"
+    },
+    "input": {
+      "placeholder": "Nhập tin nhắn của bạn...",
+      "send": "Gửi"
+    },
+    "messages": {
+      "typing": "Đang soạn...",
+      "ai": "AI",
+      "you": "Bạn"
+    },
+    "conversation": {
+      "rename": "Đổi tên",
+      "delete": "Xóa",
+      "pin": "Ghim",
+      "unpin": "Bỏ ghim",
+      "confirmDelete": "Bạn có chắc muốn xóa cuộc trò chuyện này?",
+      "today": "Hôm nay",
+      "yesterday": "Hôm qua",
+      "lastWeek": "Tuần trước",
+      "older": "Cũ hơn"
+    },
+    "search": {
+      "placeholder": "Tìm kiếm cuộc trò chuyện...",
+      "noResults": "Không tìm thấy kết quả"
+    },
+    "export": {
+      "title": "Xuất cuộc trò chuyện",
+      "markdown": "Xuất dạng Markdown",
+      "json": "Xuất dạng JSON",
+      "text": "Xuất dạng Text"
+    }
+  },
+  "settings": {
+    "title": "Cài đặt",
+    "language": {
+      "title": "Ngôn ngữ",
+      "vietnamese": "Tiếng Việt",
+      "english": "English"
+    },
+    "theme": {
+      "title": "Giao diện",
+      "light": "Sáng",
+      "dark": "Tối",
+      "auto": "Tự động"
+    },
+    "profile": {
+      "title": "Hồ sơ",
+      "name": "Tên",
+      "email": "Email",
+      "save": "Lưu thay đổi"
+    }
+  },
+  "billing": {
+    "title": "Gói dịch vụ",
+    "plans": {
+      "free": "Miễn phí",
+      "plus": "Plus",
+      "pro": "Pro"
+    },
+    "features": {
+      "messagesPerMonth": "{{count}} tin nhắn/tháng",
+      "unlimited": "Không giới hạn",
+      "support": "Hỗ trợ {{type}}",
+      "priority": "Ưu tiên",
+      "standard": "Tiêu chuẩn"
+    },
+    "subscribe": "Đăng ký gói {{plan}}",
+    "currentPlan": "Gói hiện tại",
+    "upgrade": "Nâng cấp",
+    "cancel": "Hủy đăng ký"
+  },
+  "common": {
+    "loading": "Đang tải...",
+    "error": "Đã có lỗi xảy ra",
+    "success": "Thành công",
+    "cancel": "Hủy",
+    "save": "Lưu",
+    "delete": "Xóa",
+    "edit": "Chỉnh sửa",
+    "close": "Đóng",
+    "confirm": "Xác nhận",
+    "back": "Quay lại",
+    "next": "Tiếp theo",
+    "search": "Tìm kiếm",
+    "filter": "Lọc",
+    "sort": "Sắp xếp"
+  }
+}

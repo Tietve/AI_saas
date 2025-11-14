@@ -1,0 +1,23 @@
+# Autonomous Fix All Errors Template
+
+Use this prompt to let Claude fix all errors autonomously:
+
+---
+
+Fix all errors in [PROJECT/SERVICE] autonomously:
+
+1. Scan for all TypeScript/ESLint errors
+2. Fix each error one by one
+3. After each fix, run: npm test
+4. If tests fail: analyze, fix, and retry
+5. If tests pass: continue to next error
+6. Repeat until all errors fixed and all tests pass
+7. Provide summary report at the end
+
+IMPORTANT:
+- Do NOT ask for approval on each edit
+- Work autonomously
+- Fix issues as you encounter them
+- Be thorough and test everything
+
+Start now and work until complete!

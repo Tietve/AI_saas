@@ -1,0 +1,67 @@
+#!/bin/bash
+
+# Post-commit hook để check và remind update memory files
+# Install: Copy file này vào .git/hooks/post-commit và chmod +x
+
+echo ""
+echo "🔍 Checking if memory files need update..."
+
+# Get list of changed files trong commit vừa rồi
+CHANGED_FILES=$(git diff-tree --no-commit-id --name-only -r HEAD)
+
+# Check if có structural changes
+NEEDS_INDEX_UPDATE=false
+NEEDS_CLAUDE_MD_UPDATE=false
+
+# Check for new/modified controllers, services, routes
+if echo "$CHANGED_FILES" | grep -qE "src/(controllers|services|routes)/.*\.(ts|js)$"; then
+    echo "  📂 Detected changes in controllers/services/routes"
+    NEEDS_INDEX_UPDATE=true
+fi
+
+# Check for new services/folders
+if echo "$CHANGED_FILES" | grep -qE "backend/services/[^/]+/(src|prisma)"; then
+    echo "  📦 Detected changes in services structure"
+    NEEDS_INDEX_UPDATE=true
+fi
+
+# Check for config changes
+if echo "$CHANGED_FILES" | grep -qE "\.(env|config|json)$"; then
+    echo "  ⚙️  Detected config changes"
+    NEEDS_CLAUDE_MD_UPDATE=true
+fi
+
+# Check for package.json changes (new dependencies/commands)
+if echo "$CHANGED_FILES" | grep -q "package.json"; then
+    echo "  📦 Detected package.json changes"
+    NEEDS_CLAUDE_MD_UPDATE=true
+fi
+
+echo ""
+
+# Show recommendations
+if [ "$NEEDS_INDEX_UPDATE" = true ]; then
+    echo "💡 RECOMMENDATION: Regenerate CODEBASE_INDEX.md"
+    echo "   Run: node .claude/regenerate-index.js"
+    echo ""
+fi
+
+if [ "$NEEDS_CLAUDE_MD_UPDATE" = true ]; then
+    echo "💡 RECOMMENDATION: Update CLAUDE.md"
+    echo "   Run: /memory (trong Claude Code)"
+    echo "   Or: code CLAUDE.md"
+    echo ""
+fi
+
+if [ "$NEEDS_INDEX_UPDATE" = false ] && [ "$NEEDS_CLAUDE_MD_UPDATE" = false ]; then
+    echo "✅ No memory updates needed for this commit"
+    echo ""
+fi
+
+# Optional: Auto-regenerate index (uncomment nếu muốn tự động)
+# if [ "$NEEDS_INDEX_UPDATE" = true ]; then
+#     echo "🔄 Auto-regenerating index..."
+#     node .claude/regenerate-index.js
+#     git add .claude/CODEBASE_INDEX.md
+#     git commit --amend --no-edit
+# fi

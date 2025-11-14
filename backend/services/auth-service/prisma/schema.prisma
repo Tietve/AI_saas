@@ -1,0 +1,488 @@
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// Authentication Models
+// ============================================
+
+model User {
+  id                       String    @id @default(cuid())
+  email                    String    @unique
+  emailLower               String    @unique // For case-insensitive queries
+  username                 String?   @unique
+  passwordHash             String
+  name                     String?
+  avatar                   String?
+
+  // Verification & plan
+  isEmailVerified          Boolean   @default(false)
+  emailVerifiedAt          DateTime?
+  planTier                 String    @default("FREE") // FREE, PLUS, PRO
+  monthlyTokenUsed         Int       @default(0)
+
+  // Security
+  failedLoginAttempts      Int       @default(0)
+  lastFailedLoginAt        DateTime?
+
+  // Timestamps
+  createdAt                DateTime  @default(now())
+  updatedAt                DateTime  @updatedAt
+  lastLoginAt              DateTime?
+
+  // Relations
+  emailVerificationTokens  EmailVerificationToken[]
+  passwordResetTokens      PasswordResetToken[]
+
+  @@index([emailLower])
+  @@index([username])
+}
+
+model EmailVerificationToken {
+  id         String   @id @default(cuid())
+  userId     String
+  tokenHash  String   @unique
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model PasswordResetToken {
+  id         String   @id @default(cuid())
+  userId     String
+  tokenHash  String   @unique
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+// ============================================
+// Orchestrator Service Models (Shared Database)
+// ============================================
+
+model ConversationState {
+  id               String   @id
+  conversationId   String   @unique
+  userId           String
+  turnNumber       Int      @default(0)
+  currentRole      String?  @db.VarChar(500)
+  currentTask      String?  @db.VarChar(500)
+  currentDomain    String?  @db.VarChar(200)
+  contextSummary   String   @default("")
+  usedKnowledgeIds String[]
+  messageHistory   Json     @default("[]")
+  lastActivity     DateTime @default(now())
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime
+  expiresAt        DateTime
+
+  @@index([conversationId])
+  @@index([expiresAt])
+  @@index([lastActivity])
+  @@index([userId])
+}
+
+model ConversationSummary {
+  id             String    @id
+  conversationId String    @unique
+  userId         String
+  summary        String
+  messageCount   Int
+  lastMessageId  String
+  embeddingModel String    @default("text-embedding-3-small")
+  pineconeId     String?   @unique
+  hitCount       Int       @default(0)
+  lastHitAt      DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime
+  expiresAt      DateTime
+
+  @@index([conversationId])
+  @@index([expiresAt])
+  @@index([userId])
+  @@index([userId, lastHitAt(sort: Desc)])
+}
+
+model EvalDataset {
+  id           String         @id
+  name         String         @db.VarChar(100)
+  description  String?        @db.VarChar(500)
+  category     String?
+  isActive     Boolean        @default(true)
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime
+  EvalQuestion EvalQuestion[]
+  EvalRun      EvalRun[]
+
+  @@index([category, isActive])
+}
+
+model EvalQuestion {
+  id             String       @id
+  evalDatasetId  String
+  question       String
+  expectedAnswer String?
+  category       String?
+  metadata       Json?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime
+  EvalDataset    EvalDataset  @relation(fields: [evalDatasetId], references: [id], onDelete: Cascade)
+  EvalResult     EvalResult[]
+
+  @@index([category])
+  @@index([evalDatasetId])
+}
+
+model EvalResult {
+  id                String       @id
+  evalRunId         String
+  evalQuestionId    String
+  actualAnswer      String?
+  upgradePrompt     String?
+  llmResponse       String?
+  relevanceScore    Float?
+  faithfulnessScore Float?
+  helpfulnessScore  Float?
+  passed            Boolean      @default(false)
+  piiLeakDetected   Boolean      @default(false)
+  injectionDetected Boolean      @default(false)
+  latencyMs         Int?
+  tokensIn          Int?
+  tokensOut         Int?
+  errorMessage      String?
+  createdAt         DateTime     @default(now())
+  EvalQuestion      EvalQuestion @relation(fields: [evalQuestionId], references: [id], onDelete: Cascade)
+  EvalRun           EvalRun      @relation(fields: [evalRunId], references: [id], onDelete: Cascade)
+
+  @@index([evalQuestionId])
+  @@index([evalRunId])
+  @@index([injectionDetected])
+  @@index([passed])
+  @@index([piiLeakDetected])
+}
+
+model EvalRun {
+  id              String       @id
+  evalDatasetId   String
+  runType         RunType      @default(NIGHTLY)
+  status          EvalStatus   @default(PENDING)
+  totalQuestions  Int          @default(0)
+  passed          Int          @default(0)
+  failed          Int          @default(0)
+  avgRelevance    Float?
+  avgFaithfulness Float?
+  avgHelpfulness  Float?
+  startedAt       DateTime?
+  completedAt     DateTime?
+  durationMs      Int?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime
+  EvalResult      EvalResult[]
+  EvalDataset     EvalDataset  @relation(fields: [evalDatasetId], references: [id], onDelete: Cascade)
+
+  @@index([evalDatasetId, createdAt(sort: Desc)])
+  @@index([runType, createdAt(sort: Desc)])
+  @@index([status])
+}
+
+model KnowledgeBase {
+  id              String    @id
+  userId          String
+  title           String    @db.VarChar(200)
+  content         String
+  embeddingModel  String    @default("text-embedding-3-small")
+  pineconeId      String?   @unique
+  chunkCount      Int       @default(1)
+  category        String?
+  tags            Json?
+  source          String?
+  retrievalCount  Int       @default(0)
+  lastRetrievedAt DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime
+
+  @@index([category])
+  @@index([pineconeId])
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([userId, retrievalCount(sort: Desc)])
+}
+
+model PIIRedaction {
+  id           String   @id
+  userId       String
+  originalText String
+  redactedText String
+  piiType      Json
+  redactionMap Json
+  requestId    String?
+  createdAt    DateTime @default(now())
+  expiresAt    DateTime
+
+  @@index([expiresAt])
+  @@index([requestId])
+  @@index([userId, createdAt(sort: Desc)])
+}
+
+model PromptRun {
+  id                String         @id
+  promptTemplateId  String
+  userId            String
+  rolloutStage      RolloutStage   @default(CANARY_5)
+  inputVariables    Json?
+  userPrompt        String?
+  upgradedPrompt    String?
+  finalPrompt       String?
+  llmResponse       String?
+  latencyMs         Int?
+  tokensIn          Int?
+  tokensOut         Int?
+  tokensUsed        Int?
+  costUsd           Float?
+  relevanceScore    Float?
+  faithfulnessScore Float?
+  helpfulnessScore  Float?
+  success           Boolean        @default(true)
+  errorMessage      String?
+  createdAt         DateTime       @default(now())
+  PromptTemplate    PromptTemplate @relation(fields: [promptTemplateId], references: [id], onDelete: Cascade)
+
+  @@index([createdAt(sort: Desc)])
+  @@index([promptTemplateId, createdAt(sort: Desc)])
+  @@index([rolloutStage, success])
+  @@index([userId, createdAt(sort: Desc)])
+}
+
+model PromptTemplate {
+  id              String       @id
+  name            String       @db.VarChar(100)
+  description     String?      @db.VarChar(500)
+  version         Int          @default(1)
+  content         String
+  variables       Json?
+  isActive        Boolean      @default(false)
+  promptType      PromptType
+  rolloutStage    RolloutStage @default(DEVELOPMENT)
+  avgLatencyMs    Int?
+  avgRelevance    Float?
+  avgFaithfulness Float?
+  totalRuns       Int          @default(0)
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime
+  PromptRun       PromptRun[]
+
+  @@unique([name, version])
+  @@index([name])
+  @@index([promptType, isActive])
+}
+
+model TenantPlan {
+  id                    String       @id
+  userId                String       @unique
+  planTier              PlanTier     @default(FREE)
+  monthlyTokenQuota     Int          @default(100000)
+  monthlyUpgradeQuota   Int          @default(1000)
+  monthlyEmbeddingQuota Int          @default(10000)
+  tokensUsed            Int          @default(0)
+  upgradesUsed          Int          @default(0)
+  embeddingsUsed        Int          @default(0)
+  currentPeriodStart    DateTime     @default(now())
+  currentPeriodEnd      DateTime
+  createdAt             DateTime     @default(now())
+  updatedAt             DateTime
+  TenantRole            TenantRole[]
+  UsageMeter            UsageMeter[]
+
+  @@index([currentPeriodEnd])
+  @@index([planTier])
+  @@index([userId])
+}
+
+model TenantRole {
+  id           String     @id
+  tenantPlanId String
+  userId       String
+  role         RoleType   @default(MEMBER)
+  permissions  Json?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime
+  TenantPlan   TenantPlan @relation(fields: [tenantPlanId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantPlanId, userId])
+  @@index([tenantPlanId, role])
+  @@index([userId])
+}
+
+model UsageMeter {
+  id           String     @id
+  tenantPlanId String
+  component    String
+  operation    String
+  tokensIn     Int        @default(0)
+  tokensOut    Int        @default(0)
+  costUsd      Float      @default(0)
+  latencyMs    Int?
+  cacheHit     Boolean    @default(false)
+  metadata     Json?
+  createdAt    DateTime   @default(now())
+  TenantPlan   TenantPlan @relation(fields: [tenantPlanId], references: [id], onDelete: Cascade)
+
+  @@index([cacheHit, component])
+  @@index([component, createdAt(sort: Desc)])
+  @@index([tenantPlanId, createdAt(sort: Desc)])
+}
+
+enum PlanTier {
+  FREE
+  PLUS
+  PRO
+  ENTERPRISE
+}
+
+enum EvalStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+enum PromptType {
+  SUMMARIZER
+  UPGRADER
+  RAG_QUERY
+  CUSTOM
+}
+
+enum RoleType {
+  OWNER
+  ADMIN
+  MEMBER
+  VIEWER
+}
+
+enum RolloutStage {
+  DEVELOPMENT
+  CANARY_5
+  CANARY_25
+  CANARY_50
+  PRODUCTION
+  FULL_100
+}
+
+enum RunType {
+  NIGHTLY
+  ON_DEMAND
+  PRE_DEPLOY
+  CONTINUOUS
+}
+
+// ============================================
+// Chat Service Models (Shared Database)
+// ============================================
+
+/// Chat conversation between users and AI
+model Conversation {
+  /// Unique conversation identifier
+  id          String    @id @default(cuid())
+  /// User who owns this conversation
+  userId      String
+  /// Conversation title for display
+  title       String    @default("New Chat") @db.VarChar(255)
+  /// AI model used (gpt-4, gpt-3.5-turbo, claude-3, etc.)
+  model       String    @default("gpt-4") @db.VarChar(50)
+  /// Whether conversation is pinned to top
+  pinned      Boolean   @default(false)
+  /// Conversation status
+  status      String    @default("active") // active|archived|deleted
+  /// AI temperature setting (0.0-2.0)
+  temperature Float?
+  /// Soft delete timestamp
+  deletedAt   DateTime?
+  /// User who deleted the conversation
+  deletedBy   String?
+  /// Created timestamp
+  createdAt   DateTime  @default(now())
+  /// Last updated timestamp
+  updatedAt   DateTime  @updatedAt
+
+  messages  Message[]
+
+  @@index([userId, updatedAt(sort: Desc)])
+  @@index([userId, pinned])
+  @@index([userId, status])
+  @@index([deletedAt])
+}
+
+/// Individual message in a conversation
+model Message {
+  /// Unique message identifier
+  id             String       @id @default(cuid())
+  /// Parent conversation ID
+  conversationId String
+  /// Message role (user, assistant, system)
+  role           String       @db.VarChar(20)
+  /// Message content
+  content        String       @db.Text
+  /// Content type (text, image, file, system)
+  contentType    String       @default("text") @db.VarChar(20)
+  /// Token count for this message
+  tokenCount     Int          @default(0)
+  /// AI model used for this message
+  model          String?      @db.VarChar(50)
+  /// Soft delete timestamp
+  deletedAt      DateTime?
+  /// User who deleted the message
+  deletedBy      String?
+  /// Created timestamp
+  createdAt      DateTime     @default(now())
+
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, createdAt(sort: Asc)])
+  @@index([conversationId, role])
+  @@index([conversationId, contentType])
+  @@index([deletedAt])
+}
+
+/// Token usage tracking for billing and quotas
+model TokenUsage {
+  /// Unique usage record identifier
+  id               String   @id @default(cuid())
+  /// User who incurred the usage
+  userId           String
+  /// Conversation where tokens were used
+  conversationId   String?
+  /// Specific message that used tokens
+  messageId        String?
+  /// AI model used
+  model            String   @db.VarChar(50)
+  /// Input/prompt tokens
+  promptTokens     Int
+  /// Output/completion tokens
+  completionTokens Int
+  /// Total tokens (prompt + completion)
+  totalTokens      Int
+  /// Cost in USD
+  cost             Float
+  /// Created timestamp
+  createdAt        DateTime @default(now())
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([conversationId])
+  @@index([conversationId, createdAt])
+  @@index([messageId])
+}

@@ -1,0 +1,22 @@
+# Browsers that we support
+# This file is used by Autoprefixer to add vendor prefixes to CSS
+
+# Production browsers
+> 0.5%
+last 2 versions
+not dead
+
+# Additional targets
+Firefox ESR
+Chrome >= 90
+Edge >= 90
+Safari >= 14
+iOS >= 14
+
+# Mobile browsers
+last 2 Chrome versions
+last 2 Safari versions
+
+# Exclude IE 11 (not supported)
+not IE 11
+not IE_Mob 11

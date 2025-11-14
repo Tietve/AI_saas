@@ -15,6 +15,14 @@ import {
   sentryErrorHandler
 } from './config/sentry';
 import { EventPublisher } from './shared/events';
+import {
+  BODY_SIZE_LIMITS,
+  enforceHTTPS,
+  requestTimeout,
+  sanitizeRequest,
+  securityHeaders,
+  apiRateLimiter
+} from '../../../shared/security/security.middleware';
 
 // Initialize Sentry FIRST
 initSentry({ serviceName: 'billing-service' });
@@ -38,14 +46,30 @@ collectDefaultMetrics({ register });
 const tracer = initJaegerTracing('billing-service');
 
 // Middleware
-app.use(helmet());
+// SECURITY FIX: Apply HTTPS enforcement
+app.use(enforceHTTPS);
+
+// SECURITY FIX: Apply security headers
+app.use(securityHeaders());
+
+// SECURITY FIX: Apply request timeout (30 seconds)
+app.use(requestTimeout(30000));
+
 app.use(cors({
   origin: config.FRONTEND_URL,
   credentials: true
 }));
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true }));
+
+// SECURITY FIX: Reduced body limit from 10mb to 1mb to prevent DoS attacks
+app.use(express.json({ limit: BODY_SIZE_LIMITS.DEFAULT }));
+app.use(express.urlencoded({ limit: BODY_SIZE_LIMITS.DEFAULT, extended: true }));
 app.use(cookieParser());
+
+// SECURITY FIX: Sanitize incoming requests
+app.use(sanitizeRequest);
+
+// SECURITY FIX: Apply rate limiting
+app.use(apiRateLimiter);
 
 // Sentry request tracking
 app.use(sentryRequestHandler());

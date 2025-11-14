@@ -44,8 +44,9 @@ app.use(cors({
   origin: config.FRONTEND_URL,
   credentials: true
 }));
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true }));
+// SECURITY FIX: Reduced body limit from 10mb to 1mb to prevent DoS attacks
+app.use(express.json({ limit: '1mb' }));
+app.use(express.urlencoded({ limit: '1mb', extended: true }));
 app.use(cookieParser());
 
 // Sentry request tracking

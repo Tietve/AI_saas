@@ -5,15 +5,39 @@ import { register } from 'prom-client';
 import { logger } from './utils/logger';
 import { testClickHouseConnection } from './database/clickhouse.client';
 import analyticsRoutes from './routes/analytics.routes';
+import {
+  BODY_SIZE_LIMITS,
+  enforceHTTPS,
+  requestTimeout,
+  sanitizeRequest,
+  securityHeaders,
+  apiRateLimiter
+} from '../../../shared/security/security.middleware';
 
 export function createApp(): Application {
   const app = express();
 
   // Middleware
-  app.use(helmet());
+  // SECURITY FIX: Apply HTTPS enforcement
+  app.use(enforceHTTPS);
+
+  // SECURITY FIX: Apply security headers
+  app.use(securityHeaders());
+
+  // SECURITY FIX: Apply request timeout (30 seconds)
+  app.use(requestTimeout(30000));
+
   app.use(cors());
-  app.use(express.json());
-  app.use(express.urlencoded({ extended: true }));
+
+  // SECURITY FIX: Reduced body limit to 500kb for analytics endpoints
+  app.use(express.json({ limit: BODY_SIZE_LIMITS.ANALYTICS }));
+  app.use(express.urlencoded({ limit: BODY_SIZE_LIMITS.ANALYTICS, extended: true }));
+
+  // SECURITY FIX: Sanitize incoming requests
+  app.use(sanitizeRequest);
+
+  // SECURITY FIX: Apply rate limiting
+  app.use(apiRateLimiter);
 
   // Request logging middleware
   app.use((req: Request, res: Response, next: NextFunction) => {

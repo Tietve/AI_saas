@@ -6,6 +6,8 @@ import { verificationRepository } from '../repositories/verification.repository'
 import { config } from '../config/env';
 import { PrismaClient } from '@prisma/client';
 import { addEmailJob } from './queue.service';
+import { jwtService } from '../../../../shared/auth/jwt.utils';
+import { tokenManager } from '../../../../shared/auth/token-manager.service';
 
 const prisma = new PrismaClient();
 
@@ -16,7 +18,9 @@ export interface SignupResult {
   email?: string;
   planTier?: string;
   message: string;
-  sessionToken?: string;
+  sessionToken?: string; // Deprecated - use accessToken
+  accessToken?: string; // NEW: 15-min access token
+  refreshToken?: string; // NEW: 7-day refresh token
 }
 
 export interface SigninResult {
@@ -24,7 +28,9 @@ export interface SigninResult {
   userId?: string;
   email?: string;
   planTier?: string;
-  sessionToken?: string;
+  sessionToken?: string; // Deprecated - use accessToken
+  accessToken?: string; // NEW: 15-min access token
+  refreshToken?: string; // NEW: 7-day refresh token
   message: string;
   needsVerification?: boolean;
 }
@@ -87,7 +93,7 @@ export class AuthService {
         message: 'Đăng ký thành công! Vui lòng kiểm tra email để xác thực tài khoản.'
       };
     } else {
-      const sessionToken = this.createSessionToken(user.id, user.email);
+      const tokens = await this.createTokens(user.id, user.email);
 
       return {
         success: true,
@@ -95,7 +101,9 @@ export class AuthService {
         userId: user.id,
         email: user.email,
         planTier: user.planTier,
-        sessionToken,
+        sessionToken: tokens.accessToken, // Backward compat
+        accessToken: tokens.accessToken,
+        refreshToken: tokens.refreshToken,
         message: 'Đăng ký thành công'
       };
     }
@@ -146,15 +154,17 @@ export class AuthService {
       };
     }
 
-    // Create session token
-    const sessionToken = this.createSessionToken(user.id, user.email);
+    // Create access and refresh tokens
+    const tokens = await this.createTokens(user.id, user.email);
 
     return {
       success: true,
       userId: user.id,
       email: user.email,
       planTier: user.planTier,
-      sessionToken,
+      sessionToken: tokens.accessToken, // Backward compat
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
       message: 'Đăng nhập thành công'
     };
   }
@@ -284,51 +294,112 @@ export class AuthService {
   }
 
   /**
-   * Create JWT session token
+   * Create JWT access and refresh tokens
+   * SECURITY FIX: 15-min access + 7-day refresh with RS256
    */
-  private createSessionToken(userId: string, email: string): string {
-    // SECURITY: Validate AUTH_SECRET is properly configured
-    if (!config.AUTH_SECRET) {
-      throw new Error(
-        'CRITICAL SECURITY ERROR: AUTH_SECRET environment variable is not set. ' +
-        'This is required for JWT token signing. ' +
-        'Generate a strong secret with: openssl rand -base64 48'
-      );
-    }
+  private async createTokens(userId: string, email: string): Promise<{
+    accessToken: string;
+    refreshToken: string;
+  }> {
+    // Generate access token (15 minutes)
+    const accessToken = jwtService.generateAccessToken(userId, email);
 
-    if (config.AUTH_SECRET.length < 32) {
-      throw new Error(
-        'CRITICAL SECURITY ERROR: AUTH_SECRET must be at least 32 characters long. ' +
-        'Current length: ' + config.AUTH_SECRET.length + '. ' +
-        'Generate a strong secret with: openssl rand -base64 48'
-      );
-    }
+    // Generate refresh token (7 days)
+    const refreshToken = jwtService.generateRefreshToken(userId, email);
 
-    const secret = config.AUTH_SECRET;
-    const expiresIn = '7d';
+    // Store refresh token in Redis with 7-day TTL
+    await tokenManager.storeRefreshToken(userId, refreshToken, 7 * 24 * 60 * 60);
 
-    return jwt.sign(
-      { userId, email },
-      secret,
-      { expiresIn }
-    );
+    return { accessToken, refreshToken };
   }
 
   /**
-   * Verify JWT session token
+   * Create JWT session token (DEPRECATED - use createTokens instead)
+   * Keeping for backward compatibility
+   */
+  private async createSessionToken(userId: string, email: string): Promise<string> {
+    // For backward compatibility, return access token
+    const { accessToken } = await this.createTokens(userId, email);
+    return accessToken;
+  }
+
+  /**
+   * Verify JWT session token (uses RS256 public key)
    */
   verifySessionToken(token: string): { userId: string; email: string } | null {
+    const verified = jwtService.verifyToken(token);
+    if (!verified) return null;
+
+    return {
+      userId: verified.userId,
+      email: verified.email
+    };
+  }
+
+  /**
+   * Refresh access token using refresh token
+   * NEW METHOD for token refresh flow
+   */
+  async refreshAccessToken(refreshToken: string): Promise<{
+    accessToken: string;
+    refreshToken: string;
+  } | null> {
     try {
-      // SECURITY: Validate AUTH_SECRET is configured
-      if (!config.AUTH_SECRET) {
-        throw new Error('AUTH_SECRET is not configured');
+      // Verify refresh token signature
+      const verified = jwtService.verifyToken(refreshToken);
+
+      if (!verified || verified.type !== 'refresh') {
+        console.error('[Auth] Invalid refresh token type');
+        return null;
       }
 
-      const secret = config.AUTH_SECRET;
-      const decoded = jwt.verify(token, secret) as { userId: string; email: string };
-      return decoded;
+      // Check if refresh token exists in Redis
+      const isValid = await tokenManager.verifyRefreshToken(
+        verified.userId,
+        refreshToken
+      );
+
+      if (!isValid) {
+        console.error('[Auth] Refresh token not found in Redis');
+        return null;
+      }
+
+      // Revoke old refresh token (prevent reuse)
+      await tokenManager.revokeRefreshToken(verified.userId, refreshToken);
+
+      // Generate new access + refresh tokens
+      const tokens = await this.createTokens(verified.userId, verified.email);
+
+      console.log(`[Auth] Tokens refreshed for user ${verified.userId}`);
+
+      return tokens;
     } catch (error) {
+      console.error('[Auth] Error refreshing token:', error);
       return null;
+    }
+  }
+
+  /**
+   * Logout - revoke tokens
+   * NEW METHOD for proper logout with token blacklisting
+   */
+  async logout(accessToken: string, userId: string): Promise<void> {
+    try {
+      // Get token expiration to set blacklist TTL
+      const exp = jwtService.getTokenExpiration(accessToken);
+      if (exp) {
+        const ttl = tokenManager.getRemainingTTL(exp);
+        // Blacklist access token
+        await tokenManager.blacklistToken(accessToken, ttl);
+      }
+
+      // Revoke all refresh tokens for user
+      await tokenManager.revokeAllUserTokens(userId);
+
+      console.log(`[Auth] User ${userId} logged out successfully`);
+    } catch (error) {
+      console.error('[Auth] Error during logout:', error);
+      throw error;
     }
   }
 }

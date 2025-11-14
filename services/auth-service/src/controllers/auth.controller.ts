@@ -41,11 +41,20 @@ export class AuthController {
           email: result.email
         });
       } else {
-        // Set session cookie
-        res.cookie('session', result.sessionToken, {
+        // Set access token cookie (15 minutes)
+        res.cookie('session', result.accessToken, {
           httpOnly: true,
-          secure: true, // Always use secure cookies
-          sameSite: 'strict', // Stricter CSRF protection
+          secure: true,
+          sameSite: 'strict',
+          path: '/',
+          maxAge: 15 * 60 * 1000 // 15 minutes - SECURITY FIX
+        });
+
+        // Set refresh token cookie (7 days)
+        res.cookie('refreshToken', result.refreshToken, {
+          httpOnly: true,
+          secure: true,
+          sameSite: 'strict',
           path: '/',
           maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
         });
@@ -53,7 +62,10 @@ export class AuthController {
         res.status(200).json({
           ok: true,
           message: result.message,
-          redirectUrl: '/chat'
+          redirectUrl: '/chat',
+          // Also return tokens in body for mobile/API clients
+          accessToken: result.accessToken,
+          refreshToken: result.refreshToken
         });
       }
     } catch (error: any) {
@@ -113,11 +125,20 @@ export class AuthController {
         }
       }
 
-      // Set session cookie
-      res.cookie('session', result.sessionToken, {
+      // Set access token cookie (15 minutes)
+      res.cookie('session', result.accessToken, {
         httpOnly: true,
-        secure: true, // Always use secure cookies
-        sameSite: 'strict', // Stricter CSRF protection
+        secure: true,
+        sameSite: 'strict',
+        path: '/',
+        maxAge: 15 * 60 * 1000 // 15 minutes - SECURITY FIX
+      });
+
+      // Set refresh token cookie (7 days)
+      res.cookie('refreshToken', result.refreshToken, {
+        httpOnly: true,
+        secure: true,
+        sameSite: 'strict',
         path: '/',
         maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
       });
@@ -125,7 +146,10 @@ export class AuthController {
       res.status(200).json({
         ok: true,
         message: result.message,
-        redirectUrl: '/chat'
+        redirectUrl: '/chat',
+        // Also return tokens in body for mobile/API clients
+        accessToken: result.accessToken,
+        refreshToken: result.refreshToken
       });
     } catch (error: any) {
       console.error('[signin] Error:', error);
@@ -145,20 +169,114 @@ export class AuthController {
 
   /**
    * POST /api/auth/signout
-   * Clear session cookie
+   * Revoke tokens and clear cookies - SECURITY FIX
    */
   async signout(req: Request, res: Response): Promise<void> {
-    res.clearCookie('session', {
-      httpOnly: true,
-      secure: true, // Always use secure cookies
-      sameSite: 'strict', // Stricter CSRF protection
-      path: '/'
-    });
+    try {
+      const accessToken = req.cookies.session || req.headers.authorization?.replace('Bearer ', '');
 
-    res.status(200).json({
-      ok: true,
-      message: 'Đăng xuất thành công'
-    });
+      // Verify token to get userId
+      const decoded = authService.verifySessionToken(accessToken);
+
+      if (decoded && accessToken) {
+        // Revoke tokens in Redis (blacklist access token + revoke refresh tokens)
+        await authService.logout(accessToken, decoded.userId);
+      }
+
+      // Clear cookies
+      res.clearCookie('session', {
+        httpOnly: true,
+        secure: true,
+        sameSite: 'strict',
+        path: '/'
+      });
+
+      res.clearCookie('refreshToken', {
+        httpOnly: true,
+        secure: true,
+        sameSite: 'strict',
+        path: '/'
+      });
+
+      res.status(200).json({
+        ok: true,
+        message: 'Đăng xuất thành công'
+      });
+    } catch (error: any) {
+      console.error('[signout] Error:', error);
+      // Still clear cookies even if revocation fails
+      res.clearCookie('session');
+      res.clearCookie('refreshToken');
+
+      res.status(200).json({
+        ok: true,
+        message: 'Đăng xuất thành công'
+      });
+    }
+  }
+
+  /**
+   * POST /api/auth/refresh
+   * Refresh access token using refresh token - NEW ENDPOINT
+   */
+  async refresh(req: Request, res: Response): Promise<void> {
+    try {
+      const refreshToken = req.cookies.refreshToken || req.body.refreshToken;
+
+      if (!refreshToken) {
+        res.status(401).json({
+          success: false,
+          error: 'Refresh token not provided',
+          code: 'NO_REFRESH_TOKEN'
+        });
+        return;
+      }
+
+      // Refresh tokens
+      const tokens = await authService.refreshAccessToken(refreshToken);
+
+      if (!tokens) {
+        res.status(401).json({
+          success: false,
+          error: 'Invalid or expired refresh token. Please login again.',
+          code: 'INVALID_REFRESH_TOKEN'
+        });
+        return;
+      }
+
+      // Set new access token cookie (15 minutes)
+      res.cookie('session', tokens.accessToken, {
+        httpOnly: true,
+        secure: true,
+        sameSite: 'strict',
+        path: '/',
+        maxAge: 15 * 60 * 1000
+      });
+
+      // Set new refresh token cookie (7 days)
+      res.cookie('refreshToken', tokens.refreshToken, {
+        httpOnly: true,
+        secure: true,
+        sameSite: 'strict',
+        path: '/',
+        maxAge: 7 * 24 * 60 * 60 * 1000
+      });
+
+      res.status(200).json({
+        ok: true,
+        message: 'Token refreshed successfully',
+        // Also return tokens in body for mobile/API clients
+        accessToken: tokens.accessToken,
+        refreshToken: tokens.refreshToken
+      });
+    } catch (error: any) {
+      console.error('[refresh] Error:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to refresh token',
+        code: 'REFRESH_ERROR'
+      });
+    }
   }
 
   /**

@@ -7,6 +7,7 @@ import {
   verificationRateLimiter,
   authRateLimiter
 } from '../middleware/rate-limit';
+import { validateAuth } from '../../../../shared/validation/validation.middleware';
 
 const router = Router();
 
@@ -58,7 +59,7 @@ const router = Router();
  *       429:
  *         description: "Too many requests (rate limit: 5 per hour)"
  */
-router.post('/signup', signupRateLimiter, (req, res) => authController.signup(req, res));
+router.post('/signup', signupRateLimiter, validateAuth.signup, (req, res) => authController.signup(req, res));
 
 /**
  * @swagger
@@ -108,13 +109,19 @@ router.post('/signup', signupRateLimiter, (req, res) => authController.signup(re
  *       429:
  *         description: "Too many attempts (rate limit: 10 per 15 minutes)"
  */
-router.post('/signin', signinRateLimiter, (req, res) => authController.signin(req, res));
+router.post('/signin', signinRateLimiter, validateAuth.signin, (req, res) => authController.signin(req, res));
 
 /**
  * POST /api/auth/signout
- * Clear user session
+ * Revoke tokens and clear session
  */
 router.post('/signout', (req, res) => authController.signout(req, res));
+
+/**
+ * POST /api/auth/refresh
+ * Refresh access token using refresh token - NEW ENDPOINT (SECURITY FIX)
+ */
+router.post('/refresh', authRateLimiter, validateAuth.refresh, (req, res) => authController.refresh(req, res));
 
 /**
  * GET /api/auth/me
@@ -126,19 +133,19 @@ router.get('/me', (req, res) => authController.me(req, res));
  * POST /api/auth/verify-email
  * Verify email address with token
  */
-router.post('/verify-email', authRateLimiter, (req, res) => authController.verifyEmail(req, res));
+router.post('/verify-email', authRateLimiter, validateAuth.verifyEmail, (req, res) => authController.verifyEmail(req, res));
 
 /**
  * POST /api/auth/forgot-password
  * Request password reset email
  */
-router.post('/forgot-password', passwordResetRateLimiter, (req, res) => authController.forgotPassword(req, res));
+router.post('/forgot-password', passwordResetRateLimiter, validateAuth.forgotPassword, (req, res) => authController.forgotPassword(req, res));
 
 /**
  * POST /api/auth/reset-password
  * Reset password with token
  */
-router.post('/reset-password', passwordResetRateLimiter, (req, res) => authController.resetPassword(req, res));
+router.post('/reset-password', passwordResetRateLimiter, validateAuth.resetPassword, (req, res) => authController.resetPassword(req, res));
 
 /**
  * POST /api/auth/resend-verification

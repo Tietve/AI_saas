@@ -18,6 +18,14 @@ import {
 } from './config/sentry';
 import { setupSwagger } from './config/swagger';
 import { initEventPublisher } from './shared/events';
+import {
+  BODY_SIZE_LIMITS,
+  enforceHTTPS,
+  requestTimeout,
+  sanitizeRequest,
+  securityHeaders,
+  authRateLimiter
+} from '../../../shared/security/security.middleware';
 
 // Initialize Sentry FIRST (before Express app)
 initSentry({ serviceName: 'auth-service' });
@@ -38,14 +46,27 @@ collectDefaultMetrics({ register });
 const tracer = initJaegerTracing('auth-service');
 
 // Middleware
-app.use(helmet());
+// SECURITY FIX: Apply HTTPS enforcement
+app.use(enforceHTTPS);
+
+// SECURITY FIX: Apply security headers
+app.use(securityHeaders());
+
+// SECURITY FIX: Apply request timeout (30 seconds)
+app.use(requestTimeout(30000));
+
 app.use(cors({
   origin: process.env.FRONTEND_URL || 'http://localhost:3000',
   credentials: true
 }));
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true }));
+
+// SECURITY FIX: Reduced body limit from 10mb to 100kb for auth endpoints
+app.use(express.json({ limit: BODY_SIZE_LIMITS.AUTH }));
+app.use(express.urlencoded({ limit: BODY_SIZE_LIMITS.AUTH, extended: true }));
 app.use(cookieParser());
+
+// SECURITY FIX: Sanitize incoming requests
+app.use(sanitizeRequest);
 
 // Sentry request tracking (must be first after body parsers)
 app.use(sentryRequestHandler());

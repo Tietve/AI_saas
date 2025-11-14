@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { chatController } from '../controllers/chat.controller';
 import { authenticateToken } from '../middleware/auth';
+import { validateChat } from '../../../shared/validation/validation.middleware';
 
 const router = Router();
 
@@ -11,7 +12,7 @@ router.use(authenticateToken);
  * POST /api/chat
  * Send message and get AI response
  */
-router.post('/chat', (req, res) => chatController.sendMessage(req, res));
+router.post('/chat', validateChat.sendMessage, (req, res) => chatController.sendMessage(req, res));
 
 /**
  * GET /api/conversations
@@ -23,13 +24,13 @@ router.get('/conversations', (req, res) => chatController.getConversations(req, 
  * GET /api/conversations/:id
  * Get conversation by ID with messages
  */
-router.get('/conversations/:id', (req, res) => chatController.getConversation(req, res));
+router.get('/conversations/:id', validateChat.getConversation, (req, res) => chatController.getConversation(req, res));
 
 /**
  * DELETE /api/conversations/:id
  * Delete conversation
  */
-router.delete('/conversations/:id', (req, res) => chatController.deleteConversation(req, res));
+router.delete('/conversations/:id', validateChat.deleteConversation, (req, res) => chatController.deleteConversation(req, res));
 
 /**
  * GET /api/usage

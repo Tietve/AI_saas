@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { billingController } from '../controllers/billing.controller';
 import { authenticateToken } from '../middleware/auth';
+import { validateBilling } from '../../../shared/validation/validation.middleware';
 
 const router = Router();
 
@@ -11,7 +12,7 @@ router.use(authenticateToken);
  * POST /api/subscribe
  * Create new subscription
  */
-router.post('/subscribe', (req, res) => billingController.createSubscription(req, res));
+router.post('/subscribe', validateBilling.createCheckout, (req, res) => billingController.createSubscription(req, res));
 
 /**
  * POST /api/cancel

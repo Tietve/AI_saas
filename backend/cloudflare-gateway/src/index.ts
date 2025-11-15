@@ -78,13 +78,12 @@ app.get('/', (c) => {
 // Import routes
 import authRoutes from './routes/auth';
 import aiRoutes from './routes/ai';
+import ragRoutes from './routes/rag';
 
 // Mount routes
 app.route('/api/auth', authRoutes);
 app.route('/api/ai', aiRoutes);
-
-// TODO: Agent 13-16 - RAG routes
-// app.route('/api/rag', ragRoutes);
+app.route('/api/rag', ragRoutes);
 
 // TODO: Billing routes (simple proxy)
 // app.route('/api/billing', billingRoutes);

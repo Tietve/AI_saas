@@ -9,7 +9,13 @@
     "start": "node dist/app.js",
     "prisma:generate": "prisma generate",
     "prisma:push": "prisma db push",
-    "test": "jest"
+    "test": "jest",
+    "test:unit": "jest tests/unit",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
+    "test:verbose": "jest --verbose",
+    "test:embedding": "jest tests/unit/embedding.service.test.ts",
+    "test:vector": "jest tests/unit/vector-store.service.test.ts"
   },
   "keywords": [
     "chat",
@@ -50,17 +56,21 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.38.0",
+    "@jest/globals": "^30.2.0",
     "@types/cookie-parser": "^1.4.7",
     "@types/cors": "^2.8.17",
     "@types/express": "^5.0.0",
     "@types/jaeger-client": "^3.18.7",
+    "@types/jest": "^30.0.0",
     "@types/jsonwebtoken": "^9.0.7",
     "@types/multer": "^2.0.0",
     "@types/node": "^22.10.2",
     "@types/pdf-parse": "^1.1.5",
     "@types/swagger-ui-express": "^4.1.8",
     "globals": "^16.4.0",
+    "jest": "^30.2.0",
     "prisma": "^6.2.0",
+    "ts-jest": "^29.4.5",
     "tsx": "^4.19.2",
     "typescript": "^5.7.2",
     "typescript-eslint": "^8.46.2"

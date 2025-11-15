@@ -10,7 +10,8 @@ import { hasIcons } from './iconParser';
 export const remarkIcons: Plugin<[], Root> = () => {
   return (tree) => {
     visit(tree, 'text', (node: Text, index, parent) => {
-      if (!parent || index === null || !hasIcons(node.value)) {
+      // Type guard: index can be number | undefined from visit callback
+      if (!parent || index === null || index === undefined || !hasIcons(node.value)) {
         return;
       }
 

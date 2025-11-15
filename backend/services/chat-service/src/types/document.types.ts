@@ -69,29 +69,10 @@ export interface ChunkWithEmbedding extends Chunk {
 }
 
 // ============================================================================
-// Embeddings
+// Embeddings - MOVED TO SHARED SERVICE
 // ============================================================================
-
-export interface EmbeddingRequest {
-  texts: string[];
-  model?: string; // Default: 'text-embedding-3-small'
-}
-
-export interface EmbeddingResponse {
-  embeddings: number[][];
-  tokensUsed: number;
-}
-
-export interface OpenAIEmbeddingResponse {
-  data: Array<{
-    embedding: number[];
-    index: number;
-  }>;
-  usage: {
-    prompt_tokens: number;
-    total_tokens: number;
-  };
-}
+// Note: Embedding types are now in backend/shared/services
+// Use: import { EmbeddingService, EmbeddingProvider, EmbeddingResult } from '@/backend/shared/services';
 
 // ============================================================================
 // Vector Search
@@ -247,12 +228,8 @@ export class PdfParsingError extends DocumentError {
   }
 }
 
-export class EmbeddingError extends DocumentError {
-  constructor(message: string) {
-    super(message, 'EMBEDDING_ERROR', 500);
-    this.name = 'EmbeddingError';
-  }
-}
+// EmbeddingError moved to shared service
+// Use: import { EmbeddingError } from '@/backend/shared/services';
 
 export class VectorStoreError extends DocumentError {
   constructor(message: string) {

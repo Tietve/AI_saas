@@ -17,13 +17,6 @@ interface EnvConfig {
   redisPassword?: string;
   redisDb: number;
 
-  // Pinecone
-  pinecone: {
-    apiKey: string;
-    environment: string;
-    indexName: string;
-  };
-
   // OpenAI
   openai: {
     apiKey: string;
@@ -98,13 +91,6 @@ export const env: EnvConfig = {
   redisUrl: process.env.REDIS_URL!,
   redisPassword: process.env.REDIS_PASSWORD,
   redisDb: parseInt(process.env.REDIS_DB || '0', 10),
-
-  // Pinecone
-  pinecone: {
-    apiKey: process.env.PINECONE_API_KEY!,
-    environment: process.env.PINECONE_ENVIRONMENT!,
-    indexName: process.env.PINECONE_INDEX_NAME!,
-  },
 
   // OpenAI
   openai: {

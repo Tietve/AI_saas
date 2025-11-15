@@ -9,12 +9,22 @@
 ## 📋 SERVICES OVERVIEW
 
 ```
-my-saas-chat/backend/services/
-├── auth-service          Port 3001 - Authentication & User Management
-├── chat-service          Port 3003 - Chat & AI Integration
-├── billing-service       Port 3004 - Stripe Billing & Subscriptions
-├── analytics-service     Port 3005 - Analytics & Reporting
-└── email-worker          Background - Email Queue Processing
+my-saas-chat/backend/
+├── services/
+│   ├── auth-service          Port 3001 - Authentication & User Management
+│   ├── chat-service          Port 3003 - Chat & AI Integration
+│   ├── billing-service       Port 3004 - Stripe Billing & Subscriptions
+│   ├── analytics-service     Port 3005 - Analytics & Reporting
+│   ├── orchestrator-service  Port 3006 - AI Orchestration
+│   └── email-worker          Background - Email Queue Processing
+├── shared/                   ⭐ NEW - Shared Services Layer
+│   ├── services/             AI services (LLM, Embeddings, Cloudflare)
+│   ├── config/               Shared configuration & validation
+│   ├── events/               Event publisher & types
+│   └── tracing/              Jaeger distributed tracing
+└── tests/                    ⭐ NEW - Integration & Performance Tests
+    ├── integration/          Multi-service integration tests
+    └── performance/          Load testing & benchmarks
 ```
 
 ---
@@ -171,6 +181,87 @@ my-saas-chat/backend/services/
 
 ---
 
+## 🤖 SHARED SERVICES (backend/shared/services/) ⭐ NEW
+
+### AI Services
+| File | Purpose | Key Functions |
+|------|---------|---------------|
+| `llm.service.ts` | Multi-provider LLM | generateRAGAnswer(), autoSelectProvider(), estimateCost() |
+| `embedding.service.ts` | Unified embeddings | embed(), embedBatch(), cosineSimilarity() |
+| `cloudflare-ai.service.ts` | Cloudflare Workers AI | generateEmbedding(), generateText(), generateRAGAnswer() |
+
+### Configuration & Utilities
+| File | Purpose | Key Functions |
+|------|---------|---------------|
+| `config/sentry.ts` | Sentry error tracking | initSentry() |
+| `config/schema.ts` | Zod validation schemas | 25+ config schemas |
+| `config/validator.ts` | Runtime validation | validateConfig() |
+| `events/index.ts` | Event publisher | publishEvent() |
+| `tracing/jaeger.ts` | Distributed tracing | initJaegerTracing() |
+
+### Key Features
+- **Multi-Provider:** OpenAI, Cloudflare, Anthropic support
+- **Cost Tracking:** Built-in cost estimation per operation
+- **Auto-Selection:** Complexity-based provider routing
+- **Caching:** In-memory cache with 20-40% hit rate
+- **Batch Processing:** Rate-limited batch operations
+- **Retry Logic:** Exponential backoff (up to 5 retries)
+
+**See:** [docs/SHARED_SERVICES.md](../docs/SHARED_SERVICES.md) for detailed documentation
+
+---
+
+## 🧪 TESTS (backend/tests/) ⭐ NEW
+
+### Integration Tests
+| File | Tests | Purpose |
+|------|-------|---------|
+| `integration/auth-chat.integration.test.ts` | 10 | Auth + Chat flows |
+| `integration/chat-billing.integration.test.ts` | 10 | Chat + Billing flows |
+| `integration/document-pipeline.integration.test.ts` | 10 | Document processing |
+
+### Performance Benchmarks
+| File | Purpose | Tool |
+|------|---------|------|
+| `performance/api-benchmarks.js` | API load testing | k6 |
+| `performance/autocannon-benchmark.js` | HTTP benchmarking | autocannon |
+| `performance/database-benchmarks.ts` | Query performance | TypeScript |
+| `performance/embedding-benchmarks.ts` | Embedding comparison | TypeScript |
+| `performance/load-test.yml` | Scenario testing | Artillery |
+| `performance/vector-benchmarks.ts` | pgvector performance | TypeScript |
+
+### Test Infrastructure
+- **Docker Compose:** PostgreSQL (5433), Redis (6380), MinIO (9001-9002)
+- **Fixtures:** Test users, conversations, documents
+- **Mocks:** OpenAI, Stripe, external APIs
+
+**See:** [docs/TESTING_GUIDE.md](../docs/TESTING_GUIDE.md) for comprehensive testing guide
+
+---
+
+## 🎨 FRONTEND TESTS (frontend/tests/) ⭐ NEW
+
+### E2E Tests (Playwright)
+| File | Tests | Purpose |
+|------|-------|---------|
+| `e2e/auth/login.spec.ts` | 20 | Login flows |
+| `e2e/auth/logout.spec.ts` | 15 | Logout flows |
+| `e2e/auth/signup.spec.ts` | 18 | Registration |
+| `e2e/auth/forgot-password.spec.ts` | 20 | Password recovery |
+| `e2e/billing/pricing.spec.ts` | 12 | Pricing page |
+| `e2e/billing/subscription.spec.ts` | 25 | Subscription flows |
+| `e2e/billing/usage-stats.spec.ts` | 15 | Usage analytics |
+| `e2e/chat/conversations.spec.ts` | 18 | Chat management |
+| `e2e/chat/messages.spec.ts` | 15 | Message sending |
+| `e2e/chat/ui-features.spec.ts` | 10 | UI interactions |
+| `e2e/basic.spec.ts` | 3 | Homepage, navigation |
+
+**Total:** 183 E2E tests
+
+**See:** [frontend/tests/E2E_TEST_REPORT.md](../frontend/tests/E2E_TEST_REPORT.md) for detailed analysis
+
+---
+
 ## 🌐 API-GATEWAY (Port 4000)
 
 **Location:** `backend/api-gateway/`
@@ -202,6 +293,38 @@ backend/api-gateway/
 
 ## 🔍 QUICK SEARCH PATTERNS
 
+### Tìm Shared AI Services ⭐ NEW
+```
+Location: backend/shared/services/
+Files: llm.service.ts, embedding.service.ts, cloudflare-ai.service.ts
+Usage: import { LLMService, EmbeddingService } from '@saas/shared/services'
+```
+
+### Tìm Shared Configuration ⭐ NEW
+```
+Location: backend/shared/config/
+Files: schema.ts (Zod schemas), validator.ts, sentry.ts
+Usage: import { validateConfig } from '@saas/shared/config'
+```
+
+### Tìm Integration Tests ⭐ NEW
+```
+Location: backend/tests/integration/
+Files: auth-chat.integration.test.ts, chat-billing.integration.test.ts
+```
+
+### Tìm Performance Benchmarks ⭐ NEW
+```
+Location: backend/tests/performance/
+Files: api-benchmarks.js, autocannon-benchmark.js, database-benchmarks.ts
+```
+
+### Tìm Frontend E2E Tests ⭐ NEW
+```
+Location: frontend/tests/e2e/
+Files: auth/*.spec.ts, billing/*.spec.ts, chat/*.spec.ts
+```
+
 ### Tìm Authentication Logic
 ```
 Location: backend/services/auth-service/src/
@@ -211,7 +334,8 @@ Files: auth.controller.ts, auth.service.ts, auth.middleware.ts
 ### Tìm Chat/AI Logic
 ```
 Location: backend/services/chat-service/src/
-Files: chat.controller.ts, chat.service.ts, openai.service.ts
+Files: chat.controller.ts, chat.service.ts
+Note: OpenAI integration moved to shared services (backend/shared/services/llm.service.ts)
 ```
 
 ### Tìm Billing/Stripe Logic
@@ -251,6 +375,27 @@ Pattern: backend/services/*/src/services/*.service.ts
 
 ## 📚 COMMON TASKS → FILE LOCATIONS
 
+### "Add new AI provider" ⭐ NEW
+→ `backend/shared/services/llm.service.ts` (add to LLMProvider enum)
+→ `backend/shared/services/embedding.service.ts` (add to EmbeddingProvider enum)
+
+### "Optimize AI costs" ⭐ NEW
+→ `backend/shared/services/llm.service.ts` (auto-selection logic)
+→ `backend/shared/services/embedding.service.ts` (caching logic)
+→ `chat-service/src/services/cost-monitor.service.ts` (cost tracking)
+
+### "Add integration test" ⭐ NEW
+→ `backend/tests/integration/` (create new test file)
+→ Follow pattern in `auth-chat.integration.test.ts`
+
+### "Add E2E test" ⭐ NEW
+→ `frontend/tests/e2e/` (create new .spec.ts file)
+→ Use helpers from `frontend/tests/e2e/helpers/auth-helper.ts`
+
+### "Run performance benchmark" ⭐ NEW
+→ `backend/tests/performance/` (use existing benchmarks)
+→ Run: `npm run benchmark:autocannon` (fastest, no install needed)
+
 ### "Fix login bug"
 → `auth-service/src/controllers/auth.controller.ts`
 → `auth-service/src/services/auth.service.ts`
@@ -260,7 +405,9 @@ Pattern: backend/services/*/src/services/*.service.ts
 → `chat-service/src/services/chat.service.ts`
 
 ### "Fix OpenAI integration"
-→ `chat-service/src/services/openai.service.ts`
+→ `backend/shared/services/llm.service.ts` (shared LLM service)
+→ `backend/shared/services/embedding.service.ts` (shared embedding service)
+→ `chat-service/src/services/openai.service.ts` (deprecated, use shared services)
 
 ### "Implement PDF upload"
 → `chat-service/src/controllers/document.controller.ts`
@@ -272,6 +419,8 @@ Pattern: backend/services/*/src/services/*.service.ts
 
 ### "Track API costs"
 → `chat-service/src/services/cost-monitor.service.ts`
+→ `backend/shared/services/llm.service.ts` (cost estimation)
+→ `backend/shared/services/embedding.service.ts` (cost tracking)
 
 ### "Update Stripe webhook"
 → `billing-service/src/controllers/billing.controller.ts`
@@ -405,4 +554,36 @@ npm run generate-index
 
 ---
 
-**🎯 Kết luận:** File này giúp Claude navigate codebase nhanh như có RAG! Nhưng phải update manually khi có thay đổi lớn.
+---
+
+## 📊 RECENT UPDATES (2025-11-15)
+
+### Shared Services Added
+- `backend/shared/services/` - AI services layer
+- `backend/shared/config/` - Configuration & validation
+- `backend/shared/events/` - Event publisher
+- `backend/shared/tracing/` - Jaeger tracing
+
+### Tests Added
+- `backend/tests/integration/` - 30+ integration tests
+- `backend/tests/performance/` - 6 benchmark suites
+- `frontend/tests/e2e/` - 183 E2E tests
+
+### Key Migrations
+- chat-service embeddings → shared EmbeddingService
+- chat-service LLM → shared LLMService
+- orchestrator-service → pgvector (from Pinecone)
+- Eliminated 1,437 lines of duplicate code
+
+### Documentation Updated
+- [docs/TESTING_GUIDE.md](../docs/TESTING_GUIDE.md) - Comprehensive testing guide
+- [docs/SHARED_SERVICES.md](../docs/SHARED_SERVICES.md) - Shared services architecture
+- [docs/ARCHITECTURE.md](../docs/ARCHITECTURE.md) - System architecture
+- [docs/CLOUDFLARE_INTEGRATION.md](../docs/CLOUDFLARE_INTEGRATION.md) - Cost optimization
+- [docs/OPTIMIZATION_SUMMARY.md](../docs/OPTIMIZATION_SUMMARY.md) - All agent work
+
+---
+
+**🎯 Kết luận:** File này giúp Claude navigate codebase nhanh như có RAG!
+
+**Last Updated:** 2025-11-15 (Added shared services, tests, and recent optimizations)

@@ -3,7 +3,7 @@ import {
   healthCheck,
   databaseHealthCheck,
   redisHealthCheck,
-  pineconeHealthCheck,
+  vectorStoreHealthCheck,
   allHealthChecks,
 } from '../controllers/health.controller';
 
@@ -15,7 +15,7 @@ router.get('/', healthCheck);
 // Individual service checks
 router.get('/db', databaseHealthCheck);
 router.get('/redis', redisHealthCheck);
-router.get('/pinecone', pineconeHealthCheck);
+router.get('/vector', vectorStoreHealthCheck); // pgvector health check
 
 // All services check
 router.get('/all', allHealthChecks);

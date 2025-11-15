@@ -13,15 +13,15 @@ import debugRoutes from './routes/debug.routes';
 // import workspaceRoutes from './routes/workspace.routes';
 import { globalRateLimiter } from './middleware/rate-limit';
 import { csrfProtection, csrfErrorHandler, generateCsrfToken } from './middleware/csrf.middleware';
-import { initJaegerTracing, tracingMiddleware } from './tracing/jaeger';
+import { initJaegerTracing, tracingMiddleware } from '@saas/shared/dist/tracing/jaeger';
 import {
   initSentry,
   sentryRequestHandler,
   sentryTracingHandler,
   sentryErrorHandler
-} from './config/sentry';
+} from '@saas/shared/dist/config';
 import { setupSwagger } from './config/swagger';
-import { initEventPublisher } from './shared/events';
+import { initEventPublisher } from '@saas/shared/dist/events';
 
 // Initialize Sentry FIRST (before Express app)
 initSentry({ serviceName: 'auth-service' });
@@ -59,8 +59,8 @@ app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
 // Sentry request tracking (must be first after body parsers)
-app.use(sentryRequestHandler());
-app.use(sentryTracingHandler());
+app.use(sentryRequestHandler() as unknown as express.RequestHandler);
+app.use(sentryTracingHandler() as unknown as express.RequestHandler);
 
 app.use(pinoHttp({ logger }));
 
@@ -68,7 +68,7 @@ app.use(pinoHttp({ logger }));
 app.use(metrics.requestMetricsMiddleware());
 
 // Distributed tracing
-app.use(tracingMiddleware(tracer));
+app.use(tracingMiddleware(tracer) as unknown as express.RequestHandler);
 
 // API Documentation
 setupSwagger(app);
@@ -124,7 +124,7 @@ if (process.env.NODE_ENV !== 'production') {
 }
 
 // Sentry error handler (must be before other error handlers)
-app.use(sentryErrorHandler());
+app.use(sentryErrorHandler() as unknown as express.ErrorRequestHandler);
 
 // CSRF error handler (must be before generic error handler)
 app.use(csrfErrorHandler);

@@ -263,3 +263,55 @@ export function getTracing(): JaegerTracing | null {
   }
   return tracingInstance;
 }
+
+/**
+ * Backward-compatible function API for services
+ * Initializes Jaeger tracing and returns the raw tracer
+ */
+export function initJaegerTracing(serviceName: string, logSpans: boolean = false): JaegerTracer {
+  const tracing = initializeTracing({
+    serviceName,
+    logSpans,
+    agentHost: process.env.JAEGER_AGENT_HOST || 'localhost',
+    agentPort: parseInt(process.env.JAEGER_AGENT_PORT || '6831'),
+  });
+  return tracing.getTracer();
+}
+
+/**
+ * Backward-compatible middleware function
+ * Creates Express middleware from a tracer instance
+ */
+export function tracingMiddleware(tracer: JaegerTracer) {
+  // Get the tracing instance or create a temporary one
+  const tracing = getTracing();
+  if (tracing) {
+    return tracing.middleware();
+  }
+
+  // Fallback: create a simple middleware
+  return (req: Request & { span?: Span }, res: Response, next: NextFunction) => {
+    const parentSpanContext = tracer.extract(FORMAT_HTTP_HEADERS, req.headers);
+    const span = tracer.startSpan(`${req.method} ${req.path}`, {
+      childOf: parentSpanContext || undefined,
+      tags: {
+        'span.kind': 'server',
+        'http.method': req.method,
+        'http.url': req.originalUrl || req.url,
+        'http.path': req.path,
+      },
+    });
+
+    req.span = span;
+
+    res.on('finish', () => {
+      span.setTag('http.status_code', res.statusCode);
+      if (res.statusCode >= 400) {
+        span.setTag('error', true);
+      }
+      span.finish();
+    });
+
+    next();
+  };
+}

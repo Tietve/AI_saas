@@ -1,0 +1,183 @@
+{
+  "agent": "phase1-agent-14",
+  "task": "Run Full Test Suite & Generate Coverage",
+  "status": "completed",
+  "timestamp": "2025-11-15T09:57:00Z",
+  "execution_time_minutes": 8,
+  "summary": {
+    "total_tests": 292,
+    "passing_tests": 227,
+    "failing_tests": 65,
+    "pass_rate": "77.7%",
+    "average_coverage": "80.7%"
+  },
+  "tests_by_category": {
+    "unit_tests": {
+      "shared_services": {
+        "suites": "2/2 passed",
+        "tests": "68/68 passed",
+        "coverage": {
+          "statements": "76.81%",
+          "branches": "70.27%",
+          "functions": "80.39%",
+          "lines": "77.06%"
+        },
+        "status": "PASS"
+      },
+      "auth_service": {
+        "suites": "5/6 passed",
+        "tests": "66/66 passed",
+        "coverage": {
+          "statements": "93.04%",
+          "branches": "78.21%",
+          "functions": "100%",
+          "lines": "93.01%"
+        },
+        "status": "MOSTLY_PASS",
+        "issues": ["Integration test failed - pino-http logger issue"]
+      },
+      "chat_service": {
+        "suites": "3/8 passed",
+        "tests": "158/192 passed (34 failed)",
+        "coverage": {
+          "statements": "76.16%",
+          "branches": "61.22%",
+          "functions": "72.72%",
+          "lines": "79.34%"
+        },
+        "status": "PARTIAL_PASS",
+        "issues": [
+          "Branch coverage below threshold (61.22% < 65%)",
+          "Embedding service timeouts",
+          "Vector store SQL assertion failures",
+          "Document validation gaps"
+        ]
+      },
+      "billing_service": {
+        "status": "NO_TESTS",
+        "coverage": "0%"
+      },
+      "analytics_service": {
+        "status": "NO_TESTS",
+        "coverage": "0%"
+      },
+      "orchestrator_service": {
+        "status": "NOT_RUN"
+      }
+    },
+    "integration_tests": {
+      "status": "ALL_FAILED",
+      "suites": "0/4 passed",
+      "tests": "0/42 executed",
+      "root_cause": "Prisma client not initialized",
+      "fix_required": "Run 'prisma generate' in all services"
+    },
+    "e2e_tests": {
+      "backend": {
+        "status": "NOT_EXECUTED",
+        "reason": "Same Prisma issue as integration tests"
+      },
+      "frontend": {
+        "status": "NOT_EXECUTED_IN_THIS_RUN",
+        "available_tests": 183,
+        "previous_report": "frontend/tests/E2E_TEST_REPORT.md"
+      }
+    }
+  },
+  "critical_issues": [
+    {
+      "priority": "P1",
+      "title": "Integration Tests Completely Broken",
+      "impact": "Cannot validate multi-service flows",
+      "cause": "Prisma client not generated",
+      "affected_tests": 42,
+      "fix": "Run 'prisma generate' in all services"
+    },
+    {
+      "priority": "P1",
+      "title": "Chat Service Branch Coverage Below Threshold",
+      "impact": "Jest fails with coverage threshold error",
+      "current": "61.22%",
+      "required": "65%",
+      "affected_files": [
+        "embedding.service.ts",
+        "vector-store.service.ts",
+        "document.service.ts"
+      ]
+    },
+    {
+      "priority": "P1",
+      "title": "Missing Test Suites for Critical Services",
+      "impact": "Zero visibility into billing/analytics bugs",
+      "affected_services": ["billing-service", "analytics-service"]
+    },
+    {
+      "priority": "P2",
+      "title": "Document Upload Validation Gap",
+      "issue": "Zero-byte files not rejected",
+      "security_risk": true,
+      "location": "chat-service/tests/unit/document.service.test.ts:143"
+    },
+    {
+      "priority": "P2",
+      "title": "Embedding Service Timeout Issues",
+      "affected_tests": [
+        "should clear cache",
+        "should track cache size",
+        "should process batch of 100 texts in <1000ms"
+      ],
+      "performance_impact": true
+    },
+    {
+      "priority": "P2",
+      "title": "Vector Store SQL Template Assertions Brittle",
+      "affected_tests": 10,
+      "root_cause": "Testing implementation details instead of behavior",
+      "recommendation": "Mock Prisma calls, test results not SQL syntax"
+    }
+  ],
+  "recommendations": {
+    "immediate": [
+      "Fix Prisma client generation",
+      "Add missing validation for zero-byte files",
+      "Increase chat service branch coverage by 4%",
+      "Create test suites for billing and analytics services"
+    ],
+    "short_term": [
+      "Refactor vector store tests to test behavior not SQL",
+      "Fix embedding service performance issues",
+      "Add integration test infrastructure",
+      "Improve test reliability and cleanup"
+    ],
+    "long_term": [
+      "Achieve 95%+ coverage for critical services",
+      "Add performance testing",
+      "Setup CI/CD with automated testing",
+      "Integrate E2E tests in pipeline"
+    ]
+  },
+  "production_readiness": {
+    "unit_tests": "MOSTLY_FUNCTIONAL",
+    "integration_tests": "BROKEN",
+    "e2e_tests": "NOT_EXECUTED",
+    "overall_coverage": "GOOD",
+    "recommendation": "NOT_READY_FOR_PRODUCTION",
+    "estimated_time_to_ready": "1-2 weeks",
+    "blockers": [
+      "Fix Prisma client initialization",
+      "Add billing/analytics tests",
+      "Achieve coverage thresholds",
+      "Fix all P1 and P2 issues"
+    ]
+  },
+  "deliverables": {
+    "test_outputs": [
+      "/tmp/shared-test-output.txt",
+      "/tmp/auth-test-output.txt",
+      "/tmp/chat-test-output.txt",
+      "/tmp/integration-test-output.txt"
+    ],
+    "report": "/home/user/AI_saas/backend/TEST_SUITE_REPORT.md",
+    "progress": "/home/user/AI_saas/backend/tests/AGENT_14_PROGRESS.json"
+  }
+}

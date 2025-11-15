@@ -1,38 +1,25 @@
 import { Box } from '@mui/material';
-import { useState } from 'react';
-import { Header } from '../Header/Header';
 import { useChatStore } from '@/features/chat/store/chatStore';
 
+/**
+ * MainLayout - Simplified layout without header
+ *
+ * Provides a flexible layout with optional sidebar and main content area.
+ * The header component was intentionally removed from this layout.
+ *
+ * @param children - Main content to render
+ * @param sidebar - Optional sidebar component
+ */
 interface MainLayoutProps {
   children: React.ReactNode;
-  user?: {
-    email: string;
-    name?: string;
-  };
   sidebar?: React.ReactNode;
-  onLogout?: () => void;
-  onProfileClick?: () => void;
-  onSettingsClick?: () => void;
-  onBillingClick?: () => void;
-  onAnalyticsClick?: () => void;
 }
 
 export function MainLayout({
   children,
-  user,
   sidebar,
-  onLogout,
-  onProfileClick,
-  onSettingsClick,
-  onBillingClick,
-  onAnalyticsClick,
 }: MainLayoutProps) {
-  const [mobileOpen, setMobileOpen] = useState(false);
   const { isSidebarCollapsed } = useChatStore();
-
-  const handleDrawerToggle = () => {
-    setMobileOpen(!mobileOpen);
-  };
 
   const sidebarWidth = isSidebarCollapsed ? 64 : 280;
 

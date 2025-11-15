@@ -1,8 +1,8 @@
 import { Response } from 'express';
 import { AuthRequest } from '../middleware/auth';
 import { billingService } from '../services/billing.service';
-import { EventPublisher } from '../shared/events';
-import { BillingEventType } from '../shared/events/types';
+import { EventPublisher } from '@saas/shared/dist/events';
+import { BillingEventType } from '@saas/shared/dist/events/types';
 import { config } from '../config/env';
 
 export class BillingController {

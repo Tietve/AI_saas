@@ -136,7 +136,8 @@ export function parseIconsInText(text: string): Array<string | { type: 'icon'; n
     }
 
     // Add icon if found, otherwise keep original text
-    if (Icon) {
+    // Type guard: Check if Icon is defined (not undefined)
+    if (Icon !== undefined) {
       parts.push({ type: 'icon', name: iconName, Icon });
     } else {
       parts.push(match[0]); // Keep :unknown_icon: as text

@@ -1,0 +1,38 @@
+{
+  "name": "cloudflare-gateway",
+  "version": "1.0.0",
+  "description": "Cloudflare Workers API Gateway for My-SaaS-Chat",
+  "main": "src/index.ts",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "deploy:staging": "wrangler deploy --env staging",
+    "deploy:production": "wrangler deploy --env production",
+    "tail": "wrangler tail",
+    "logs": "wrangler tail --format pretty",
+    "kv:create": "wrangler kv:namespace create KV",
+    "kv:list": "wrangler kv:namespace list",
+    "d1:create": "wrangler d1 create my-saas-chat-db",
+    "d1:migrations:create": "wrangler d1 migrations create my-saas-chat-db",
+    "d1:migrations:apply": "wrangler d1 migrations apply my-saas-chat-db",
+    "vectorize:create": "wrangler vectorize create document-vectors --dimensions=768 --metric=cosine",
+    "vectorize:list": "wrangler vectorize list",
+    "test": "vitest",
+    "test:watch": "vitest --watch",
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "hono": "^4.0.0",
+    "jose": "^5.9.3"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20241127.0",
+    "@types/node": "^20.19.17",
+    "typescript": "^5.9.2",
+    "vitest": "^1.2.0",
+    "wrangler": "^3.85.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

@@ -1,0 +1,80 @@
+# Cloudflare Workers Configuration
+name = "my-saas-chat-gateway"
+main = "src/index.ts"
+compatibility_date = "2024-11-15"
+compatibility_flags = ["nodejs_compat"]
+
+# Account ID (replace with your actual account ID)
+# Get it from: https://dash.cloudflare.com -> Workers -> Overview
+# account_id = "your_account_id_here"
+
+# Workers AI binding
+[ai]
+binding = "AI"
+
+# KV Namespaces (for caching, rate limiting, sessions)
+# Create with: wrangler kv:namespace create KV
+# [[kv_namespaces]]
+# binding = "KV"
+# id = "your_kv_id_here"
+# preview_id = "your_preview_kv_id_here"
+
+# D1 Database (for usage tracking, analytics)
+# Create with: wrangler d1 create my-saas-chat-db
+# [[d1_databases]]
+# binding = "DB"
+# database_name = "my-saas-chat-db"
+# database_id = "your_d1_id_here"
+
+# Vectorize (for RAG document vectors)
+# Create with: wrangler vectorize create document-vectors --dimensions=768 --metric=cosine
+# [[vectorize]]
+# binding = "VECTORIZE"
+# index_name = "document-vectors"
+
+# Environment variables
+[vars]
+ENVIRONMENT = "development"
+LOG_LEVEL = "info"
+# Backend service URLs (update with your actual URLs)
+AUTH_SERVICE_URL = "http://localhost:3001"
+CHAT_SERVICE_URL = "http://localhost:3003"
+BILLING_SERVICE_URL = "http://localhost:3004"
+ANALYTICS_SERVICE_URL = "http://localhost:3005"
+ORCHESTRATOR_SERVICE_URL = "http://localhost:3006"
+
+# Secrets (set with: wrangler secret put <NAME>)
+# JWT_SECRET - for JWT verification
+# OPENAI_API_KEY - for OpenAI fallback
+# STRIPE_WEBHOOK_SECRET - for Stripe webhooks
+
+# Staging environment
+[env.staging]
+name = "my-saas-chat-gateway-staging"
+vars = { ENVIRONMENT = "staging" }
+# Update with staging backend URLs
+# AUTH_SERVICE_URL = "https://auth-staging.yourdomain.com"
+
+# Production environment
+[env.production]
+name = "my-saas-chat-gateway"
+vars = { ENVIRONMENT = "production" }
+# Update with production backend URLs
+# AUTH_SERVICE_URL = "https://auth.yourdomain.com"
+# CHAT_SERVICE_URL = "https://chat.yourdomain.com"
+# BILLING_SERVICE_URL = "https://billing.yourdomain.com"
+# ANALYTICS_SERVICE_URL = "https://analytics.yourdomain.com"
+
+# Route configuration (custom domain)
+# [[routes]]
+# pattern = "api.yourdomain.com/*"
+# zone_name = "yourdomain.com"
+
+# Resource limits
+[limits]
+cpu_ms = 50
+
+# Observability
+[observability]
+enabled = true
+head_sampling_rate = 1

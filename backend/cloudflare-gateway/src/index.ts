@@ -77,12 +77,11 @@ app.get('/', (c) => {
 
 // Import routes
 import authRoutes from './routes/auth';
+import aiRoutes from './routes/ai';
 
 // Mount routes
 app.route('/api/auth', authRoutes);
-
-// TODO: Agent 7-8 - AI routes
-// app.route('/api/ai', aiRoutes);
+app.route('/api/ai', aiRoutes);
 
 // TODO: Agent 13-16 - RAG routes
 // app.route('/api/rag', ragRoutes);

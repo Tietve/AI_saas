@@ -1,0 +1,21 @@
+This is a sample PDF text content for testing.
+
+It contains multiple paragraphs with different information.
+
+First paragraph discusses the importance of testing in software development.
+Proper testing ensures code quality and reduces bugs in production.
+
+Second paragraph covers best practices for unit testing.
+Tests should be isolated, repeatable, and fast.
+
+Third paragraph explains integration testing.
+Integration tests verify that different components work together correctly.
+
+This document has enough content to create multiple chunks during processing.
+Each chunk will be embedded and stored in the vector database for retrieval.
+
+The RAG system will use these chunks to answer user queries about the document.
+Semantic search will find the most relevant chunks based on the query.
+
+Final paragraph summarizes the document processing pipeline.
+Upload, extract text, chunk, embed, store, and query - these are the key steps.

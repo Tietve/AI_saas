@@ -1,0 +1,352 @@
+{
+  "report": {
+    "generated": "2025-11-15",
+    "agent": "Agent 12 - Code Duplication Analysis",
+    "scope": "All backend services",
+    "total_files_analyzed": 158
+  },
+  "metrics": {
+    "total_lines_of_code": 24616,
+    "duplicate_lines_identified": 1588,
+    "duplication_percentage": 6.5,
+    "potential_reduction_lines": 1100,
+    "potential_reduction_percentage": 69,
+    "services_affected": 6,
+    "total_services": 6
+  },
+  "impact": {
+    "maintenance_cost": "HIGH",
+    "bug_risk": "MEDIUM",
+    "bundle_size_impact": "LOW-MEDIUM",
+    "developer_experience": "MEDIUM"
+  },
+  "duplications": [
+    {
+      "id": "DUP-001",
+      "category": "A",
+      "name": "Event Publisher",
+      "files": [
+        "backend/shared/events/publisher.ts",
+        "backend/services/auth-service/src/shared/events/publisher.ts",
+        "backend/services/billing-service/src/shared/events/publisher.ts",
+        "backend/services/chat-service/src/shared/events/publisher.ts"
+      ],
+      "lines_per_file": 247,
+      "total_duplicate_lines": 741,
+      "should_be_lines": 247,
+      "similarity_percentage": 100,
+      "priority": "HIGH",
+      "effort_hours": 1,
+      "impact": "HIGH",
+      "risk": "LOW",
+      "status": "identified",
+      "recommendation": "Delete service-level copies, use @saas/shared/dist/events"
+    },
+    {
+      "id": "DUP-002",
+      "category": "A",
+      "name": "Event Types",
+      "files": [
+        "backend/shared/events/types.ts",
+        "backend/services/auth-service/src/shared/events/types.ts",
+        "backend/services/billing-service/src/shared/events/types.ts",
+        "backend/services/chat-service/src/shared/events/types.ts"
+      ],
+      "lines_per_file": 110,
+      "total_duplicate_lines": 330,
+      "should_be_lines": 110,
+      "similarity_percentage": 100,
+      "priority": "HIGH",
+      "effort_hours": 1,
+      "impact": "HIGH",
+      "risk": "LOW",
+      "status": "identified",
+      "recommendation": "Delete service-level copies, use @saas/shared/dist/events"
+    },
+    {
+      "id": "DUP-003",
+      "category": "A",
+      "name": "Sentry Configuration",
+      "files": [
+        "backend/services/auth-service/src/config/sentry.ts",
+        "backend/services/billing-service/src/config/sentry.ts",
+        "backend/services/chat-service/src/config/sentry.ts"
+      ],
+      "lines_per_file": 174,
+      "total_duplicate_lines": 522,
+      "should_be_lines": 174,
+      "similarity_percentage": 100,
+      "priority": "HIGH",
+      "effort_hours": 2,
+      "impact": "HIGH",
+      "risk": "LOW",
+      "status": "identified",
+      "recommendation": "Move to backend/shared/config/sentry.ts"
+    },
+    {
+      "id": "DUP-004",
+      "category": "A",
+      "name": "Jaeger Tracing",
+      "files": [
+        "backend/shared/tracing/jaeger.ts",
+        "backend/services/auth-service/src/tracing/jaeger.ts",
+        "backend/services/billing-service/src/tracing/jaeger.ts",
+        "backend/services/chat-service/src/tracing/jaeger.ts"
+      ],
+      "lines_per_file": 64,
+      "total_duplicate_lines": 192,
+      "should_be_lines": 64,
+      "similarity_percentage": 95,
+      "priority": "MEDIUM",
+      "effort_hours": 2,
+      "impact": "MEDIUM",
+      "risk": "LOW",
+      "status": "identified",
+      "recommendation": "Parameterize service name and logSpans, use shared version",
+      "differences": [
+        "Line 17: logSpans config differs",
+        "Line 45: Hardcoded service name"
+      ]
+    },
+    {
+      "id": "DUP-005",
+      "category": "B",
+      "name": "Auth Middleware",
+      "files": [
+        "backend/services/billing-service/src/middleware/auth.ts",
+        "backend/services/chat-service/src/middleware/auth.ts"
+      ],
+      "lines_per_file": 31,
+      "total_duplicate_lines": 62,
+      "should_be_lines": 31,
+      "similarity_percentage": 90,
+      "priority": "MEDIUM",
+      "effort_hours": 2,
+      "impact": "MEDIUM",
+      "risk": "MEDIUM",
+      "status": "identified",
+      "recommendation": "Extract to backend/shared/middleware/auth.ts, standardize error messages",
+      "differences": [
+        "Error message language (English vs Vietnamese)",
+        "Response format (ok field)"
+      ]
+    },
+    {
+      "id": "DUP-006",
+      "category": "B",
+      "name": "Environment Configuration Pattern",
+      "files": [
+        "backend/services/analytics-service/src/config/env.ts",
+        "backend/services/auth-service/src/config/env.ts",
+        "backend/services/billing-service/src/config/env.ts",
+        "backend/services/chat-service/src/config/env.ts",
+        "backend/services/email-worker/src/config/env.ts",
+        "backend/services/orchestrator-service/src/config/env.config.ts"
+      ],
+      "lines_per_file": 25,
+      "total_duplicate_lines": 150,
+      "should_be_lines": 50,
+      "similarity_percentage": 65,
+      "priority": "LOW",
+      "effort_hours": 3,
+      "impact": "LOW-MEDIUM",
+      "risk": "LOW",
+      "status": "identified",
+      "recommendation": "Create backend/shared/config/env-loader.ts utility"
+    },
+    {
+      "id": "DUP-007",
+      "category": "C",
+      "name": "Chunking Services (Intentional)",
+      "files": [
+        "backend/services/chat-service/src/services/chunking.service.ts",
+        "backend/services/orchestrator-service/src/services/chunking.service.ts"
+      ],
+      "lines_per_file": 211,
+      "total_duplicate_lines": 0,
+      "similarity_percentage": 35,
+      "priority": "N/A",
+      "effort_hours": 0,
+      "impact": "NONE",
+      "risk": "NONE",
+      "status": "intentional",
+      "recommendation": "Keep separate - different algorithms for different use cases"
+    },
+    {
+      "id": "DUP-008",
+      "category": "C",
+      "name": "PDF Parser Services (Intentional)",
+      "files": [
+        "backend/services/chat-service/src/services/pdf-parser.service.ts",
+        "backend/services/orchestrator-service/src/services/pdf-parser.service.ts"
+      ],
+      "lines_per_file": 150,
+      "total_duplicate_lines": 0,
+      "similarity_percentage": 40,
+      "priority": "N/A",
+      "effort_hours": 0,
+      "impact": "NONE",
+      "risk": "NONE",
+      "status": "intentional",
+      "recommendation": "Keep separate - different library versions, may consolidate later"
+    },
+    {
+      "id": "DUP-009",
+      "category": "D",
+      "name": "App.ts Structure",
+      "files": [
+        "backend/services/analytics-service/src/app.ts",
+        "backend/services/auth-service/src/app.ts",
+        "backend/services/billing-service/src/app.ts",
+        "backend/services/chat-service/src/app.ts",
+        "backend/services/orchestrator-service/src/app.ts"
+      ],
+      "lines_per_file": 80,
+      "total_duplicate_lines": 200,
+      "should_be_lines": 80,
+      "similarity_percentage": 55,
+      "priority": "LOW",
+      "effort_hours": 12,
+      "impact": "LOW",
+      "risk": "HIGH",
+      "status": "deferred",
+      "recommendation": "Defer to Phase 3 - create express-factory pattern"
+    },
+    {
+      "id": "INFO-001",
+      "category": "GOOD",
+      "name": "Logger Configuration (Already Migrated)",
+      "files": [
+        "backend/shared/utils/logger.ts"
+      ],
+      "status": "migrated",
+      "recommendation": "No action needed - services correctly use @saas/shared/dist/utils/logger"
+    },
+    {
+      "id": "INFO-002",
+      "category": "GOOD",
+      "name": "Metrics Configuration (Already Migrated)",
+      "files": [
+        "backend/shared/utils/metrics.ts"
+      ],
+      "status": "migrated",
+      "recommendation": "Minor: Investigate why auth-service has defaultMetrics: false"
+    }
+  ],
+  "cleanup_plan": {
+    "phase_1": {
+      "name": "Quick Wins",
+      "priority": "HIGH",
+      "effort_hours": "2-4",
+      "impact_lines": 1309,
+      "tasks": [
+        {
+          "id": "TASK-001",
+          "name": "Migrate event publisher/types to @saas/shared",
+          "items": ["DUP-001", "DUP-002"],
+          "lines_saved": 961,
+          "size_reduction_kb": 3,
+          "effort_hours": 2,
+          "risk": "LOW"
+        },
+        {
+          "id": "TASK-002",
+          "name": "Migrate Sentry config to shared",
+          "items": ["DUP-003"],
+          "lines_saved": 348,
+          "size_reduction_kb": 1,
+          "effort_hours": 2,
+          "risk": "LOW"
+        }
+      ]
+    },
+    "phase_2": {
+      "name": "Medium Effort",
+      "priority": "MEDIUM",
+      "effort_hours": "4-8",
+      "impact_lines": 210,
+      "tasks": [
+        {
+          "id": "TASK-003",
+          "name": "Migrate Jaeger tracing to shared",
+          "items": ["DUP-004"],
+          "lines_saved": 128,
+          "effort_hours": 2,
+          "risk": "LOW"
+        },
+        {
+          "id": "TASK-004",
+          "name": "Extract auth middleware to shared",
+          "items": ["DUP-005"],
+          "lines_saved": 32,
+          "effort_hours": 2,
+          "risk": "MEDIUM"
+        },
+        {
+          "id": "TASK-005",
+          "name": "Create env config loader utility",
+          "items": ["DUP-006"],
+          "lines_saved": 50,
+          "effort_hours": 3,
+          "risk": "LOW"
+        }
+      ]
+    },
+    "phase_3": {
+      "name": "Future Refactor",
+      "priority": "DEFER",
+      "effort_hours": "8-16",
+      "impact_lines": 0,
+      "tasks": [
+        {
+          "id": "TASK-006",
+          "name": "Consolidate PDF parsers (evaluate need first)",
+          "items": ["DUP-008"],
+          "lines_saved": 0,
+          "effort_hours": 6,
+          "risk": "MEDIUM"
+        },
+        {
+          "id": "TASK-007",
+          "name": "Create express-factory pattern for app.ts",
+          "items": ["DUP-009"],
+          "lines_saved": 0,
+          "effort_hours": 8,
+          "risk": "HIGH"
+        }
+      ]
+    }
+  },
+  "recommendations": {
+    "immediate": [
+      "Execute Phase 1 cleanup (2-4 hours, -1,309 lines)",
+      "Update CODEBASE_INDEX.md to reflect shared library usage",
+      "Add ESLint rule to prevent future duplication of events"
+    ],
+    "medium_term": [
+      "Execute Phase 2 cleanup (4-8 hours, -210 lines)",
+      "Create shared library documentation",
+      "Add code review checklist for duplication"
+    ],
+    "long_term": [
+      "Evaluate Phase 3 refactoring (post-MVP)",
+      "Consider monorepo tooling (Nx, Turborepo)",
+      "Set up duplication monitoring (SonarQube)"
+    ]
+  },
+  "success_criteria": {
+    "phase_1_complete": [
+      "Event publisher imported from @saas/shared in all services",
+      "Sentry config imported from @saas/shared in all services",
+      "No service-level duplicates exist",
+      "All tests pass",
+      "Bundle size reduced by 3-4KB",
+      "Documentation updated"
+    ],
+    "overall_success": [
+      "Code duplication < 3% (currently 6.5%)",
+      "Shared library adoption > 80%",
+      "No new duplicates added (enforced by linting)"
+    ]
+  }
+}

@@ -8,7 +8,6 @@ import logger from './config/logger.config';
 import { swaggerSpec } from './config/swagger.config';
 import { connectDatabase, disconnectDatabase } from './config/database.config';
 import { disconnectRedis } from './config/redis.config';
-import { initPinecone } from './config/pinecone.config';
 import healthRoutes from './routes/health.routes';
 import orchestratorRoutes from './routes/orchestrator.routes';
 import promptTemplateRoutes from './routes/prompt-template.routes';
@@ -198,9 +197,6 @@ async function startServer() {
     // Connect to database
     await connectDatabase();
 
-    // Initialize Pinecone
-    await initPinecone();
-
     // Start scheduled jobs
     startCanaryIncrementJob();
     startNightlyEvalsJob();
@@ -211,7 +207,7 @@ async function startServer() {
       logger.info(`📊 Environment: ${env.nodeEnv}`);
       logger.info(`🗄️  Database: Connected`);
       logger.info(`🔴 Redis: Connected`);
-      logger.info(`🌲 Pinecone: Connected`);
+      logger.info(`📊 pgvector: Enabled`);
       logger.info(`⏰ Scheduled jobs: Started`);
     });
 

@@ -4,7 +4,7 @@
  */
 
 import { Router } from 'express';
-import { captureException, captureMessage } from '../config/sentry';
+import { captureException, captureMessage } from '@saas/shared/dist/config';
 
 const router = Router();
 

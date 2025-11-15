@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import { authService } from '../services/auth.service';
-import { publishAnalyticsEvent, EventCategory, UserEventType } from '../shared/events';
+import { publishAnalyticsEvent, EventCategory, UserEventType } from '@saas/shared/dist/events';
 import { logger } from '../config/logger';
 import { metrics } from '../config/metrics';
 

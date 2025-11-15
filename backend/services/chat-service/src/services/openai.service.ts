@@ -1,3 +1,22 @@
+/**
+ * OpenAI Service (DEPRECATED)
+ *
+ * @deprecated This service is deprecated in favor of the shared LLMService.
+ * Use LLMService from backend/shared/services/llm.service.ts instead.
+ *
+ * LLMService provides:
+ * - Multi-provider support (GPT-4o, GPT-3.5, Llama-2, Claude)
+ * - Automatic provider selection based on complexity
+ * - Built-in cost tracking and estimation
+ * - Fallback mechanisms
+ *
+ * This service is kept for backward compatibility and fallback only.
+ * All new features should use LLMService.
+ *
+ * Migration status: Partial (used as fallback for chat completions)
+ * TODO: Full migration to LLMService when chat completion support is added
+ */
+
 import OpenAI from 'openai';
 import { config } from '../config/env';
 
@@ -14,6 +33,9 @@ export interface ChatCompletionResult {
   totalTokens: number;
 }
 
+/**
+ * @deprecated Use LLMService from backend/shared/services/llm.service.ts
+ */
 export class OpenAIService {
   private client: OpenAI;
   private useMock: boolean;

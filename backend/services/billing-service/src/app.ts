@@ -7,14 +7,14 @@ import pinoHttp from 'pino-http';
 import { register, collectDefaultMetrics } from 'prom-client';
 import { config } from './config/env';
 import billingRoutes from './routes/billing.routes';
-import { initJaegerTracing, tracingMiddleware } from './tracing/jaeger';
+import { initJaegerTracing, tracingMiddleware } from '@saas/shared/dist/tracing/jaeger';
 import {
   initSentry,
   sentryRequestHandler,
   sentryTracingHandler,
   sentryErrorHandler
-} from './config/sentry';
-import { EventPublisher } from './shared/events';
+} from '@saas/shared/dist/config';
+import { EventPublisher } from '@saas/shared/dist/events';
 
 // Initialize Sentry FIRST
 initSentry({ serviceName: 'billing-service' });

@@ -1,8 +1,8 @@
 import { Response } from 'express';
 import { AuthRequest } from '../middleware/auth';
 import { chatService } from '../services/chat.service';
-import { EventPublisher } from '../shared/events';
-import { ChatEventType } from '../shared/events/types';
+import { EventPublisher } from '@saas/shared/dist/events';
+import { ChatEventType } from '@saas/shared/dist/events/types';
 
 export class ChatController {
   /**

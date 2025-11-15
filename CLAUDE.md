@@ -425,7 +425,7 @@ chat-service/src/services/
 - ✅ PDF Q&A (table stakes)
 
 ### 🔗 Reference Documents
-- **Brainstorming Report:** `.claude/plans/market-launch-brainstorm-2025-11-13.md`
+- **Brainstorming Report:** `.claude/archive/plans/market-launch-brainstorm-2025-11-13.md`
 - **Technical Architecture:** `.claude/CODEBASE_INDEX.md`
 - **Cost Analysis:** See "Unit Economics" section above
 - **Feature Prioritization:** See "MVP Feature Set" section above
@@ -572,8 +572,7 @@ npm run memory:commit     # Update + commit
 - ✅ Blocks dangerous operations
 - ✅ Works for hours without prompts!
 
-**Quick Start:** `.claude/AUTONOMOUS_QUICK_START.md`
-**Full Guide:** `.claude/AUTONOMOUS_MODE.md`
+**Guide:** `.claude/AUTONOMOUS_GUIDE.md` (quick start + full docs)
 **Prompts:** `.claude/PROMPT_LIBRARY.md`
 
 **Lợi ích:** 10x faster development, 0 manual approvals! 🚀
@@ -583,7 +582,7 @@ npm run memory:commit     # Update + commit
 ### 3. Parallel Agents System 🚀
 **Launch multiple Claude agents simultaneously!**
 
-Documentation: `.claude/PARALLEL_WORKFLOW.md`
+**Guide:** `.claude/PARALLEL_GUIDE.md` (quick start + strategies)
 
 Quick commands:
 ```bash
@@ -596,8 +595,7 @@ npm run parallel:template    # Get safe template
 ### 4. Frontend Testing Agents 🎨✨
 **5 specialized agents test frontend simultaneously!**
 
-**Quick Start:** `.claude/FRONTEND_TESTING_QUICK_START.md`
-**Full Guide:** `.claude/FRONTEND_TESTING_AGENTS.md`
+**Guide:** `.claude/TESTING_GUIDE.md` (quick setup + full docs)
 
 ```bash
 # Install (one-time)
@@ -631,14 +629,14 @@ npm run test:frontend:layout       # UI layout checker
 
 **Performance:** 3x faster (10 min parallel vs 30+ min sequential)
 
-**Copy-paste command for parallel testing:** See `.claude/FRONTEND_TESTING_QUICK_START.md`
+**Copy-paste command for parallel testing:** See `.claude/TESTING_GUIDE.md`
 
 ---
 
 ### 5. Playwright MCP - Browser Automation 🎭
 **Claude kiểm soát browser trực tiếp để debug UI real-time!**
 
-**Full Guide:** `.claude/PLAYWRIGHT_MCP_GUIDE.md`
+**Guide:** `.claude/PLAYWRIGHT_GUIDE.md` (quick start + full capabilities)
 
 **Setup:** ✅ Đã cài sẵn! (`.mcp.json` + `settings.local.json`)
 

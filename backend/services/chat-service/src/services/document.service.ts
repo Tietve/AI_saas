@@ -21,7 +21,7 @@ import {
 } from '../types/document.types';
 import { PdfParserService } from './pdf-parser.service';
 import { ChunkingService } from './chunking.service';
-import { EmbeddingService } from './embedding.service';
+import { EmbeddingService, EmbeddingProvider } from '../../../shared/services';
 import { VectorStoreService } from './vector-store.service';
 
 export class DocumentService {
@@ -49,7 +49,20 @@ export class DocumentService {
 
     this.pdfParser = new PdfParserService();
     this.chunking = new ChunkingService();
-    this.embedding = new EmbeddingService();
+
+    // Initialize embedding service with provider selection
+    // Provider auto-selected based on: EMBEDDING_PROVIDER env or Cloudflare config
+    const embeddingProvider = process.env.EMBEDDING_PROVIDER === 'openai'
+      ? EmbeddingProvider.OPENAI
+      : process.env.EMBEDDING_PROVIDER === 'cloudflare'
+      ? EmbeddingProvider.CLOUDFLARE
+      : undefined; // Auto-select
+
+    this.embedding = new EmbeddingService({
+      provider: embeddingProvider,
+      openaiApiKey: process.env.OPENAI_API_KEY,
+    });
+
     this.vectorStore = new VectorStoreService(this.prisma);
 
     this.bucketName = process.env.PDF_BUCKET_NAME || 'my-saas-chat-pdfs';
@@ -146,14 +159,17 @@ export class DocumentService {
 
       // Step 3: Generate embeddings
       const texts = chunks.map((chunk) => chunk.content);
-      const embeddingResponse = await this.embedding.generateEmbeddings(texts);
+      const batchResult = await this.embedding.embedBatch(texts);
 
-      console.log(`Generated ${embeddingResponse.embeddings.length} embeddings (${embeddingResponse.tokensUsed} tokens)`);
+      console.log(
+        `Generated ${batchResult.embeddings.length} embeddings (${batchResult.totalTokens} tokens, ` +
+        `$${batchResult.totalCost?.toFixed(6)}, cache hits: ${batchResult.cacheHits}, provider: ${this.embedding.getProvider()})`
+      );
 
       // Step 4: Store chunks with embeddings
       const chunksWithEmbeddings = chunks.map((chunk, index) => ({
         ...chunk,
-        embedding: embeddingResponse.embeddings[index],
+        embedding: batchResult.embeddings[index].embedding, // Extract embedding array from result
       }));
 
       await this.vectorStore.insertChunks(documentId, chunksWithEmbeddings);

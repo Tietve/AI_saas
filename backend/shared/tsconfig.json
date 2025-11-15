@@ -23,7 +23,9 @@
     "queue/**/*",
     "tracing/**/*",
     "validators/**/*",
-    "database/**/*"
+    "database/**/*",
+    "config/**/*",
+    "services/**/*"
   ],
   "exclude": [
     "node_modules",

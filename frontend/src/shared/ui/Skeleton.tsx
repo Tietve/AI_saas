@@ -1,21 +1,32 @@
-import { Box } from '@mui/material';
+import { Box, SxProps, Theme } from '@mui/material';
 
+/**
+ * Props for Skeleton component
+ *
+ * Fix: Added 'sx' prop to support Material-UI's sx styling system
+ * This allows for additional styling customization (margins, padding, etc.)
+ * while maintaining TypeScript type safety
+ */
 interface SkeletonProps {
   width?: string | number;
   height?: string | number;
   variant?: 'text' | 'circular' | 'rectangular' | 'rounded';
   animation?: 'pulse' | 'wave' | false;
+  sx?: SxProps<Theme>; // Material-UI sx prop for additional styling
 }
 
 /**
  * Skeleton Loading Component
  * Displays placeholder content while data is loading
+ *
+ * Fix: Now accepts and merges 'sx' prop for additional styling
  */
 export function Skeleton({
   width = '100%',
   height = '1rem',
   variant = 'text',
   animation = 'pulse',
+  sx,
 }: SkeletonProps) {
   const getVariantStyles = () => {
     switch (variant) {
@@ -70,6 +81,8 @@ export function Skeleton({
             transform: 'translateX(100%)',
           },
         },
+        // Merge incoming sx prop for additional styling (e.g., margins, padding)
+        ...sx,
       }}
     >
       {animation === 'wave' && (

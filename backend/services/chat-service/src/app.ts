@@ -9,14 +9,14 @@ import { config } from './config/env';
 import chatRoutes from './routes/chat.routes';
 import promptsRoutes from './routes/prompts.routes';
 import documentRoutes from './routes/document.routes';
-import { initJaegerTracing, tracingMiddleware } from './tracing/jaeger';
+import { initJaegerTracing, tracingMiddleware } from '@saas/shared/dist/tracing/jaeger';
 import {
   initSentry,
   sentryRequestHandler,
   sentryTracingHandler,
   sentryErrorHandler
-} from './config/sentry';
-import { EventPublisher } from './shared/events';
+} from '@saas/shared/dist/config';
+import { EventPublisher } from '@saas/shared/dist/events';
 
 // Initialize Sentry FIRST
 initSentry({ serviceName: 'chat-service' });

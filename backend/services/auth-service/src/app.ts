@@ -13,15 +13,15 @@ import debugRoutes from './routes/debug.routes';
 // import workspaceRoutes from './routes/workspace.routes';
 import { globalRateLimiter } from './middleware/rate-limit';
 import { csrfProtection, csrfErrorHandler, generateCsrfToken } from './middleware/csrf.middleware';
-import { initJaegerTracing, tracingMiddleware } from './tracing/jaeger';
+import { initJaegerTracing, tracingMiddleware } from '@saas/shared/dist/tracing/jaeger';
 import {
   initSentry,
   sentryRequestHandler,
   sentryTracingHandler,
   sentryErrorHandler
-} from './config/sentry';
+} from '@saas/shared/dist/config';
 import { setupSwagger } from './config/swagger';
-import { initEventPublisher } from './shared/events';
+import { initEventPublisher } from '@saas/shared/dist/events';
 
 // Initialize Sentry FIRST (before Express app)
 initSentry({ serviceName: 'auth-service' });

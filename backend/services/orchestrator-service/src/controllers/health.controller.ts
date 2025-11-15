@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import { prisma } from '../config/database.config';
 import { checkRedisConnection } from '../config/redis.config';
-import { checkPineconeConnection } from '../config/pinecone.config';
+import { vectorStoreService } from '../services/vector-store.service';
 import logger from '../config/logger.config';
 
 /**
@@ -70,31 +70,41 @@ export async function redisHealthCheck(req: Request, res: Response) {
 }
 
 /**
- * Pinecone health check
+ * Vector Store (pgvector) health check
  */
-export async function pineconeHealthCheck(req: Request, res: Response) {
+export async function vectorStoreHealthCheck(req: Request, res: Response) {
   try {
-    const isHealthy = await checkPineconeConnection();
+    // Check if pgvector extension is enabled
+    const result = await prisma.$queryRaw<Array<{ extname: string }>>`
+      SELECT extname FROM pg_extension WHERE extname = 'vector'
+    `;
 
-    if (isHealthy) {
+    if (result.length > 0) {
+      // Get vector store stats
+      const stats = await vectorStoreService.getStats();
+
       res.status(200).json({
         status: 'ok',
-        service: 'pinecone',
+        service: 'pgvector',
+        stats: {
+          totalVectors: stats.totalVectors,
+          indexes: stats.indexes,
+        },
         timestamp: new Date().toISOString(),
       });
     } else {
       res.status(503).json({
         status: 'error',
-        service: 'pinecone',
-        error: 'Pinecone connection failed',
+        service: 'pgvector',
+        error: 'pgvector extension not enabled',
         timestamp: new Date().toISOString(),
       });
     }
   } catch (error) {
-    logger.error('[Health] Pinecone check failed:', error);
+    logger.error('[Health] pgvector check failed:', error);
     res.status(503).json({
       status: 'error',
-      service: 'pinecone',
+      service: 'pgvector',
       error: error instanceof Error ? error.message : 'Unknown error',
       timestamp: new Date().toISOString(),
     });
@@ -137,13 +147,16 @@ export async function allHealthChecks(req: Request, res: Response) {
     overallStatus = 503;
   }
 
-  // Pinecone
+  // pgvector
   try {
-    const isHealthy = await checkPineconeConnection();
-    results.services.pinecone = { status: isHealthy ? 'ok' : 'error' };
+    const result = await prisma.$queryRaw<Array<{ extname: string }>>`
+      SELECT extname FROM pg_extension WHERE extname = 'vector'
+    `;
+    const isHealthy = result.length > 0;
+    results.services.pgvector = { status: isHealthy ? 'ok' : 'error' };
     if (!isHealthy) overallStatus = 503;
   } catch (error) {
-    results.services.pinecone = {
+    results.services.pgvector = {
       status: 'error',
       error: error instanceof Error ? error.message : 'Unknown error',
     };

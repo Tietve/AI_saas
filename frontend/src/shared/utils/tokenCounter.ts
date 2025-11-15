@@ -86,10 +86,12 @@ export function exceedsLimit(count: number, limit: number = 4096): boolean {
 
 /**
  * Clean up encoding resources (call when component unmounts)
+ * Note: Tiktoken in js-tiktoken doesn't have a free() method.
+ * The encoding will be garbage collected automatically.
  */
 export function cleanup(): void {
   if (encoding) {
-    encoding.free();
+    // No need to call free() - let garbage collector handle it
     encoding = null;
   }
 }

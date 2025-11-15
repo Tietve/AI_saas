@@ -1,0 +1,288 @@
+# Artillery Load Testing Configuration
+#
+# Tests realistic user scenarios with concurrent load
+# Scenarios: 100 users (5min), 1000 users (2min), ramp-up tests
+#
+# Usage:
+#   npm install -g artillery
+#   artillery run load-test.yml
+#   artillery run --output report.json load-test.yml
+#   artillery report report.json
+
+config:
+  target: "{{ $processEnvironment.API_URL || 'http://localhost:4000' }}"
+  phases:
+    # Phase 1: Warm-up
+    - duration: 60
+      arrivalRate: 5
+      name: "Warm-up"
+
+    # Phase 2: Ramp-up to 100 users
+    - duration: 120
+      arrivalRate: 5
+      rampTo: 50
+      name: "Ramp-up to 50 users"
+
+    # Phase 3: Sustained load - 100 concurrent users
+    - duration: 300
+      arrivalRate: 100
+      name: "Sustained 100 users (5 min)"
+
+    # Phase 4: Spike test - 1000 users
+    - duration: 120
+      arrivalRate: 500
+      name: "Spike to 1000 users (2 min)"
+
+    # Phase 5: Recovery
+    - duration: 60
+      arrivalRate: 10
+      name: "Recovery"
+
+  # Performance thresholds
+  ensure:
+    maxErrorRate: 5  # Max 5% error rate
+    p95: 500         # 95th percentile < 500ms
+    p99: 1000        # 99th percentile < 1000ms
+
+  # HTTP defaults
+  http:
+    timeout: 10
+
+  # Payload data
+  payload:
+    path: "./test-users.csv"
+    fields:
+      - email
+      - password
+    order: sequence
+
+  # Variables
+  variables:
+    testEmail:
+      - "test1@example.com"
+      - "test2@example.com"
+      - "test3@example.com"
+    testPassword: "Test123!@#"
+
+  # Plugins
+  plugins:
+    expect: {}
+    metrics-by-endpoint: {}
+
+# User scenarios
+scenarios:
+  # Scenario 1: Chat-heavy user (40% of traffic)
+  - name: "Chat Heavy User"
+    weight: 40
+    flow:
+      # Login
+      - post:
+          url: "/api/auth/login"
+          json:
+            email: "{{ testEmail }}"
+            password: "{{ testPassword }}"
+          capture:
+            - json: "$.token"
+              as: "authToken"
+            - json: "$.data.token"
+              as: "authTokenAlt"
+          expect:
+            - statusCode:
+                - 200
+                - 201
+
+      # Set token for subsequent requests
+      - log: "Logged in successfully"
+
+      # Create conversation
+      - post:
+          url: "/api/chat/conversations"
+          headers:
+            Authorization: "Bearer {{ authToken || authTokenAlt }}"
+          json:
+            title: "Load Test Conversation"
+          capture:
+            - json: "$.id"
+              as: "conversationId"
+            - json: "$.data.id"
+              as: "conversationIdAlt"
+          expect:
+            - statusCode:
+                - 200
+                - 201
+
+      # Send 5 messages
+      - loop:
+          - post:
+              url: "/api/chat/conversations/{{ conversationId || conversationIdAlt }}/messages"
+              headers:
+                Authorization: "Bearer {{ authToken || authTokenAlt }}"
+              json:
+                content: "What is machine learning?"
+                role: "user"
+              expect:
+                - statusCode:
+                    - 200
+                    - 201
+          - think: 2
+        count: 5
+
+      # Get conversation history
+      - get:
+          url: "/api/chat/conversations/{{ conversationId || conversationIdAlt }}"
+          headers:
+            Authorization: "Bearer {{ authToken || authTokenAlt }}"
+          expect:
+            - statusCode: 200
+
+      # List conversations
+      - get:
+          url: "/api/chat/conversations"
+          headers:
+            Authorization: "Bearer {{ authToken || authTokenAlt }}"
+          expect:
+            - statusCode: 200
+
+      # Think time
+      - think: 5
+
+  # Scenario 2: Auth-heavy user (30% of traffic)
+  - name: "Auth Heavy User"
+    weight: 30
+    flow:
+      # Register new user
+      - post:
+          url: "/api/auth/register"
+          json:
+            email: "test-{{ $randomNumber() }}@example.com"
+            password: "{{ testPassword }}"
+            username: "testuser{{ $randomNumber() }}"
+          capture:
+            - json: "$.token"
+              as: "authToken"
+            - json: "$.data.token"
+              as: "authTokenAlt"
+          expect:
+            - statusCode:
+                - 200
+                - 201
+                - 409  # Conflict if user exists
+
+      # Get user profile
+      - get:
+          url: "/api/auth/me"
+          headers:
+            Authorization: "Bearer {{ authToken || authTokenAlt }}"
+          expect:
+            - statusCode:
+                - 200
+                - 401  # If token not captured
+
+      # Refresh token
+      - post:
+          url: "/api/auth/refresh"
+          headers:
+            Authorization: "Bearer {{ authToken || authTokenAlt }}"
+          expect:
+            - statusCode:
+                - 200
+                - 401  # If token not captured
+
+      # Think time
+      - think: 3
+
+  # Scenario 3: Document-heavy user (20% of traffic)
+  - name: "Document Heavy User"
+    weight: 20
+    flow:
+      # Login
+      - post:
+          url: "/api/auth/login"
+          json:
+            email: "{{ testEmail }}"
+            password: "{{ testPassword }}"
+          capture:
+            - json: "$.token"
+              as: "authToken"
+            - json: "$.data.token"
+              as: "authTokenAlt"
+          expect:
+            - statusCode:
+                - 200
+                - 201
+
+      # List documents
+      - get:
+          url: "/api/documents"
+          headers:
+            Authorization: "Bearer {{ authToken || authTokenAlt }}"
+          expect:
+            - statusCode:
+                - 200
+                - 401  # If not authenticated
+
+      # Query document (simulated)
+      - post:
+          url: "/api/documents/query"
+          headers:
+            Authorization: "Bearer {{ authToken || authTokenAlt }}"
+          json:
+            query: "What is the main topic?"
+            conversationId: "test-conversation-id"
+          expect:
+            - statusCode:
+                - 200
+                - 404  # If no documents
+                - 401  # If not authenticated
+
+      # Think time
+      - think: 5
+
+  # Scenario 4: Billing/subscription user (10% of traffic)
+  - name: "Billing User"
+    weight: 10
+    flow:
+      # Login
+      - post:
+          url: "/api/auth/login"
+          json:
+            email: "{{ testEmail }}"
+            password: "{{ testPassword }}"
+          capture:
+            - json: "$.token"
+              as: "authToken"
+            - json: "$.data.token"
+              as: "authTokenAlt"
+          expect:
+            - statusCode:
+                - 200
+                - 201
+
+      # Get subscription status
+      - get:
+          url: "/api/billing/subscription"
+          headers:
+            Authorization: "Bearer {{ authToken || authTokenAlt }}"
+          expect:
+            - statusCode:
+                - 200
+                - 404  # If no subscription
+                - 401  # If not authenticated
+
+      # Get usage stats
+      - get:
+          url: "/api/billing/usage"
+          headers:
+            Authorization: "Bearer {{ authToken || authTokenAlt }}"
+          expect:
+            - statusCode:
+                - 200
+                - 401  # If not authenticated
+
+      # Think time
+      - think: 3
+
+# After test hooks
+after:
+  flow:
+    - log: "Load test completed"

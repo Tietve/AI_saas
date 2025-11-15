@@ -13,7 +13,7 @@ import {
   TokenUsage,
   DocumentError,
 } from '../types/document.types';
-import { EmbeddingService } from './embedding.service';
+import { EmbeddingService, EmbeddingProvider } from '../../../shared/services';
 import { VectorStoreService } from './vector-store.service';
 
 export class RagService {
@@ -30,7 +30,19 @@ export class RagService {
     }
 
     this.openai = new OpenAI({ apiKey });
-    this.embedding = new EmbeddingService(apiKey);
+
+    // Initialize embedding service with provider selection
+    const embeddingProvider = process.env.EMBEDDING_PROVIDER === 'openai'
+      ? EmbeddingProvider.OPENAI
+      : process.env.EMBEDDING_PROVIDER === 'cloudflare'
+      ? EmbeddingProvider.CLOUDFLARE
+      : undefined; // Auto-select
+
+    this.embedding = new EmbeddingService({
+      provider: embeddingProvider,
+      openaiApiKey: apiKey,
+    });
+
     this.vectorStore = new VectorStoreService();
     this.defaultModel = 'gpt-4o-mini'; // Fast and cost-effective
   }
@@ -45,7 +57,8 @@ export class RagService {
     const { userId, documentId, topK = 5, model = this.defaultModel } = options;
 
     // Step 1: Generate query embedding
-    const queryEmbedding = await this.embedding.generateSingleEmbedding(query);
+    const embeddingResult = await this.embedding.embed(query);
+    const queryEmbedding = embeddingResult.embedding;
 
     // Step 2: Search for similar chunks
     const similarChunks = await this.vectorStore.searchSimilar(queryEmbedding, {
@@ -117,7 +130,8 @@ export class RagService {
 
     try {
       // Step 1: Generate query embedding
-      const queryEmbedding = await this.embedding.generateSingleEmbedding(query);
+      const embeddingResult = await this.embedding.embed(query);
+      const queryEmbedding = embeddingResult.embedding;
 
       // Step 2: Search for similar chunks
       const similarChunks = await this.vectorStore.searchSimilar(queryEmbedding, {

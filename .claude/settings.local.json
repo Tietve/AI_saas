@@ -89,7 +89,8 @@
       "mcp__playwright-headed__browser_handle_dialog",
       "mcp__playwright__browser_type",
       "Bash(if exist backendnul del backendnul)",
-      "Bash(git rm:*)"
+      "Bash(git rm:*)",
+      "Bash(git push:*)"
     ],
     "deny": [],
     "ask": [],

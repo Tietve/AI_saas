@@ -22,15 +22,28 @@ jest.mock('@aws-sdk/s3-request-presigner');
 jest.mock('fs/promises');
 jest.mock('../../src/services/pdf-parser.service');
 jest.mock('../../src/services/chunking.service');
-jest.mock('../../src/services/embedding.service');
 jest.mock('../../src/services/vector-store.service');
+
+// Mock shared services
+jest.mock('@saas/shared/services', () => ({
+  EmbeddingService: jest.fn(),
+  EmbeddingProvider: {
+    OPENAI: 'openai',
+    CLOUDFLARE: 'cloudflare',
+  },
+  LLMService: jest.fn(),
+  LLMProvider: {
+    OPENAI: 'openai',
+    CLOUDFLARE: 'cloudflare',
+  },
+}));
 
 // Import mocks
 import { PrismaClient } from '@prisma/client';
 import { S3Client, PutObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
 import { PdfParserService } from '../../src/services/pdf-parser.service';
 import { ChunkingService } from '../../src/services/chunking.service';
-import { EmbeddingService } from '../../src/services/embedding.service';
+import { EmbeddingService } from '@saas/shared/services';
 import { VectorStoreService } from '../../src/services/vector-store.service';
 import {
   createMockPrismaClient,

@@ -12,8 +12,8 @@
  * - Cost comparison analytics
  */
 
-import { LLMProvider } from '../../../shared/services/types';
-import { LLMService } from '../../../shared/services/llm.service';
+import { LLMProvider } from '@saas/shared/services';
+import { LLMService } from '@saas/shared/services';
 import { tokenUsageRepository } from '../repositories/token-usage.repository';
 
 export interface CostRecord {

@@ -21,7 +21,7 @@ import {
 } from '../types/document.types';
 import { PdfParserService } from './pdf-parser.service';
 import { ChunkingService } from './chunking.service';
-import { EmbeddingService, EmbeddingProvider } from '../../../shared/services';
+import { EmbeddingService, EmbeddingProvider } from '@saas/shared/services';
 import { VectorStoreService } from './vector-store.service';
 
 export class DocumentService {

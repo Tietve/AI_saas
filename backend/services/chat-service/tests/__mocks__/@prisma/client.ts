@@ -67,28 +67,29 @@ export enum DocumentStatus {
   FAILED = 'FAILED',
 }
 
-export class PrismaClient {
-  conversation = {
+// Create a mock instance factory
+const createMockPrismaInstance = () => ({
+  conversation: {
     create: jest.fn(),
     findUnique: jest.fn(),
     findMany: jest.fn(),
     findFirst: jest.fn(),
     update: jest.fn(),
     delete: jest.fn(),
-  };
+  },
 
-  message = {
+  message: {
     create: jest.fn(),
     findMany: jest.fn(),
     deleteMany: jest.fn(),
-  };
+  },
 
-  tokenUsage = {
+  tokenUsage: {
     create: jest.fn(),
     aggregate: jest.fn(),
-  };
+  },
 
-  document = {
+  document: {
     create: jest.fn(),
     findFirst: jest.fn(),
     findMany: jest.fn(),
@@ -96,15 +97,18 @@ export class PrismaClient {
     update: jest.fn(),
     delete: jest.fn(),
     count: jest.fn(),
-  };
+  },
 
-  documentChunk = {
+  documentChunk: {
     createMany: jest.fn(),
     count: jest.fn(),
-  };
+  },
 
-  $transaction = jest.fn();
-  $connect = jest.fn().mockResolvedValue(undefined);
-  $disconnect = jest.fn().mockResolvedValue(undefined);
-  $queryRawUnsafe = jest.fn();
-}
+  $transaction: jest.fn(),
+  $connect: jest.fn().mockResolvedValue(undefined),
+  $disconnect: jest.fn().mockResolvedValue(undefined),
+  $queryRawUnsafe: jest.fn(),
+});
+
+// Export as a jest.fn() constructor
+export const PrismaClient = jest.fn().mockImplementation(createMockPrismaInstance);

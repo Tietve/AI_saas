@@ -50,6 +50,54 @@ npm run test:watch
 npm run test:coverage
 ```
 
+### Verify Mocking (No Real API Calls)
+```bash
+./verify-mocks.sh
+```
+
+## 🎭 API Mocking
+
+**All external APIs are mocked during E2E tests** to ensure:
+- **Zero cost** during testing ($0 instead of ~$15-20/month)
+- **No network dependencies** (tests run offline)
+- **Consistent results** (no API rate limits or failures)
+- **Fast execution** (no network latency)
+
+### Mocked APIs
+
+- **OpenAI** - Chat completions, embeddings
+- **Stripe** - Payments, subscriptions, webhooks
+- **Anthropic** - Claude API (if used)
+
+### How It Works
+
+1. **Global mocks** in `jest.setup.js` intercept all API calls
+2. **Mock API keys** prevent accidental real calls
+3. **Services detect** mock keys and use fallback logic
+
+### Verification
+
+```bash
+# Verify no real API calls
+./verify-mocks.sh
+
+# Check for mock responses in test output
+npm test 2>&1 | grep "MOCK"
+
+# Monitor API dashboards (should show $0 usage)
+# - OpenAI: https://platform.openai.com/usage
+# - Stripe: https://dashboard.stripe.com/test/logs
+```
+
+### Documentation
+
+See **[MOCKING_GUIDE.md](./MOCKING_GUIDE.md)** for comprehensive documentation:
+- How mocking works
+- Cost analysis ($0 vs $15-20/month)
+- Adding new API mocks
+- Troubleshooting
+- Best practices
+
 ## 📊 Test Coverage
 
 The test suite includes:

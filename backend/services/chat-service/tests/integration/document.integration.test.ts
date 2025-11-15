@@ -16,13 +16,26 @@ enum DocumentStatus {
 }
 
 // Mock external services but test real interactions
-jest.mock('@prisma/client');
+// Note: @prisma/client is already mocked via jest.config.js moduleNameMapper
 jest.mock('@aws-sdk/client-s3');
 jest.mock('fs/promises');
 jest.mock('../../src/services/pdf-parser.service');
 jest.mock('../../src/services/chunking.service');
-jest.mock('../../src/services/embedding.service');
 jest.mock('../../src/services/vector-store.service');
+
+// Mock shared services
+jest.mock('@saas/shared/services', () => ({
+  EmbeddingService: jest.fn(),
+  EmbeddingProvider: {
+    OPENAI: 'openai',
+    CLOUDFLARE: 'cloudflare',
+  },
+  LLMService: jest.fn(),
+  LLMProvider: {
+    OPENAI: 'openai',
+    CLOUDFLARE: 'cloudflare',
+  },
+}));
 
 import { PrismaClient } from '@prisma/client';
 import { S3Client } from '@aws-sdk/client-s3';
@@ -38,7 +51,7 @@ import {
 } from '../mocks/services.mock';
 import { PdfParserService } from '../../src/services/pdf-parser.service';
 import { ChunkingService } from '../../src/services/chunking.service';
-import { EmbeddingService } from '../../src/services/embedding.service';
+import { EmbeddingService } from '@saas/shared/services';
 import { VectorStoreService } from '../../src/services/vector-store.service';
 
 describe('DocumentService - Integration Tests', () => {
@@ -60,6 +73,7 @@ describe('DocumentService - Integration Tests', () => {
     mockEmbedding = new MockEmbeddingService();
     mockVectorStore = new MockVectorStoreService();
 
+    // Mock constructors to return our configured mocks
     (PrismaClient as jest.Mock).mockImplementation(() => mockPrisma);
     (S3Client as jest.Mock).mockImplementation(() => mockS3Client);
     (PdfParserService as jest.Mock).mockImplementation(() => mockPdfParser);

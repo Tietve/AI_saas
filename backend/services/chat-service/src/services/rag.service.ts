@@ -13,7 +13,7 @@ import {
   TokenUsage,
   DocumentError,
 } from '../types/document.types';
-import { EmbeddingService, EmbeddingProvider } from '../../../shared/services';
+import { EmbeddingService, EmbeddingProvider } from '@saas/shared/services';
 import { VectorStoreService } from './vector-store.service';
 
 export class RagService {

@@ -6,8 +6,8 @@ import { billingClientService } from './billing-client.service';
 import { db as prisma, withRetry } from '../config/database';
 
 // NEW: Shared LLM Service with multi-provider support
-import { LLMService, LLMProvider, LLMConfig } from '../../../shared/services/llm.service';
-import { LLMGenerationResult } from '../../../shared/services/types';
+import { LLMService, LLMProvider, LLMConfig } from '@saas/shared/services';
+import { LLMGenerationResult } from '@saas/shared/services';
 import { costMonitorService } from './cost-monitor.service';
 
 export interface SendMessageResult {
